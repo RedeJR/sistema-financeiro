@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Relatórios impressos/salvos como PDF (ver botao-imprimir.tsx): fonte
+   menor e margens enxutas pra caber mais linha por página, sem depender do
+   zoom de impressão do navegador. */
+@media print {
+  /* No html (raiz), não no body: as classes de fonte do Tailwind (text-sm
+     etc.) usam rem, que é relativo ao font-size da raiz — mudar só o body
+     não afetaria elas. */
+  html {
+    font-size: 10px;
+  }
+  @page {
+    margin: 10mm;
+  }
+}

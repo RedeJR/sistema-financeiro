@@ -1,0 +1,369 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Módulo: Cadastros
+// ---------------------------------------------------------------------------
+
+model Posto {
+  id                 String              @id @default(cuid())
+  nome               String              @unique
+  cnpj               String?
+  ativo              Boolean             @default(true)
+  contasAPagar       ContaAPagar[]
+  lancamentosExtrato LancamentoExtrato[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@map("postos")
+}
+
+model Fornecedor {
+  id           String        @id @default(cuid())
+  nome         String
+  documento    String? // CNPJ ou CPF, sem formatação fixa (aceita os dois)
+  ativo        Boolean       @default(true)
+  contasAPagar ContaAPagar[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("fornecedores")
+}
+
+model Banco {
+  id            String              @id @default(cuid())
+  nome          String              @unique
+  // Nome usado no reconhecimento de arquivos de extrato (padrão Posto_Banco),
+  // ex: "Bradesco", "PagSeguro", "BancoDoBrasil". Pode ficar igual a `nome`.
+  // Também usado pra escolher o parser certo em src/lib/extratos/parsers —
+  // veja PARSERS_POR_CODIGO em src/lib/extratos/importar.ts.
+  codigoArquivo String?             @unique
+  ativo         Boolean             @default(true)
+  pagamentos    ContaAPagar[]
+  lancamentos   LancamentoExtrato[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("bancos")
+}
+
+// ---------------------------------------------------------------------------
+// Categorias de Extrato (Sistema 1 — Conciliação): a lista plana usada pra
+// classificar linha de extrato bancário no fechamento (config.py do
+// protótipo). NÃO é o plano de contas contábil — ver PlanoConta abaixo.
+// ---------------------------------------------------------------------------
+
+enum TipoCategoriaExtrato {
+  ADQUIRENTE // aparece com Débito/Crédito separado na revisão, soma numa coluna só no fechamento
+  PADRAO
+}
+
+// Só usado quando a categoria do lançamento é do tipo ADQUIRENTE — distingue
+// "Cielo Débito" de "Cielo Crédito" na revisão sem duplicar a categoria em
+// si (o fechamento soma os dois numa coluna única por adquirente).
+enum TipoLancamentoAdquirente {
+  DEBITO
+  CREDITO
+}
+
+model CategoriaExtrato {
+  id          String                      @id @default(cuid())
+  nome        String                      @unique
+  tipo        TipoCategoriaExtrato        @default(PADRAO)
+  ordem       Int                         @default(0) // ordem de exibição no fechamento
+  ativo       Boolean                     @default(true)
+  lancamentos LancamentoExtrato[]
+  divisoes    LancamentoExtratoDivisao[]
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+
+  @@map("categorias_extrato")
+}
+
+// Uma "fatia" de um LancamentoExtrato desmembrado — ver comentário no campo
+// `divisoes` acima. Cada lançamento dividido tem 2+ linhas aqui, cuja soma
+// de valor deve bater com o valor total do lançamento original.
+model LancamentoExtratoDivisao {
+  id                  String                     @id @default(cuid())
+  lancamentoExtratoId String
+  lancamentoExtrato   LancamentoExtrato          @relation(fields: [lancamentoExtratoId], references: [id], onDelete: Cascade)
+  categoriaId         String?
+  categoria           CategoriaExtrato?          @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  tipoAdquirente      TipoLancamentoAdquirente?
+  valor               Decimal                    @db.Decimal(12, 2)
+  observacao          String?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@map("lancamentos_extrato_divisoes")
+}
+
+// ---------------------------------------------------------------------------
+// Lançamentos de Extrato (Sistema 1 — Conciliação): uma linha por lançamento
+// bancário importado, já com categoria sugerida automaticamente
+// (categorizer.ts) — a usuária revisa/corrige direto na tela em vez de gerar
+// planilha (mudança de plano combinada, ver PROJETO_SISTEMA_FINANCEIRO.md
+// seção 2). `valor` positivo = crédito/entrada, negativo = débito/saída.
+// Linhas de saldo/controle do extrato NÃO são gravadas aqui (servem só pra
+// conferência de saldo durante o parsing, descartadas depois).
+// ---------------------------------------------------------------------------
+
+model LancamentoExtrato {
+  id             String                    @id @default(cuid())
+  postoId        String
+  posto          Posto                     @relation(fields: [postoId], references: [id], onDelete: Restrict)
+  bancoId        String
+  banco          Banco                     @relation(fields: [bancoId], references: [id], onDelete: Restrict)
+  data           DateTime                  @db.Date
+  descricao      String
+  valor          Decimal                   @db.Decimal(12, 2)
+  saldoExtrato   Decimal?                  @db.Decimal(12, 2)
+  // Id de transação dado pelo próprio banco (campo FITID do OFX) — quando
+  // presente, é uma chave de deduplicação mais confiável que a tupla
+  // (data, descrição, valor) abaixo, porque duas transações reais podem ter
+  // data/descrição/valor idênticos (ex: dois saques do mesmo valor no mesmo
+  // dia) sem serem duplicata uma da outra.
+  fitid          String?
+  categoriaId    String?
+  categoria      CategoriaExtrato?         @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  tipoAdquirente TipoLancamentoAdquirente? // só preenchido quando categoria.tipo == ADQUIRENTE
+  observacao     String?
+  arquivoOrigem  String
+  importadoPorId String?
+  importadoPor   Usuario?                  @relation(fields: [importadoPorId], references: [id], onDelete: SetNull)
+
+  // Conciliação (Sistema 1 x Sistema 2, ver PROJETO_SISTEMA_FINANCEIRO.md
+  // seção "Integração dos dois sistemas"): liga esse débito do extrato à
+  // despesa paga correspondente em Contas a Pagar. @unique porque uma
+  // despesa só concilia com UM lançamento e vice-versa — ver
+  // src/lib/conciliacao.ts pro motor que sugere esses vínculos.
+  contaAPagarId String?      @unique
+  contaAPagar   ContaAPagar? @relation(fields: [contaAPagarId], references: [id], onDelete: SetNull)
+
+  // Desmembramento: um único débito do banco às vezes cobre mais de uma
+  // categoria de verdade (ex: um boleto de cesta básica pago que é parte
+  // "Despesa Posto", parte "Conveniência"). Quando essa lista não está
+  // vazia, ela é a fonte de verdade pro fechamento por categoria — os campos
+  // categoriaId/tipoAdquirente acima do próprio lançamento são ignorados
+  // nesse caso (ver gerarFechamento em fechamento.ts). O valor do lançamento
+  // continua sendo o valor REAL do banco — a soma das divisões deve bater
+  // com ele, é só uma forma diferente de fatiar a mesma transação.
+  divisoes LancamentoExtratoDivisao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Evita duplicar o mesmo lançamento ao reimportar um extrato que já entrou
+  // (ex: baixar o mês inteiro de novo em vez de só o período novo). Só via
+  // FITID — é o único identificador que garante que duas linhas são REALMENTE
+  // a mesma transação. Uma constraint por (data, descrição, valor) já foi
+  // tentada aqui e causou um bug real: extratos legítimos têm mais de um
+  // lançamento com a mesma data/descrição/valor no mesmo dia (ex: três
+  // tarifas bancárias de R$9,80, duas PIX de R$500 pro mesmo favorecido) —
+  // são transações DISTINTAS, mas a constraint colidia e descartava as
+  // repetidas como "duplicata". Pra fontes sem FITID (nenhum parser atual,
+  // mas o campo é opcional), o fallback por (data,descrição,valor) roda em
+  // código na importação (ver importar.ts), não como constraint de banco —
+  // assim só compara entre si as linhas que também não têm FITID.
+  //
+  // A constraint inclui postoId, não só bancoId: o FITID só é garantidamente
+  // único DENTRO de uma conta bancária real (um posto no banco), não em todo
+  // o banco — dois postos diferentes que usam o mesmo Bradesco, por exemplo,
+  // têm sequências de FITID independentes e PODEM coincidir por acaso. Sem
+  // postoId aqui, o lançamento de um posto seria descartado como "duplicata"
+  // de um lançamento de outro posto só por coincidência de FITID — outro bug
+  // real encontrado, mesma família do de cima.
+  //
+  // E inclui data+valor também: descobrimos que o Banco do Brasil reusa o
+  // MESMO FITID pra toda ocorrência de certos lançamentos recorrentes (ex:
+  // "Cielo Vendas Crédito" e "BB Rende Fácil" — dezenas de dias diferentes,
+  // valores diferentes, FITID idêntico "76.697.256"/"9.903"). Um FITID ali
+  // não identifica uma transação, identifica um TIPO de transação. Com
+  // (postoId,bancoId,fitid) só, cada ocorrência depois da primeira seria
+  // descartada como duplicata — perdendo dados de verdade. Com data+valor
+  // no meio, cada ocorrência (data/valor diferentes) continua distinta; só
+  // dedupa de verdade quando FITID, data E valor batem juntos (reimportar o
+  // mesmo arquivo, ou um banco onde o FITID realmente é único por transação
+  // — nesse caso data+valor bater também é automático, não muda nada).
+  @@unique([postoId, bancoId, fitid, data, valor])
+  @@map("lancamentos_extrato")
+}
+
+// ---------------------------------------------------------------------------
+// Plano de Contas (Sistema 2 — Contas a Pagar): plano de contas contábil de
+// verdade, estrutura em duas camadas (Grupo → Conta), igual ao sistema atual
+// da usuária (ex: Grupo "Tributos" → Conta "ICMS", "IRPJ"...).
+// ---------------------------------------------------------------------------
+
+model GrupoPlanoConta {
+  id        String       @id @default(cuid())
+  nome      String       @unique
+  ordem     Int          @default(0)
+  ativo     Boolean      @default(true)
+  contas    PlanoConta[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("grupos_plano_conta")
+}
+
+model PlanoConta {
+  id      String          @id @default(cuid())
+  nome    String // o "Centro" dentro do grupo, ex: "ICMS", "Salários"
+  grupoId String
+  grupo   GrupoPlanoConta @relation(fields: [grupoId], references: [id], onDelete: Restrict)
+  // Código curto opcional (ex: "105") pra achar a conta digitando, sem
+  // precisar abrir o grupo e procurar na lista — como no sistema antigo da
+  // usuária. Único no plano de contas inteiro (não só dentro do grupo),
+  // senão "digitar o código" ficaria ambíguo.
+  codigo       String?
+  ativo        Boolean         @default(true)
+  contasAPagar ContaAPagar[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([grupoId, nome])
+  @@unique([codigo])
+  @@map("plano_de_contas")
+}
+
+// ---------------------------------------------------------------------------
+// Contas a Pagar
+// ---------------------------------------------------------------------------
+// "Status" (a vencer/vencida/paga) NÃO é campo gravado — é calculado na hora
+// (paga vem do campo `paga`; vencida/a vencer compara `dataVencimento` com
+// hoje). Parcelamento gera N linhas de uma vez, ligadas por
+// `grupoParcelamentoId`, cada uma editável depois. Recorrência mensal usa
+// `grupoRecorrenciaId` pra ligar as ocorrências já geradas — uma nova
+// ocorrência do mês corrente é gerada sob demanda (ver aba2/actions.ts) toda
+// vez que a tela é aberta, não por um job agendado.
+model ContaAPagar {
+  id              String     @id @default(cuid())
+  postoId         String
+  posto           Posto      @relation(fields: [postoId], references: [id], onDelete: Restrict)
+  fornecedorId    String
+  fornecedor      Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Restrict)
+  planoContaId    String
+  planoConta      PlanoConta @relation(fields: [planoContaId], references: [id], onDelete: Restrict)
+  dataEmissao     DateTime   @db.Date
+  dataVencimento  DateTime   @db.Date
+  numeroDocumento String?
+  valor           Decimal    @db.Decimal(12, 2)
+  descricao       String?
+
+  // Preenchidos pela Conferência Diária (módulo futuro) — aqui só existem no
+  // schema pra já deixar o dado pronto pra quando esse módulo existir.
+  paga             Boolean   @default(false)
+  dataPagamento    DateTime? @db.Date
+  bancoPagamentoId String?
+  bancoPagamento   Banco?    @relation(fields: [bancoPagamentoId], references: [id], onDelete: SetNull)
+
+  // Lado reverso do vínculo de conciliação — ver LancamentoExtrato.contaAPagarId.
+  lancamentoExtratoConciliado LancamentoExtrato?
+
+  // Despesa avulsa: lançada direto como paga na tela de Despesas Pagas,
+  // fora do planejamento normal de Contas a Pagar (ex: algo que "surgiu no
+  // dia"). Nesse caso dataEmissao = dataVencimento = dataPagamento.
+  avulsa Boolean @default(false)
+
+  // Combustíveis a Pagar (aba separada, ver src/app/combustiveis-a-pagar):
+  // mesma tabela de Contas a Pagar, mas com plano de contas fixo em
+  // "COMBUSTIVEIS" e baixa automática — ao invés da usuária marcar como
+  // paga manualmente (Conferência Diária), o motor de conciliação
+  // (rodarConciliacaoAutomaticaCombustiveis em conciliacao.ts) casa a conta
+  // com o débito correspondente no extrato (mesmo posto + valor, categoria
+  // "Combustíveis") e marca paga=true sozinho. `combustivel` marca essas
+  // linhas pra não aparecerem misturadas na listagem normal de Contas a
+  // Pagar nem entrarem no motor de conciliação manual (que exige paga=true
+  // ANTES de procurar par, o oposto do que combustível precisa).
+  combustivel Boolean @default(false)
+  // Data de descarga do combustível na bomba — informativo, não entra no
+  // casamento com o extrato (a data que bate é a do débito bancário real,
+  // que pode ser diferente da descarga).
+  dataDescarga DateTime? @db.Date
+
+  // Parcelamento: linhas geradas juntas na criação compartilham esse id.
+  grupoParcelamentoId String?
+  numeroParcela       Int?
+  totalParcelas       Int?
+
+  // Recorrência mensal: todas as ocorrências da mesma despesa recorrente
+  // compartilham esse id (a primeira ocorrência usa o próprio id dela).
+  recorrente         Boolean @default(false)
+  grupoRecorrenciaId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dataVencimento])
+  @@index([postoId])
+  @@index([grupoRecorrenciaId])
+  @@map("contas_a_pagar")
+}
+
+// ---------------------------------------------------------------------------
+// Usuários e Permissões
+// ---------------------------------------------------------------------------
+// Login por CPF + senha (hash bcrypt, nunca texto puro). Permissão de
+// visualizar/editar configurável por módulo, verificada no back-end em toda
+// tela e Server Action — não é só esconder botão no front-end.
+
+// Um valor por item do menu principal (ver src/components/nav-principal.tsx).
+enum Modulo {
+  CADASTROS
+  CONTAS_A_PAGAR
+  CONFERENCIA_DIARIA
+  DESPESAS_PAGAS
+  EXTRATOS
+  USUARIOS
+  COMBUSTIVEIS_A_PAGAR
+}
+
+model Usuario {
+  id                    String              @id @default(cuid())
+  nome                  String
+  cpf                   String              @unique // só dígitos, 11 caracteres
+  senhaHash             String
+  ativo                 Boolean             @default(true)
+  permissoes            Permissao[]
+  sessoes               Sessao[]
+  lancamentosImportados LancamentoExtrato[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@map("usuarios")
+}
+
+model Permissao {
+  id             String  @id @default(cuid())
+  usuarioId      String
+  usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  modulo         Modulo
+  podeVisualizar Boolean @default(false)
+  podeEditar     Boolean @default(false)
+
+  @@unique([usuarioId, modulo])
+  @@map("permissoes")
+}
+
+// Sessão de login: o `id` é o próprio token guardado (com hash) no cookie.
+// Sem JWT — validação sempre bate no banco, pra permitir revogar na hora
+// (desativar usuário já derruba a sessão).
+model Sessao {
+  id        String   @id // gerado com crypto.randomBytes, não é cuid sequencial
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("sessoes")
+}
