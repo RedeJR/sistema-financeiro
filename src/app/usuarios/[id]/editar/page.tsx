@@ -30,6 +30,7 @@ export default async function EditarUsuarioPage({
         valoresIniciais={{
           nome: usuario.nome,
           cpf: formatarCpf(usuario.cpf),
+          email: usuario.email,
           permissoes: usuario.permissoes,
         }}
       />

@@ -15,7 +15,7 @@ type PermissaoLinha = { modulo: Modulo; podeVisualizar: boolean; podeEditar: boo
 type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   modoEdicao?: boolean;
-  valoresIniciais?: { nome: string; cpf: string; permissoes: PermissaoLinha[] };
+  valoresIniciais?: { nome: string; cpf: string; email?: string | null; permissoes: PermissaoLinha[] };
 };
 
 export function FormularioUsuario({ action, modoEdicao = false, valoresIniciais }: Props) {
@@ -24,6 +24,7 @@ export function FormularioUsuario({ action, modoEdicao = false, valoresIniciais 
 
   const nome = state?.values?.nome ?? valoresIniciais?.nome;
   const cpf = state?.values?.cpf ?? valoresIniciais?.cpf;
+  const email = state?.values?.email ?? valoresIniciais?.email ?? undefined;
 
   const permissaoInicial = (modulo: Modulo) =>
     valoresIniciais?.permissoes.find((p) => p.modulo === modulo);
@@ -60,6 +61,16 @@ export function FormularioUsuario({ action, modoEdicao = false, valoresIniciais 
           placeholder="000.000.000-00"
           inputMode="numeric"
         />
+        <Campo
+          label="Email (opcional)"
+          name="email"
+          type="email"
+          defaultValue={email}
+          placeholder="nome@exemplo.com"
+        />
+        <p className="-mt-3 text-xs text-foreground/50">
+          Sem email cadastrado, essa pessoa não consegue usar &quot;Esqueci minha senha&quot; sozinha.
+        </p>
         <Campo
           label={modoEdicao ? "Nova senha (deixe em branco pra manter a atual)" : "Senha"}
           name={modoEdicao ? "novaSenha" : "senha"}

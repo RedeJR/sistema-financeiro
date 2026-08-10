@@ -26,6 +26,14 @@ const schemaBase = z.object({
     .trim()
     .min(1, "Informe o CPF.")
     .refine((v) => cpfValido(v), "CPF inválido."),
+  // Opcional, mas sem ele "Esqueci minha senha" não funciona pra essa
+  // pessoa (ver src/app/esqueci-senha).
+  email: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v.toLowerCase() : null))
+    .refine((v) => !v || z.email().safeParse(v).success, "Email inválido."),
 });
 
 export async function criarUsuario(
@@ -40,6 +48,7 @@ export async function criarUsuario(
   const parsed = schema.safeParse({
     nome: formData.get("nome"),
     cpf: formData.get("cpf"),
+    email: formData.get("email"),
     senha: formData.get("senha"),
   });
   if (!parsed.success) {
@@ -58,13 +67,18 @@ export async function criarUsuario(
       data: {
         nome: parsed.data.nome,
         cpf,
+        email: parsed.data.email,
         senhaHash,
         permissoes: { create: permissoes },
       },
     });
   } catch (e) {
     if (isUniqueConstraintError(e)) {
-      return { error: "Já existe um usuário com esse CPF.", values: valoresDoFormulario(formData) };
+      const alvo = (e as { meta?: { target?: string[] } }).meta?.target;
+      const mensagem = alvo?.includes("email")
+        ? "Já existe um usuário com esse email."
+        : "Já existe um usuário com esse CPF.";
+      return { error: mensagem, values: valoresDoFormulario(formData) };
     }
     throw e;
   }
@@ -89,6 +103,7 @@ export async function atualizarUsuario(
   const parsed = schema.safeParse({
     nome: formData.get("nome"),
     cpf: formData.get("cpf"),
+    email: formData.get("email"),
     novaSenha: formData.get("novaSenha") || undefined,
   });
   if (!parsed.success) {
@@ -108,6 +123,7 @@ export async function atualizarUsuario(
         data: {
           nome: parsed.data.nome,
           cpf,
+          email: parsed.data.email,
           ...(parsed.data.novaSenha ? { senhaHash: await hashSenha(parsed.data.novaSenha) } : {}),
         },
       });
@@ -118,7 +134,11 @@ export async function atualizarUsuario(
     });
   } catch (e) {
     if (isUniqueConstraintError(e)) {
-      return { error: "Já existe um usuário com esse CPF.", values: valoresDoFormulario(formData) };
+      const alvo = (e as { meta?: { target?: string[] } }).meta?.target;
+      const mensagem = alvo?.includes("email")
+        ? "Já existe um usuário com esse email."
+        : "Já existe um usuário com esse CPF.";
+      return { error: mensagem, values: valoresDoFormulario(formData) };
     }
     throw e;
   }

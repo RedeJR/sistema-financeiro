@@ -332,15 +332,37 @@ model Usuario {
   id                    String              @id @default(cuid())
   nome                  String
   cpf                   String              @unique // só dígitos, 11 caracteres
+  // Opcional (usuários antigos não tinham) — mas sem email cadastrado, essa
+  // pessoa não consegue usar "Esqueci minha senha" (ver RecuperacaoSenha),
+  // só um admin resetando manualmente em Usuários.
+  email                 String?             @unique
   senhaHash             String
   ativo                 Boolean             @default(true)
   permissoes            Permissao[]
   sessoes               Sessao[]
+  recuperacoesSenha     RecuperacaoSenha[]
   lancamentosImportados LancamentoExtrato[]
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
   @@map("usuarios")
+}
+
+// Token de "esqueci minha senha", enviado por email — mesmo padrão de
+// segurança da Sessao: só o hash SHA-256 do token fica salvo aqui, o token
+// de verdade só existe no link do email (ver hashToken em auth.ts). `usado`
+// impede reuso do mesmo link depois de já ter trocado a senha uma vez;
+// expiresAt (1h) limita a janela de uso mesmo que o email seja encontrado
+// depois.
+model RecuperacaoSenha {
+  id        String   @id
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("recuperacoes_senha")
 }
 
 model Permissao {

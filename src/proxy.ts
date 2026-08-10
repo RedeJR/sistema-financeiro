@@ -14,9 +14,13 @@ import type { NextRequest } from "next/server";
 // redireciona pra "/" se a sessão for válida. Fazer essa mesma checagem
 // aqui, sem bater no banco, prendia quem tinha cookie morto num loop entre
 // a página protegida e "/", sem nunca conseguir ver o formulário de login.
+const ROTAS_PUBLICAS = ["/login", "/esqueci-senha"];
+
 export function proxy(request: NextRequest) {
   const temSessao = request.cookies.has("sessao");
-  const rotaPublica = request.nextUrl.pathname === "/login";
+  const { pathname } = request.nextUrl;
+  const rotaPublica =
+    ROTAS_PUBLICAS.includes(pathname) || pathname.startsWith("/redefinir-senha/");
 
   if (!temSessao && !rotaPublica) {
     const url = request.nextUrl.clone();
