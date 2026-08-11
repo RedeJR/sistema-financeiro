@@ -121,6 +121,30 @@ export async function exigirPermissao(
   return usuario;
 }
 
+// Mesma checagem de exigirPermissao, mas passa se o usuário tiver o nível
+// pedido em QUALQUER um dos módulos da lista — pra telas/ações que um
+// mesmo registro compartilha entre dois módulos diferentes (ex: editar
+// Conta a Pagar é alcançável tanto por Contas a Pagar quanto por
+// Conferência Diária — ver botão "Editar" em conferencia-diaria/page.tsx,
+// que aponta pra essa mesma tela de edição). Sem isso, alguém com edição
+// só em Conferência Diária esbarrava em "sem permissão" ao tentar editar
+// por esse caminho, mesmo com o botão visível pra ela.
+export async function exigirPermissaoQualquer(
+  modulos: Modulo[],
+  nivel: "visualizar" | "editar"
+): Promise<UsuarioComPermissoes> {
+  const usuario = await exigirUsuario();
+  const autorizado = modulos.some((modulo) => {
+    const permissao = usuario.permissoes.find((p) => p.modulo === modulo);
+    return nivel === "visualizar"
+      ? !!permissao?.podeVisualizar || !!permissao?.podeEditar
+      : !!permissao?.podeEditar;
+  });
+
+  if (!autorizado) redirect("/sem-permissao");
+  return usuario;
+}
+
 // Só consulta, não redireciona — use pra decidir o que mostrar na tela (ex:
 // esconder botão de editar/excluir de quem só pode visualizar). A checagem
 // que vale de verdade continua sendo exigirPermissao() nas Server Actions.

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirPermissao } from "@/lib/auth";
+import { exigirPermissao, exigirPermissaoQualquer } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
 import { isForeignKeyConstraintError, valoresDoFormulario, type ActionState } from "@/lib/form-state";
 
@@ -219,7 +219,12 @@ export async function atualizarContaAPagar(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await exigirPermissao("CONTAS_A_PAGAR", "editar");
+  // Alcançável tanto pelo Contas a Pagar quanto pelo botão "Editar" da
+  // Conferência Diária — checagem da Server Action tem que bater com a da
+  // página (ver contas-a-pagar/[id]/editar/page.tsx), senão quem só tem
+  // Conferência Diária vê o formulário mas esbarra em "sem permissão" ao
+  // salvar.
+  await exigirPermissaoQualquer(["CONTAS_A_PAGAR", "CONFERENCIA_DIARIA"], "editar");
 
   const atual = await prisma.contaAPagar.findUniqueOrThrow({ where: { id } });
   if (atual.paga) {

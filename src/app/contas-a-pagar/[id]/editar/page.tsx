@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { exigirPermissao } from "@/lib/auth";
+import { exigirPermissaoQualquer } from "@/lib/auth";
 import { FormularioContaAPagar } from "../../formulario-conta-a-pagar";
 import { atualizarContaAPagar } from "../../actions";
 
@@ -13,7 +13,9 @@ export default async function EditarContaAPagarPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigirPermissao("CONTAS_A_PAGAR", "editar");
+  // Alcançável tanto pelo Contas a Pagar quanto pelo botão "Editar" da
+  // Conferência Diária — ver exigirPermissaoQualquer em @/lib/auth.
+  await exigirPermissaoQualquer(["CONTAS_A_PAGAR", "CONFERENCIA_DIARIA"], "editar");
 
   const { id } = await params;
   const [conta, postos, fornecedores, grupos] = await Promise.all([
