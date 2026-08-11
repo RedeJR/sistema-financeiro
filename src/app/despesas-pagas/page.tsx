@@ -2,7 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { rodarConciliacaoAutomatica, statusConciliacaoPorGrupo, type StatusConciliacaoGrupo } from "@/lib/conciliacao";
+import {
+  rodarConciliacaoAutomatica,
+  statusConciliacaoPorGrupo,
+  conferenciaTotalDiario,
+  type StatusConciliacaoGrupo,
+} from "@/lib/conciliacao";
 import { desfazerPagamento } from "./actions";
 import { buscarDespesasPagas, type FiltrosDespesasPagas } from "./consulta";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -104,7 +109,7 @@ export default async function DespesasPagasPage({
     await rodarConciliacaoAutomatica(postoId || undefined, bancoId || undefined);
   }
 
-  const [contas, postos, fornecedores, gruposPlanoConta, bancos] = await Promise.all([
+  const [contas, postos, fornecedores, gruposPlanoConta, bancos, conferenciaDiaria] = await Promise.all([
     buscarDespesasPagas(filtros),
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -114,7 +119,18 @@ export default async function DespesasPagasPage({
       include: { contas: { where: { ativo: true }, orderBy: { nome: "asc" } } },
     }),
     prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+    // Pega o que o agrupamento abaixo não consegue pegar: um dia sem despesa
+    // NENHUMA lançada não vira grupo nenhum pra mostrar status. Comparando
+    // com o total do extrato (mesma lógica de /extratos/conciliacao), um dia
+    // com débito categorizado "Despesas Pagas" no extrato mas zero despesa
+    // cadastrada aparece aqui mesmo sem ter grupo nenhum na lista abaixo.
+    conferenciaTotalDiario({ postoId: postoId || undefined, de, ate }),
   ]);
+  // Só o que falta lançar (extrato > despesas) — o caso que a usuária pediu
+  // pra avisar. O outro sentido (despesa > extrato) já aparece como
+  // "Divergente" no badge de cada grupo existente, não precisa duplicar
+  // aviso aqui.
+  const diasPendentes = conferenciaDiaria.filter((l) => l.diferenca < -0.005);
 
   const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
   const temFiltro = Boolean(postoId || fornecedorId || planoContaId || bancoId || de || ate);
@@ -238,6 +254,18 @@ export default async function DespesasPagasPage({
           </Link>
         )}
       </form>
+
+      {diasPendentes.length > 0 && (
+        <div className="space-y-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40">
+          {diasPendentes.map((l) => (
+            <p key={`${l.postoId}|${l.data.toISOString()}`} className="text-sm text-amber-800 dark:text-amber-400">
+              ⚠️ Atenção — pendente lançamento(s) do dia {formatarData(l.data)} no Posto {l.postoNome} — o extrato
+              mostra {formatarMoeda(l.totalExtratoDespesasPagas)} em &quot;Despesas Pagas&quot; nesse dia, mas só{" "}
+              {formatarMoeda(l.totalContasPagas)} está lançado aqui (faltam {formatarMoeda(Math.abs(l.diferenca))}).
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-foreground/60">
