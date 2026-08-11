@@ -89,14 +89,18 @@ export async function rodarConciliacaoAutomatica(
 // Status agregado por dia+posto+banco, usado na listagem de Despesas Pagas
 // (ver PROJETO_SISTEMA_FINANCEIRO.md "Integração dos dois sistemas").
 //
-// Importante: NÃO é uma comparação de somas do dia inteiro — uma conta
-// bancária tem debitos no mesmo dia que não têm nada a ver com despesas
-// pagas (empréstimo, tarifa, transferência entre contas, folha de
-// pagamento...), então "soma de despesas pagas" quase nunca bateria com
-// "soma de TODOS os débitos do dia". O status é por vínculo linha-a-linha
-// (o mesmo vínculo de rodarConciliacaoAutomatica/vincularManualmente): cada
-// despesa do grupo precisa estar ligada a um lançamento específico com
-// valor batendo.
+// Critério: TOTAL do grupo (soma das despesas daquele dia/posto/banco)
+// contra o TOTAL dos débitos do extrato categorizados "Despesas Pagas" no
+// mesmo dia/posto/banco — não mais casamento linha a linha. Decisão da
+// usuária: um pagamento lançado uma única vez aqui (ex: folha de
+// pagamento/salário) às vezes sai do banco desmembrado em vários PIX/TED
+// separados — nenhum deles bate sozinho com o valor da despesa, mas a SOMA
+// bate. Comparar por total resolve isso sem exigir vínculo individual.
+//
+// Isso NÃO é comparar contra TODOS os débitos do dia (empréstimo, tarifa,
+// transferência entre contas etc. fariam a soma nunca bater) — só entra na
+// conta o que já está categorizado como "Despesas Pagas" no extrato, o
+// mesmo escopo usado em conferenciaTotalDiario.
 export type StatusConciliacaoGrupo = "CONCILIADO" | "DIVERGENTE" | "NAO_CONCILIADO";
 
 export type GrupoParaStatus = {
@@ -124,8 +128,9 @@ export async function statusConciliacaoPorGrupo(
   const dataMax = new Date(Math.max(...tempos));
 
   // Só pra saber se o extrato daquele dia/posto/banco já foi importado —
-  // não usamos o valor desses lançamentos pra nada além de existência.
-  const lancamentos = await prisma.lancamentoExtrato.findMany({
+  // decide NAO_CONCILIADO (extrato nem chegou) x DIVERGENTE (chegou, total
+  // não bate).
+  const lancamentosQualquer = await prisma.lancamentoExtrato.findMany({
     where: {
       postoId: { in: postoIds },
       bancoId: { in: bancoIds },
@@ -135,20 +140,52 @@ export async function statusConciliacaoPorGrupo(
     select: { postoId: true, bancoId: true, data: true },
   });
   const existeExtratoPorChave = new Set<string>();
-  for (const l of lancamentos) {
+  for (const l of lancamentosQualquer) {
     existeExtratoPorChave.add(chaveGrupo(l.postoId, l.bancoId, l.data.toISOString()));
   }
 
-  // Lançamentos já vinculados a alguma das despesas em questão — pra
-  // conferir, despesa por despesa, se tem par e se o valor bate.
-  const despesaIds = grupos.flatMap((g) => g.despesas.map((d) => d.id));
-  const vinculados = await prisma.lancamentoExtrato.findMany({
-    where: { contaAPagarId: { in: despesaIds } },
-    select: { contaAPagarId: true, valor: true },
+  // Soma dos débitos "Despesas Pagas" do extrato, por dia+posto+banco —
+  // soma tanto lançamento direto quanto divisões (ver
+  // LancamentoExtratoDivisao), igual conferenciaTotalDiario faz.
+  const categoriaDespesasPagas = await prisma.categoriaExtrato.findUnique({
+    where: { nome: "DESPESAS PAGAS" },
   });
-  const valorVinculadoPorDespesa = new Map<string, number>();
-  for (const v of vinculados) {
-    if (v.contaAPagarId) valorVinculadoPorDespesa.set(v.contaAPagarId, Math.abs(Number(v.valor)));
+  const totalExtratoPorChave = new Map<string, number>();
+  if (categoriaDespesasPagas) {
+    const [diretos, divisoes] = await Promise.all([
+      prisma.lancamentoExtrato.findMany({
+        where: {
+          postoId: { in: postoIds },
+          bancoId: { in: bancoIds },
+          data: { gte: dataMin, lte: dataMax },
+          categoriaId: categoriaDespesasPagas.id,
+        },
+        select: { postoId: true, bancoId: true, data: true, valor: true },
+      }),
+      prisma.lancamentoExtratoDivisao.findMany({
+        where: {
+          categoriaId: categoriaDespesasPagas.id,
+          lancamentoExtrato: {
+            postoId: { in: postoIds },
+            bancoId: { in: bancoIds },
+            data: { gte: dataMin, lte: dataMax },
+          },
+        },
+        select: { valor: true, lancamentoExtrato: { select: { postoId: true, bancoId: true, data: true } } },
+      }),
+    ]);
+    for (const l of diretos) {
+      const k = chaveGrupo(l.postoId, l.bancoId, l.data.toISOString());
+      totalExtratoPorChave.set(k, (totalExtratoPorChave.get(k) ?? 0) + Math.abs(Number(l.valor)));
+    }
+    for (const d of divisoes) {
+      const k = chaveGrupo(
+        d.lancamentoExtrato.postoId,
+        d.lancamentoExtrato.bancoId,
+        d.lancamentoExtrato.data.toISOString()
+      );
+      totalExtratoPorChave.set(k, (totalExtratoPorChave.get(k) ?? 0) + Math.abs(Number(d.valor)));
+    }
   }
 
   for (const g of grupos) {
@@ -157,11 +194,9 @@ export async function statusConciliacaoPorGrupo(
     if (!existeExtratoPorChave.has(k)) {
       status = "NAO_CONCILIADO";
     } else {
-      const todasBatem = g.despesas.every((d) => {
-        const valorVinculado = valorVinculadoPorDespesa.get(d.id);
-        return valorVinculado !== undefined && Math.abs(valorVinculado - d.valor) < 0.005;
-      });
-      status = todasBatem ? "CONCILIADO" : "DIVERGENTE";
+      const totalDespesas = g.despesas.reduce((soma, d) => soma + d.valor, 0);
+      const totalExtrato = totalExtratoPorChave.get(k) ?? 0;
+      status = Math.abs(totalDespesas - totalExtrato) < 0.01 ? "CONCILIADO" : "DIVERGENTE";
     }
     resultado.set(g.chave, { status });
   }
