@@ -59,6 +59,36 @@ function whereDosFiltros(filtros: FiltrosExtratos) {
   return where;
 }
 
+// Filtro por categoria específica (não "sem") casa um lançamento dividido
+// pelo total dele mesmo quando só UMA das partes é da categoria filtrada
+// (ver whereDosFiltros: `divisoes: { some: { categoriaId } }`). Um
+// aggregate(_sum: valor) simples então soma o lançamento INTEIRO, não só a
+// fatia que pertence à categoria — ficou visível pra usuária como "está
+// somando errado" ao desmembrar um lançamento do Barramares. Busca os
+// registros e soma na mão, pegando só a parte certa dos divididos.
+async function somarValorFiltrado(
+  where: Prisma.LancamentoExtratoWhereInput,
+  categoriaFiltro: string | undefined
+): Promise<number> {
+  if (!categoriaFiltro || categoriaFiltro === "sem") {
+    const agg = await prisma.lancamentoExtrato.aggregate({ where, _sum: { valor: true } });
+    return Number(agg._sum.valor ?? 0);
+  }
+  const registros = await prisma.lancamentoExtrato.findMany({
+    where,
+    select: { valor: true, divisoes: { select: { valor: true, categoriaId: true } } },
+  });
+  let soma = 0;
+  for (const r of registros) {
+    if (r.divisoes.length > 0) {
+      for (const d of r.divisoes) if (d.categoriaId === categoriaFiltro) soma += Number(d.valor);
+    } else {
+      soma += Number(r.valor);
+    }
+  }
+  return soma;
+}
+
 export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
   const where = whereDosFiltros(filtros);
   const pagina = Math.max(1, Number(filtros.pagina) || 1);
@@ -66,7 +96,7 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
   const [total, totalSemCategoria, somaValor, lancamentos] = await Promise.all([
     prisma.lancamentoExtrato.count({ where }),
     prisma.lancamentoExtrato.count({ where: { ...where, ...SEM_CATEGORIA_DE_VERDADE } }),
-    prisma.lancamentoExtrato.aggregate({ where, _sum: { valor: true } }),
+    somarValorFiltrado(where, filtros.categoria),
     prisma.lancamentoExtrato.findMany({
       where,
       include: {
@@ -85,7 +115,7 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
     lancamentos,
     total,
     totalSemCategoria,
-    somaValor: Number(somaValor._sum.valor ?? 0),
+    somaValor,
     pagina,
     totalPaginas: Math.max(1, Math.ceil(total / TAMANHO_PAGINA)),
   };
