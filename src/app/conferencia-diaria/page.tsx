@@ -231,6 +231,7 @@ export default async function ConferenciaDiariaPage({
               <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
               <th className="px-4 py-2 text-left font-medium">Plano de contas</th>
               <th className="px-4 py-2 text-right font-medium">Valor</th>
+              {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -257,12 +258,22 @@ export default async function ConferenciaDiariaPage({
                     {c.planoConta.grupo.nome} / {c.planoConta.nome}
                   </td>
                   <td className="px-4 py-2 text-right">{formatarMoeda(c.valor.toString())}</td>
+                  {podeEditar && (
+                    <td className="px-4 py-2 text-right">
+                      <Link
+                        href={`/contas-a-pagar/${c.id}/editar`}
+                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        Editar
+                      </Link>
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {contas.length === 0 && (
               <tr>
-                <td colSpan={podeEditar ? 6 : 5} className="px-4 py-6 text-center text-foreground/50">
+                <td colSpan={podeEditar ? 7 : 5} className="px-4 py-6 text-center text-foreground/50">
                   Nada pendente pra esse filtro.
                 </td>
               </tr>
