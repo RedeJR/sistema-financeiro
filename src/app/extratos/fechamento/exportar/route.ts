@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const postoId = params.get("postoId");
+  const bancoId = params.get("bancoId");
   const mes = params.get("mes"); // "YYYY-MM"
   // Vem de page.tsx já como número puro (String(57506.24) -> "57506.24"), não
   // como texto digitado pela usuária ("57.506,24"). Rodar isso de novo pelo
@@ -26,14 +27,14 @@ export async function GET(request: NextRequest) {
   // CSV), só ficava invisível enquanto o saldo inicial usado era 0.
   const saldoInicialNum = Number(params.get("saldoInicial") ?? "0");
 
-  if (!postoId || !mes) {
-    return new Response("Escolha um posto e um mês.", { status: 400 });
+  if (!postoId || !bancoId || !mes) {
+    return new Response("Escolha um posto, um banco e um mês.", { status: 400 });
   }
   const [anoStr, mesStr] = mes.split("-");
   const ano = Number(anoStr);
   const mesNum = Number(mesStr);
 
-  const resultado = await gerarFechamento({ postoId, ano, mes: mesNum, saldoInicial: saldoInicialNum });
+  const resultado = await gerarFechamento({ postoId, bancoId, ano, mes: mesNum, saldoInicial: saldoInicialNum });
 
   const cabecalho = ["Dia", ...resultado.categorias.map((c) => c.nome), "Saldo"];
   // Célula vazia em vez de 0 — mais fácil de ler numa planilha com muitas
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
   const linhas = resultado.linhas.map((l) => [l.dia, ...l.porCategoria.map(numOuVazio), numOuVazio(l.saldoAcumulado)]);
   const linhaTotal = ["Total", ...resultado.totalPorCategoria.map(numOuVazio), numOuVazio(resultado.saldoFinal)];
 
-  const titulo = `FECHAMENTO - ${MESES_PT[resultado.mes]}/${resultado.ano} - ${resultado.postoNome}`;
+  const titulo = `FECHAMENTO - ${MESES_PT[resultado.mes]}/${resultado.ano} - ${resultado.postoNome} - ${resultado.bancoNome}`;
   const aoa: (string | number)[][] = [[titulo], cabecalho, ...linhas, linhaTotal];
 
   const planilha = XLSX.utils.aoa_to_sheet(aoa);
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
       l.descricaoBanco,
     ]);
     const totalDetalhe = linhasDetalhe.reduce((s, l) => s + l.valor, 0);
-    const tituloDetalhe = `${categoriaNome} - ${MESES_PT[resultado.mes]}/${resultado.ano} - ${resultado.postoNome}`;
+    const tituloDetalhe = `${categoriaNome} - ${MESES_PT[resultado.mes]}/${resultado.ano} - ${resultado.postoNome} - ${resultado.bancoNome}`;
     const aoaDetalhe: (string | number)[][] = [
       [tituloDetalhe],
       cabecalhoDetalhe,
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 
-  const nomeArquivo = `fechamento-${resultado.postoNome}-${resultado.ano}-${String(resultado.mes).padStart(2, "0")}.xlsx`;
+  const nomeArquivo = `fechamento-${resultado.postoNome}-${resultado.bancoNome}-${resultado.ano}-${String(resultado.mes).padStart(2, "0")}.xlsx`;
 
   return new Response(new Uint8Array(buffer), {
     headers: {

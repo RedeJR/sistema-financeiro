@@ -12,12 +12,15 @@ function formatarNumero(v: number): string {
 export default async function FechamentoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; mes?: string; saldoInicial?: string }>;
+  searchParams: Promise<{ postoId?: string; bancoId?: string; mes?: string; saldoInicial?: string }>;
 }) {
   await exigirPermissao("EXTRATOS", "visualizar");
 
-  const { postoId, mes, saldoInicial } = await searchParams;
-  const postos = await prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } });
+  const { postoId, bancoId, mes, saldoInicial } = await searchParams;
+  const [postos, bancos] = await Promise.all([
+    prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+    prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+  ]);
 
   const hoje = new Date();
   const mesValor = mes ?? `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
@@ -26,13 +29,17 @@ export default async function FechamentoPage({
   const mesNum = Number(mesStr);
   const saldoInicialNum = Number(paraDecimalString(saldoInicial ?? "0") ?? "0");
 
+  // Banco é obrigatório igual o posto — sem isso, lançamentos de contas
+  // diferentes (ex: Bradesco e PagSeguro do mesmo posto) se misturariam num
+  // saldo só, que não corresponde a nenhum extrato de verdade.
   const resultado =
-    postoId && ano && mesNum
-      ? await gerarFechamento({ postoId, ano, mes: mesNum, saldoInicial: saldoInicialNum })
+    postoId && bancoId && ano && mesNum
+      ? await gerarFechamento({ postoId, bancoId, ano, mes: mesNum, saldoInicial: saldoInicialNum })
       : null;
 
   const qs = new URLSearchParams({
     ...(postoId ? { postoId } : {}),
+    ...(bancoId ? { bancoId } : {}),
     mes: mesValor,
     saldoInicial: String(saldoInicialNum),
   }).toString();
@@ -68,6 +75,27 @@ export default async function FechamentoPage({
             {postos.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="bancoId" className="text-foreground/60">
+            Banco
+          </label>
+          <select
+            id="bancoId"
+            name="bancoId"
+            defaultValue={bancoId ?? ""}
+            required
+            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          >
+            <option value="" disabled>
+              Escolha um banco
+            </option>
+            {bancos.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.nome}
               </option>
             ))}
           </select>
@@ -111,7 +139,7 @@ export default async function FechamentoPage({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <p className="text-foreground/60">
-              {resultado.postoNome} — {MESES_PT[resultado.mes]}/{resultado.ano} · total{" "}
+              {resultado.postoNome} · {resultado.bancoNome} — {MESES_PT[resultado.mes]}/{resultado.ano} · total{" "}
               {resultado.totalGeral.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} ·
               saldo final{" "}
               {resultado.saldoFinal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
@@ -128,7 +156,7 @@ export default async function FechamentoPage({
             <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
               {resultado.semCategoria} lançamento{resultado.semCategoria === 1 ? "" : "s"} sem categoria
               nesse mês não {resultado.semCategoria === 1 ? "entrou" : "entraram"} na soma abaixo.{" "}
-              <Link href={`/extratos?postoId=${postoId}&categoria=sem`} className="underline">
+              <Link href={`/extratos?postoId=${postoId}&bancoId=${bancoId}&categoria=sem`} className="underline">
                 Revisar agora →
               </Link>
             </p>

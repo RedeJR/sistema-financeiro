@@ -4,6 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { exigirPermissao } from "@/lib/auth";
 import { isUniqueConstraintError, valoresDoFormulario, type ActionState } from "@/lib/form-state";
 
@@ -20,6 +21,24 @@ const schema = z.object({
   tipo: z.enum(["ADQUIRENTE", "PADRAO"]),
   ordem: z.coerce.number().int().default(0),
 });
+
+// Duas categorias com a mesma `ordem` deixavam a ordem das colunas do
+// Fechamento instável entre uma geração e outra (empate sem critério de
+// desempate). Em vez de só deixar acontecer, ao salvar uma categoria com uma
+// ordem que já está em uso por OUTRA categoria, empurra ela (e tudo que já
+// estava a partir dali) uma casa pra frente — como inserir numa lista
+// numerada. `ignorarId` é o id da própria categoria sendo editada, pra não
+// se auto-empurrar quando ela já é quem está naquela ordem.
+async function abrirEspacoNaOrdem(tx: Prisma.TransactionClient, ordemDesejada: number, ignorarId?: string) {
+  const colisao = await tx.categoriaExtrato.findFirst({
+    where: { ordem: ordemDesejada, ...(ignorarId ? { id: { not: ignorarId } } : {}) },
+  });
+  if (!colisao) return;
+  await tx.categoriaExtrato.updateMany({
+    where: { ordem: { gte: ordemDesejada }, ...(ignorarId ? { id: { not: ignorarId } } : {}) },
+    data: { ordem: { increment: 1 } },
+  });
+}
 
 export async function criarCategoriaExtrato(
   _prev: ActionState,
@@ -40,7 +59,10 @@ export async function criarCategoriaExtrato(
   }
 
   try {
-    await prisma.categoriaExtrato.create({ data: parsed.data });
+    await prisma.$transaction(async (tx) => {
+      await abrirEspacoNaOrdem(tx, parsed.data.ordem);
+      await tx.categoriaExtrato.create({ data: parsed.data });
+    });
   } catch (e) {
     if (isUniqueConstraintError(e)) {
       return {
@@ -75,7 +97,10 @@ export async function atualizarCategoriaExtrato(
   }
 
   try {
-    await prisma.categoriaExtrato.update({ where: { id }, data: parsed.data });
+    await prisma.$transaction(async (tx) => {
+      await abrirEspacoNaOrdem(tx, parsed.data.ordem, id);
+      await tx.categoriaExtrato.update({ where: { id }, data: parsed.data });
+    });
   } catch (e) {
     if (isUniqueConstraintError(e)) {
       return {

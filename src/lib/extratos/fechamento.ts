@@ -55,6 +55,7 @@ export type LinhaDetalhe = {
 
 export type ResultadoFechamento = {
   postoNome: string;
+  bancoNome: string;
   ano: number;
   mes: number;
   ultimoDia: number;
@@ -78,26 +79,40 @@ const DETALHE_NOME = ["OUTROS", "VENDA A PRAZO"];
 
 export async function gerarFechamento(params: {
   postoId: string;
+  bancoId: string;
   ano: number;
   mes: number; // 1-12
   saldoInicial: number;
+  // Colunas de categoria sem nenhum lançamento no mês ficam de fora do
+  // resultado (tabela e export) por padrão — pedido da usuária, uma tela com
+  // 30 colunas em branco não ajuda a ler o fechamento. Passe false pra ver
+  // todas as categorias ativas, movimentadas ou não.
+  somenteComMovimento?: boolean;
 }): Promise<ResultadoFechamento> {
-  const { postoId, ano, mes, saldoInicial } = params;
+  const { postoId, bancoId, ano, mes, saldoInicial, somenteComMovimento = true } = params;
 
-  const posto = await prisma.posto.findUniqueOrThrow({ where: { id: postoId } });
+  const [posto, banco] = await Promise.all([
+    prisma.posto.findUniqueOrThrow({ where: { id: postoId } }),
+    prisma.banco.findUniqueOrThrow({ where: { id: bancoId } }),
+  ]);
   const inicio = new Date(Date.UTC(ano, mes - 1, 1));
   const fim = new Date(Date.UTC(ano, mes, 0)); // dia 0 do mês seguinte = último dia deste mês
   const ultimoDia = fim.getUTCDate();
 
-  const categorias = await prisma.categoriaExtrato.findMany({
+  // `ordem` sozinho empata entre categorias (ver categorias-extrato/actions.ts,
+  // que agora evita empate NOVO — mas os já existentes continuam até alguém
+  // editar aquela categoria). `nome` como desempate garante pelo menos uma
+  // ordem ESTÁVEL entre uma geração do relatório e outra, mesmo enquanto
+  // ainda existir empate de verdade no cadastro.
+  const categoriasTodas = await prisma.categoriaExtrato.findMany({
     where: { ativo: true },
-    orderBy: { ordem: "asc" },
+    orderBy: [{ ordem: "asc" }, { nome: "asc" }],
   });
-  const idxPorCategoria = new Map(categorias.map((c, i) => [c.id, i]));
+  const idxPorCategoria = new Map(categoriasTodas.map((c, i) => [c.id, i]));
 
   const [lancamentos, divisoes, semCategoria] = await Promise.all([
     prisma.lancamentoExtrato.findMany({
-      where: { postoId, data: { gte: inicio, lte: fim }, categoriaId: { not: null } },
+      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: { not: null } },
       select: { data: true, valor: true, categoriaId: true },
     }),
     // Lançamentos DIVIDIDOS (ver LancamentoExtratoDivisao) não têm categoriaId
@@ -105,16 +120,18 @@ export async function gerarFechamento(params: {
     // linha por parte. Busca junto pra somar por (dia, categoria) igual aos
     // lançamentos normais.
     prisma.lancamentoExtratoDivisao.findMany({
-      where: { lancamentoExtrato: { postoId, data: { gte: inicio, lte: fim } } },
+      where: { lancamentoExtrato: { postoId, bancoId, data: { gte: inicio, lte: fim } } },
       select: { valor: true, categoriaId: true, lancamentoExtrato: { select: { data: true } } },
     }),
     prisma.lancamentoExtrato.count({
-      where: { postoId, data: { gte: inicio, lte: fim }, categoriaId: null, divisoes: { none: {} } },
+      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: null, divisoes: { none: {} } },
     }),
   ]);
 
-  // soma[dia][índiceCategoria]
-  const soma: number[][] = Array.from({ length: ultimoDia + 1 }, () => new Array(categorias.length).fill(0));
+  // soma[dia][índiceCategoria] — sobre TODAS as categorias ativas primeiro;
+  // o corte pras só-com-movimento acontece depois de somar, senão não dá
+  // pra saber quem teve movimento.
+  const soma: number[][] = Array.from({ length: ultimoDia + 1 }, () => new Array(categoriasTodas.length).fill(0));
   for (const l of lancamentos) {
     const dia = l.data.getUTCDate();
     const idx = idxPorCategoria.get(l.categoriaId as string);
@@ -129,25 +146,48 @@ export async function gerarFechamento(params: {
     soma[dia][idx] += Number(d.valor);
   }
 
+  const totalPorCategoriaTodas = categoriasTodas.map((_, i) =>
+    Array.from({ length: ultimoDia }, (_, d) => soma[d + 1][i]).reduce((s, v) => s + v, 0)
+  );
+
+  // Índices das categorias que sobrevivem no resultado final — todas, ou só
+  // as com algum valor não-zero em algum dia do mês (checa dia a dia, não só
+  // o total: uma categoria com +100 num dia e -100 noutro tem total 0 mas
+  // teve movimento de verdade).
+  const indicesFinais = categoriasTodas
+    .map((_, i) => i)
+    .filter((i) => {
+      if (!somenteComMovimento) return true;
+      for (let dia = 1; dia <= ultimoDia; dia++) {
+        if (Math.round(soma[dia][i] * 100) !== 0) return true;
+      }
+      return false;
+    });
+
+  const categorias = indicesFinais.map((i) => ({ id: categoriasTodas[i].id, nome: categoriasTodas[i].nome }));
+
   let acumulado = saldoInicial;
   const linhas: LinhaFechamento[] = [];
   for (let dia = 1; dia <= ultimoDia; dia++) {
-    const porCategoria = soma[dia];
-    acumulado += porCategoria.reduce((s, v) => s + v, 0);
+    const porCategoria = indicesFinais.map((i) => soma[dia][i]);
+    // Soma no saldo acumulado com base em TODAS as categorias (não só as
+    // exibidas) — esconder uma coluna zerada nunca deveria mudar o saldo.
+    acumulado += soma[dia].reduce((s, v) => s + v, 0);
     linhas.push({ dia, porCategoria, saldoAcumulado: acumulado });
   }
 
-  const totalPorCategoria = categorias.map((_, i) => linhas.reduce((s, l) => s + l.porCategoria[i], 0));
+  const totalPorCategoria = indicesFinais.map((i) => totalPorCategoriaTodas[i]);
   const totalGeral = totalPorCategoria.reduce((s, v) => s + v, 0);
 
-  const detalhes = await gerarDetalhes({ postoId, inicio, fim, categorias });
+  const detalhes = await gerarDetalhes({ postoId, bancoId, inicio, fim, categorias: categoriasTodas });
 
   return {
     postoNome: posto.nome,
+    bancoNome: banco.nome,
     ano,
     mes,
     ultimoDia,
-    categorias: categorias.map((c) => ({ id: c.id, nome: c.nome })),
+    categorias,
     linhas,
     totalPorCategoria,
     totalGeral,
@@ -160,25 +200,29 @@ export async function gerarFechamento(params: {
 
 async function gerarDetalhes(params: {
   postoId: string;
+  bancoId: string;
   inicio: Date;
   fim: Date;
   categorias: { id: string; nome: string }[];
 }): Promise<{ categoriaNome: string; linhas: LinhaDetalhe[] }[]> {
-  const { postoId, inicio, fim, categorias } = params;
+  const { postoId, bancoId, inicio, fim, categorias } = params;
   const categoriasAlvo = categorias.filter((c) => DETALHE_NOME.includes(c.nome));
   if (categoriasAlvo.length === 0) return [];
   const idsAlvo = categoriasAlvo.map((c) => c.id);
 
   const [diretos, divisoes] = await Promise.all([
     prisma.lancamentoExtrato.findMany({
-      where: { postoId, data: { gte: inicio, lte: fim }, categoriaId: { in: idsAlvo } },
+      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: { in: idsAlvo } },
       select: { data: true, valor: true, observacao: true, descricao: true, categoriaId: true },
     }),
     // Parte de um lançamento dividido (ver LancamentoExtratoDivisao) — ainda
     // não tem campo de observação editável na tela de divisão, então usa a
     // observação/descrição do lançamento "pai" como contexto.
     prisma.lancamentoExtratoDivisao.findMany({
-      where: { categoriaId: { in: idsAlvo }, lancamentoExtrato: { postoId, data: { gte: inicio, lte: fim } } },
+      where: {
+        categoriaId: { in: idsAlvo },
+        lancamentoExtrato: { postoId, bancoId, data: { gte: inicio, lte: fim } },
+      },
       select: {
         valor: true,
         categoriaId: true,
