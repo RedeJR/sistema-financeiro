@@ -66,6 +66,41 @@ export async function GET(request: NextRequest) {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, planilha, "Fechamento");
+
+  // Uma aba por categoria detalhada (Outros, Venda a Prazo — ver DETALHE_NOME
+  // em fechamento.ts) com data/valor/observação lançamento a lançamento,
+  // pedido da usuária pra não precisar abrir a Conciliação de Extratos só
+  // pra ver de onde veio cada valor dessas colunas.
+  for (const { categoriaNome, linhas: linhasDetalhe } of resultado.detalhes) {
+    const cabecalhoDetalhe = ["Dia", "Data", "Valor", "Observação", "Descrição (extrato)"];
+    const linhasAoa = linhasDetalhe.map((l) => [
+      l.dia,
+      l.data.toLocaleDateString("pt-BR", { timeZone: "UTC" }),
+      l.valor,
+      l.observacao,
+      l.descricaoBanco,
+    ]);
+    const totalDetalhe = linhasDetalhe.reduce((s, l) => s + l.valor, 0);
+    const tituloDetalhe = `${categoriaNome} - ${MESES_PT[resultado.mes]}/${resultado.ano} - ${resultado.postoNome}`;
+    const aoaDetalhe: (string | number)[][] = [
+      [tituloDetalhe],
+      cabecalhoDetalhe,
+      ...linhasAoa,
+      ["", "Total", numOuVazio(totalDetalhe), "", ""],
+    ];
+    const planilhaDetalhe = XLSX.utils.aoa_to_sheet(aoaDetalhe);
+    planilhaDetalhe["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: cabecalhoDetalhe.length - 1 } }];
+    for (let r = 2; r < aoaDetalhe.length; r++) {
+      const endereco = XLSX.utils.encode_cell({ r, c: 2 }); // coluna Valor
+      const celula = planilhaDetalhe[endereco];
+      if (celula && celula.t === "n") celula.z = FORMATO_MOEDA;
+    }
+    planilhaDetalhe["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 14 }, { wch: 50 }, { wch: 50 }];
+    // Nome de aba do Excel: máx. 31 caracteres, sem / \ ? * [ ].
+    const nomeAba = categoriaNome.slice(0, 31).replace(/[/\\?*[\]]/g, "-");
+    XLSX.utils.book_append_sheet(workbook, planilhaDetalhe, nomeAba);
+  }
+
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 
   const nomeArquivo = `fechamento-${resultado.postoNome}-${resultado.ano}-${String(resultado.mes).padStart(2, "0")}.xlsx`;

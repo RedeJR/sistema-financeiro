@@ -39,6 +39,20 @@ export type LinhaFechamento = {
   saldoAcumulado: number;
 };
 
+// Detalhamento lançamento-a-lançamento de uma categoria específica (ver
+// DETALHE_NOME abaixo) — a coluna do fechamento só mostra o total do dia,
+// isso aqui é o "de onde veio cada valor" que a usuária pediu pra Outros e
+// Venda a Prazo. `observacao` é o texto que ela mesma digita na tela de
+// revisão (/extratos/editar), não a descrição crua do banco — cai pra "" só
+// quando ela ainda não anotou nada nessa linha.
+export type LinhaDetalhe = {
+  dia: number;
+  data: Date;
+  valor: number;
+  observacao: string;
+  descricaoBanco: string;
+};
+
 export type ResultadoFechamento = {
   postoNome: string;
   ano: number;
@@ -51,7 +65,16 @@ export type ResultadoFechamento = {
   saldoInicial: number;
   saldoFinal: number;
   semCategoria: number;
+  // Uma entrada por categoria em DETALHE_NOME que exista no cadastro (ver
+  // abaixo) — nome da categoria -> linhas do mês, mais recente por último.
+  detalhes: { categoriaNome: string; linhas: LinhaDetalhe[] }[];
 };
+
+// Categorias que ganham aba de detalhamento (data/valor/observação) no
+// fechamento, além do total por dia — pedido da usuária pra conseguir ver de
+// onde vem cada valor de "Outros" e "Venda a Prazo" sem abrir a tela de
+// Conciliação de Extratos e catar linha por linha.
+const DETALHE_NOME = ["OUTROS", "VENDA A PRAZO"];
 
 export async function gerarFechamento(params: {
   postoId: string;
@@ -117,6 +140,8 @@ export async function gerarFechamento(params: {
   const totalPorCategoria = categorias.map((_, i) => linhas.reduce((s, l) => s + l.porCategoria[i], 0));
   const totalGeral = totalPorCategoria.reduce((s, v) => s + v, 0);
 
+  const detalhes = await gerarDetalhes({ postoId, inicio, fim, categorias });
+
   return {
     postoNome: posto.nome,
     ano,
@@ -129,5 +154,63 @@ export async function gerarFechamento(params: {
     saldoInicial,
     saldoFinal: acumulado,
     semCategoria,
+    detalhes,
   };
+}
+
+async function gerarDetalhes(params: {
+  postoId: string;
+  inicio: Date;
+  fim: Date;
+  categorias: { id: string; nome: string }[];
+}): Promise<{ categoriaNome: string; linhas: LinhaDetalhe[] }[]> {
+  const { postoId, inicio, fim, categorias } = params;
+  const categoriasAlvo = categorias.filter((c) => DETALHE_NOME.includes(c.nome));
+  if (categoriasAlvo.length === 0) return [];
+  const idsAlvo = categoriasAlvo.map((c) => c.id);
+
+  const [diretos, divisoes] = await Promise.all([
+    prisma.lancamentoExtrato.findMany({
+      where: { postoId, data: { gte: inicio, lte: fim }, categoriaId: { in: idsAlvo } },
+      select: { data: true, valor: true, observacao: true, descricao: true, categoriaId: true },
+    }),
+    // Parte de um lançamento dividido (ver LancamentoExtratoDivisao) — ainda
+    // não tem campo de observação editável na tela de divisão, então usa a
+    // observação/descrição do lançamento "pai" como contexto.
+    prisma.lancamentoExtratoDivisao.findMany({
+      where: { categoriaId: { in: idsAlvo }, lancamentoExtrato: { postoId, data: { gte: inicio, lte: fim } } },
+      select: {
+        valor: true,
+        categoriaId: true,
+        observacao: true,
+        lancamentoExtrato: { select: { data: true, observacao: true, descricao: true } },
+      },
+    }),
+  ]);
+
+  const porCategoria = new Map<string, LinhaDetalhe[]>(categoriasAlvo.map((c) => [c.id, []]));
+  for (const l of diretos) {
+    porCategoria.get(l.categoriaId as string)?.push({
+      dia: l.data.getUTCDate(),
+      data: l.data,
+      valor: Number(l.valor),
+      observacao: l.observacao ?? "",
+      descricaoBanco: l.descricao,
+    });
+  }
+  for (const d of divisoes) {
+    if (!d.categoriaId) continue;
+    porCategoria.get(d.categoriaId)?.push({
+      dia: d.lancamentoExtrato.data.getUTCDate(),
+      data: d.lancamentoExtrato.data,
+      valor: Number(d.valor),
+      observacao: d.observacao ?? d.lancamentoExtrato.observacao ?? "",
+      descricaoBanco: d.lancamentoExtrato.descricao,
+    });
+  }
+
+  return categoriasAlvo.map((c) => ({
+    categoriaNome: c.nome,
+    linhas: (porCategoria.get(c.id) ?? []).sort((a, b) => a.data.getTime() - b.data.getTime()),
+  }));
 }
