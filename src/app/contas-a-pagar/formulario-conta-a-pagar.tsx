@@ -31,6 +31,7 @@ type Props = {
     numeroDocumento: string | null;
     valor: string;
     descricao: string | null;
+    observacao: string | null;
   };
 };
 
@@ -238,7 +239,20 @@ export function FormularioContaAPagar({
         />
       </div>
 
-      <Campo label="Descrição / observações (opcional)" name="descricao" defaultValue={v?.descricao ?? undefined} />
+      <Campo label="Descrição (opcional)" name="descricao" defaultValue={v?.descricao ?? undefined} />
+
+      <div className="flex flex-col gap-1">
+        <Campo
+          label="Observação (opcional)"
+          name="observacao"
+          defaultValue={v?.observacao ?? undefined}
+          placeholder="Ex: dados bancários, desconto/acréscimo combinado, senha do boleto..."
+        />
+        <p className="text-xs text-foreground/50">
+          Informação de apoio pra quem for pagar — não aparece na listagem, só editando aqui. Some como
+          comentário (passa o mouse pra ver) na Conferência Diária.
+        </p>
+      </div>
 
       {!modoEdicao && (
         <div className="space-y-3 rounded-lg border border-black/10 p-4 dark:border-white/15">

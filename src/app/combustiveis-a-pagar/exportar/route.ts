@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     orderBy: { dataVencimento: "asc" },
   });
 
-  const cabecalho = ["Vencimento", "Descarga", "Posto", "Fornecedor", "Observação", "Valor"];
+  const cabecalho = ["Vencimento", "Descarga", "Posto", "Fornecedor", "Descrição", "Valor"];
   const linhas = contas.map((c) => [
     paraDataPlanilha(c.dataVencimento),
     paraDataPlanilha(c.dataDescarga),

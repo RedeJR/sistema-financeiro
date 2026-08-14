@@ -43,7 +43,7 @@ export default async function RelatorioDespesasPagasPage({
             <th className="px-2 py-1.5 text-left font-medium">Fornecedor</th>
             <th className="px-2 py-1.5 text-left font-medium">Plano de contas</th>
             <th className="px-2 py-1.5 text-left font-medium">Banco</th>
-            <th className="px-2 py-1.5 text-left font-medium">Observação</th>
+            <th className="px-2 py-1.5 text-left font-medium">Descrição</th>
             <th className="px-2 py-1.5 text-right font-medium">Valor</th>
           </tr>
         </thead>

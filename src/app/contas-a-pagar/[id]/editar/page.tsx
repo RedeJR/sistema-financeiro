@@ -67,6 +67,7 @@ export default async function EditarContaAPagarPage({
           numeroDocumento: conta.numeroDocumento,
           valor: conta.valor.toString(),
           descricao: conta.descricao,
+          observacao: conta.observacao,
         }}
       />
     </div>

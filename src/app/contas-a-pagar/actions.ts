@@ -56,6 +56,11 @@ const schemaComuns = z.object({
     .trim()
     .optional()
     .transform((v) => (v ? v : null)),
+  observacao: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v : null)),
 });
 
 // A versão "única" (não parcelada) ainda usa dataVencimento/valor simples.
@@ -104,6 +109,7 @@ export async function criarContaAPagar(
         dataEmissao: formData.get("dataEmissao"),
         numeroDocumento: formData.get("numeroDocumento"),
         descricao: formData.get("descricao"),
+        observacao: formData.get("observacao"),
       });
       if (!parsedComuns.success) {
         return {
@@ -118,6 +124,7 @@ export async function criarContaAPagar(
         planoContaId: parsedComuns.data.planoContaId,
         numeroDocumento: parsedComuns.data.numeroDocumento,
         descricao: parsedComuns.data.descricao,
+        observacao: parsedComuns.data.observacao,
       };
 
       const vencimentos = formData.getAll("parcelaVencimento").map(String);
@@ -162,6 +169,7 @@ export async function criarContaAPagar(
         dataEmissao: formData.get("dataEmissao"),
         numeroDocumento: formData.get("numeroDocumento"),
         descricao: formData.get("descricao"),
+        observacao: formData.get("observacao"),
         dataVencimento: formData.get("dataVencimento"),
         valor: formData.get("valor"),
       });
@@ -179,6 +187,7 @@ export async function criarContaAPagar(
         planoContaId: parsedUnica.data.planoContaId,
         numeroDocumento: parsedUnica.data.numeroDocumento,
         descricao: parsedUnica.data.descricao,
+        observacao: parsedUnica.data.observacao,
       };
 
       if (recorrente) {
@@ -242,6 +251,7 @@ export async function atualizarContaAPagar(
     numeroDocumento: formData.get("numeroDocumento"),
     valor: formData.get("valor"),
     descricao: formData.get("descricao"),
+    observacao: formData.get("observacao"),
   });
   if (!parsed.success) {
     return {

@@ -110,7 +110,12 @@ export function FormularioCombustivel({ postos, fornecedores, valoresIniciais, a
         inputMode="decimal"
       />
 
-      <Campo label="Observação (opcional)" name="observacao" defaultValue={v?.observacao ?? undefined} />
+      {/* Campo interno ainda se chama "observacao" (grava em descricao, ver
+          actions.ts) — só o rótulo mudou pra bater com o padrão novo de
+          Contas a Pagar. Combustíveis a Pagar não ganhou o campo Observação
+          separado (pedido da usuária foi só Contas a Pagar + Conferência
+          Diária). */}
+      <Campo label="Descrição (opcional)" name="observacao" defaultValue={v?.observacao ?? undefined} />
 
       <ErroFormulario mensagem={state?.error} />
       <div className="flex gap-2">

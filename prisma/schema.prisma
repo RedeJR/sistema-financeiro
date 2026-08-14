@@ -260,6 +260,14 @@ model ContaAPagar {
   valor           Decimal    @db.Decimal(12, 2)
   descricao       String?
 
+  // Campo separado de `descricao` (pedido da usuária): não é sobre o QUE é
+  // a despesa, é informação de apoio pra quem for lançar o pagamento no
+  // banco — dados bancários, desconto/acréscimo combinado, senha de boleto
+  // etc. Só aparece (com edição) em Contas a Pagar; em Conferência Diária
+  // aparece só como tooltip ao passar o mouse (ver botão de comentário na
+  // tela), sem poder editar por lá.
+  observacao String?
+
   // Preenchidos pela Conferência Diária (módulo futuro) — aqui só existem no
   // schema pra já deixar o dado pronto pra quando esse módulo existir.
   paga             Boolean   @default(false)

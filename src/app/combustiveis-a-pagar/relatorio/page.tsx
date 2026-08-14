@@ -64,7 +64,7 @@ export default async function RelatorioCombustiveisAPagarPage({
             <th className="px-2 py-1.5 text-left font-medium">Descarga</th>
             <th className="px-2 py-1.5 text-left font-medium">Posto</th>
             <th className="px-2 py-1.5 text-left font-medium">Fornecedor</th>
-            <th className="px-2 py-1.5 text-left font-medium">Observação</th>
+            <th className="px-2 py-1.5 text-left font-medium">Descrição</th>
             <th className="px-2 py-1.5 text-right font-medium">Valor</th>
           </tr>
         </thead>

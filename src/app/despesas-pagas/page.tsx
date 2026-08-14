@@ -98,7 +98,7 @@ export default async function DespesasPagasPage({
   const podeEditar = podeEditarDespesas;
 
   const filtros = await searchParams;
-  const { postoId, fornecedorId, planoContaId, bancoId, de, ate } = filtros;
+  const { postoId, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
 
   // Roda a sugestão automática de conciliação (idempotente) antes de calcular
   // o status dos grupos — sem isso, um extrato importado agorinha mesmo
@@ -133,7 +133,7 @@ export default async function DespesasPagasPage({
   const diasPendentes = conferenciaDiaria.filter((l) => l.diferenca < -0.005);
 
   const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoId || fornecedorId || planoContaId || bancoId || de || ate);
+  const temFiltro = Boolean(postoId || fornecedorId || planoContaId || bancoId || de || ate || q);
   const qs = new URLSearchParams(
     Object.entries(filtros).filter(([, v]) => v) as [string, string][]
   ).toString();
@@ -177,6 +177,19 @@ export default async function DespesasPagasPage({
       </div>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="q" className="text-foreground/60">
+            Buscar
+          </label>
+          <input
+            id="q"
+            type="text"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Fornecedor ou descrição"
+            className="min-w-[14rem] rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto

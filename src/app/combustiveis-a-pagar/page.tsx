@@ -44,7 +44,7 @@ function dataUTC(iso: string): Date {
 export default async function CombustiveisAPagarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; status?: string; de?: string; ate?: string; erro?: string }>;
+  searchParams: Promise<{ postoId?: string; status?: string; de?: string; ate?: string; q?: string; erro?: string }>;
 }) {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "visualizar");
   const podeEditar = await podeEditarModulo("COMBUSTIVEIS_A_PAGAR");
@@ -56,7 +56,8 @@ export default async function CombustiveisAPagarPage({
     await rodarConciliacaoAutomaticaCombustiveis();
   }
 
-  const { postoId, status, de, ate, erro } = await searchParams;
+  const { postoId, status, de, ate, q, erro } = await searchParams;
+  const busca = q?.trim();
 
   const [contas, postos] = await Promise.all([
     prisma.contaAPagar.findMany({
@@ -72,6 +73,17 @@ export default async function CombustiveisAPagarPage({
               },
             }
           : {}),
+        // Campo "Descrição" aqui é o que noutros módulos chamamos assim —
+        // não confundir com o campo Observação (esse não existe em
+        // Combustíveis a Pagar, pedido da usuária).
+        ...(busca
+          ? {
+              OR: [
+                { fornecedor: { nome: { contains: busca, mode: "insensitive" } } },
+                { descricao: { contains: busca, mode: "insensitive" } },
+              ],
+            }
+          : {}),
       },
       include: { posto: true, fornecedor: true },
       orderBy: { dataVencimento: "asc" },
@@ -85,7 +97,7 @@ export default async function CombustiveisAPagarPage({
     .filter((c) => !status || c.status === status);
 
   const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoId || status || de || ate);
+  const temFiltro = Boolean(postoId || status || de || ate || busca);
 
   return (
     <div className="space-y-4">
@@ -126,6 +138,19 @@ export default async function CombustiveisAPagarPage({
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="q" className="text-foreground/60">
+            Buscar
+          </label>
+          <input
+            id="q"
+            type="text"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Fornecedor ou descrição"
+            className="min-w-[14rem] rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -208,7 +233,7 @@ export default async function CombustiveisAPagarPage({
               <th className="px-4 py-2 text-left font-medium">Descarga</th>
               <th className="px-4 py-2 text-left font-medium">Posto</th>
               <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
-              <th className="px-4 py-2 text-left font-medium">Observação</th>
+              <th className="px-4 py-2 text-left font-medium">Descrição</th>
               <th className="px-4 py-2 text-right font-medium">Valor</th>
               <th className="px-4 py-2 text-left font-medium">Status</th>
               {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}

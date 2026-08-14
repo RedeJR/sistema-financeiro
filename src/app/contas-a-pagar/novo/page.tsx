@@ -42,6 +42,7 @@ export default async function NovaContaAPagarPage() {
             numeroDocumento: null,
             valor: "",
             descricao: null,
+            observacao: null,
           }}
         />
       )}

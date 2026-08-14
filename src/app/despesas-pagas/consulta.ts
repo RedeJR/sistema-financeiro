@@ -12,10 +12,12 @@ export type FiltrosDespesasPagas = {
   bancoId?: string;
   de?: string;
   ate?: string;
+  q?: string;
 };
 
 export async function buscarDespesasPagas(filtros: FiltrosDespesasPagas) {
-  const { postoId, fornecedorId, planoContaId, bancoId, de, ate } = filtros;
+  const { postoId, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
+  const busca = q?.trim();
   return prisma.contaAPagar.findMany({
     where: {
       paga: true,
@@ -34,6 +36,14 @@ export async function buscarDespesasPagas(filtros: FiltrosDespesasPagas) {
               ...(de ? { gte: dataUTC(de) } : {}),
               ...(ate ? { lte: dataUTC(ate) } : {}),
             },
+          }
+        : {}),
+      ...(busca
+        ? {
+            OR: [
+              { fornecedor: { nome: { contains: busca, mode: "insensitive" } } },
+              { descricao: { contains: busca, mode: "insensitive" } },
+            ],
           }
         : {}),
     },

@@ -7,6 +7,7 @@ import { gerarOcorrenciasRecorrentesPendentes } from "@/app/contas-a-pagar/recor
 import { marcarComoPagas } from "./actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
+import { ComentarioHover } from "@/components/ui/comentario-hover";
 
 const FORM_PAGAR = "form-marcar-pagas";
 
@@ -31,14 +32,22 @@ function paraDataInput(d: Date): string {
 export default async function ConferenciaDiariaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; fornecedorId?: string; planoContaId?: string; dia?: string; erro?: string }>;
+  searchParams: Promise<{
+    postoId?: string;
+    fornecedorId?: string;
+    planoContaId?: string;
+    dia?: string;
+    q?: string;
+    erro?: string;
+  }>;
 }) {
   await exigirPermissao("CONFERENCIA_DIARIA", "visualizar");
   const podeEditar = await podeEditarModulo("CONFERENCIA_DIARIA");
 
   await gerarOcorrenciasRecorrentesPendentes();
 
-  const { postoId, fornecedorId, planoContaId, dia, erro } = await searchParams;
+  const { postoId, fornecedorId, planoContaId, dia, q, erro } = await searchParams;
+  const busca = q?.trim();
   const hoje = hojeUTC();
   const diaFiltro = dia ? dataUTC(dia) : hoje;
 
@@ -54,6 +63,22 @@ export default async function ConferenciaDiariaPage({
         ...(fornecedorId ? { fornecedorId } : {}),
         ...(planoContaId ? { planoContaId } : {}),
         OR: [{ dataVencimento: diaFiltro }, { dataVencimento: { lt: hoje } }],
+        // Busca por fornecedor OU descrição — combinada com o OR de data
+        // acima via AND implícito (Prisma soma todas as chaves do objeto
+        // where com AND; o "OR" de data fica isolado nessa chave, esse
+        // filtro de busca é outra condição por fora).
+        ...(busca
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { fornecedor: { nome: { contains: busca, mode: "insensitive" } } },
+                    { descricao: { contains: busca, mode: "insensitive" } },
+                  ],
+                },
+              ],
+            }
+          : {}),
       },
       include: { posto: true, fornecedor: true, planoConta: { include: { grupo: true } } },
       orderBy: { dataVencimento: "asc" },
@@ -80,6 +105,19 @@ export default async function ConferenciaDiariaPage({
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="q" className="text-foreground/60">
+            Buscar
+          </label>
+          <input
+            id="q"
+            type="text"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Fornecedor ou descrição"
+            className="min-w-[14rem] rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="dia" className="text-foreground/60">
             Dia
@@ -156,7 +194,7 @@ export default async function ConferenciaDiariaPage({
         >
           Filtrar
         </button>
-        {(postoId || fornecedorId || planoContaId || dia) && (
+        {(postoId || fornecedorId || planoContaId || dia || busca) && (
           <Link href="/conferencia-diaria" className="text-foreground/60 underline">
             Limpar filtros
           </Link>
@@ -253,7 +291,15 @@ export default async function ConferenciaDiariaPage({
                     )}
                   </td>
                   <td className="px-4 py-2">{c.posto.nome}</td>
-                  <td className="px-4 py-2">{c.fornecedor.nome}</td>
+                  <td className="px-4 py-2">
+                    {c.fornecedor.nome}
+                    {c.observacao && (
+                      <>
+                        {" "}
+                        <ComentarioHover texto={c.observacao} />
+                      </>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-foreground/70">
                     {c.planoConta.grupo.nome} / {c.planoConta.nome}
                   </td>
