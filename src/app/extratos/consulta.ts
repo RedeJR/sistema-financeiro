@@ -18,10 +18,17 @@ export type FiltrosExtratos = {
   arquivo?: string | string[];
 };
 
-// Maior que o padrão de outras listas do sistema porque agora os
-// lançamentos são agrupados por dia na tela — um valor baixo cortaria um
-// dia ao meio entre duas páginas com mais frequência.
-export const TAMANHO_PAGINA = 150;
+// Pagina por DIA, não por lançamento — as duas telas que consomem isso
+// (resumo e edição) agrupam por dia (resumo: dia+posto+banco; edição: só
+// dia) e mostram um subtotal por bloco. Paginar por linha crua cortava um
+// dia ao meio sempre que ele tivesse mais lançamentos que o tamanho da
+// página — real e não hipotético: um extrato do PagSeguro não agrupa
+// vendas (uma linha por venda), e um único dia chegou a ter 358 lançamentos
+// pra um posto só, muito acima do antigo limite de 150. O resultado era um
+// bloco de dia aparecendo TRUNCADO na página 1 (subtotal errado, contagem
+// errada) e "continuando" sem aviso nenhum na página 2. Um dia inteiro,
+// por maior que seja, cabe sempre por completo numa única página agora.
+export const DIAS_POR_PAGINA = 5;
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -93,12 +100,29 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
   const where = whereDosFiltros(filtros);
   const pagina = Math.max(1, Number(filtros.pagina) || 1);
 
+  // Dias distintos que batem no filtro, mais recente primeiro — a página é
+  // uma fatia DESSA lista (ver DIAS_POR_PAGINA), não da lista de lançamentos.
+  const diasDistintos = await prisma.lancamentoExtrato.findMany({
+    where,
+    distinct: ["data"],
+    select: { data: true },
+    orderBy: { data: "desc" },
+  });
+  const totalDias = diasDistintos.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalDias / DIAS_POR_PAGINA));
+  const diasDaPagina = diasDistintos
+    .slice((pagina - 1) * DIAS_POR_PAGINA, pagina * DIAS_POR_PAGINA)
+    .map((d) => d.data);
+
   const [total, totalSemCategoria, somaValor, lancamentos] = await Promise.all([
     prisma.lancamentoExtrato.count({ where }),
     prisma.lancamentoExtrato.count({ where: { ...where, ...SEM_CATEGORIA_DE_VERDADE } }),
     somarValorFiltrado(where, filtros.categoria),
+    // Sem skip/take: busca TODOS os lançamentos dos dias dessa página, por
+    // maior que seja um dia específico — é exatamente o que evita a
+    // fragmentação (ver comentário em DIAS_POR_PAGINA).
     prisma.lancamentoExtrato.findMany({
-      where,
+      where: { ...where, data: { in: diasDaPagina } },
       include: {
         posto: true,
         banco: true,
@@ -106,8 +130,6 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
         divisoes: { include: { categoria: true }, orderBy: { createdAt: "asc" } },
       },
       orderBy: [{ data: "desc" }, { createdAt: "desc" }],
-      skip: (pagina - 1) * TAMANHO_PAGINA,
-      take: TAMANHO_PAGINA,
     }),
   ]);
 
@@ -117,7 +139,7 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
     totalSemCategoria,
     somaValor,
     pagina,
-    totalPaginas: Math.max(1, Math.ceil(total / TAMANHO_PAGINA)),
+    totalPaginas,
   };
 }
 

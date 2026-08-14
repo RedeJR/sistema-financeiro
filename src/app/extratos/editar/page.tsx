@@ -6,6 +6,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarLancamentosExtrato, contribuicoesPorCategoria, type FiltrosExtratos } from "../consulta";
 import { LinhaEditavel } from "../linha-editavel";
 import { DivisaoLancamento } from "../divisao-lancamento";
+import { GrupoRepetido } from "../grupo-repetido";
 import { reatribuirLancamentos, excluirLancamentosEmMassa, atualizarCategoriaEmMassa } from "../actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
@@ -84,6 +85,53 @@ function agruparPorDia(lancamentos: Lancamento[]): GrupoDia[] {
   }
 
   return grupos;
+}
+
+// Uma "unidade" pra renderizar dentro de um bloco de dia: ou um lançamento
+// sozinho (comportamento de sempre), ou um grupo de repetidos (ver
+// GrupoRepetido) — várias linhas com mesmo posto+banco+categoria+descrição
+// no mesmo dia, resumidas numa linha só. Alguns extratos (PagSeguro, que não
+// agrupa vendas) geram centenas de linhas idênticas num único dia; sem isso
+// a tela de revisão fica pesada e repetitiva demais pra ler.
+type UnidadeLinha = { tipo: "unico"; item: Lancamento } | { tipo: "repetido"; chave: string; itens: Lancamento[] };
+
+// Lançamento dividido (ver DivisaoLancamento) sempre fica de fora do
+// agrupamento — cada parte precisa da própria UI de edição, juntar isso
+// numa linha resumida esconderia informação que ela precisa ver.
+function agruparRepetidos(itens: Lancamento[]): UnidadeLinha[] {
+  const porChave = new Map<string, Lancamento[]>();
+  const ordemChaves: string[] = [];
+
+  for (const l of itens) {
+    if (l.divisoes.length > 0) continue;
+    const chave = `${l.postoId}|${l.bancoId}|${l.categoriaId ?? "sem"}|${l.tipoAdquirente ?? ""}|${l.descricao}`;
+    if (!porChave.has(chave)) {
+      porChave.set(chave, []);
+      ordemChaves.push(chave);
+    }
+    porChave.get(chave)!.push(l);
+  }
+
+  const chaveComRepeticao = new Map(ordemChaves.map((c) => [c, porChave.get(c)!.length > 1]));
+
+  const unidades: UnidadeLinha[] = [];
+  const jaRepresentado = new Set<string>();
+  for (const l of itens) {
+    if (l.divisoes.length > 0) {
+      unidades.push({ tipo: "unico", item: l });
+      continue;
+    }
+    const chave = `${l.postoId}|${l.bancoId}|${l.categoriaId ?? "sem"}|${l.tipoAdquirente ?? ""}|${l.descricao}`;
+    if (!chaveComRepeticao.get(chave)) {
+      unidades.push({ tipo: "unico", item: l });
+      continue;
+    }
+    if (jaRepresentado.has(chave)) continue; // já entrou como grupo na primeira ocorrência
+    jaRepresentado.add(chave);
+    unidades.push({ tipo: "repetido", chave, itens: porChave.get(chave)! });
+  }
+
+  return unidades;
 }
 
 function construirQuery(
@@ -421,61 +469,90 @@ export default async function EditarExtratosPage({
                     </div>
                   </td>
                 </tr>
-                {g.itens.map((l) => (
-                  <tr key={l.id} className="border-t border-black/10 dark:border-white/10 align-top">
-                    {podeEditar && (
-                      <td className="px-4 py-2">
-                        <input type="checkbox" name="ids" value={l.id} form={FORM_REATRIBUIR} />
-                      </td>
-                    )}
-                    <td className="px-4 py-2">{l.posto.nome}</td>
-                    <td className="px-4 py-2">{l.banco.nome}</td>
-                    <td className="px-4 py-2 text-foreground/70">{l.descricao}</td>
-                    <td
-                      className={`px-4 py-2 text-right whitespace-nowrap ${
-                        Number(l.valor) < 0 ? "text-red-700 dark:text-red-400" : ""
-                      }`}
-                    >
-                      {formatarMoeda(l.valor.toString())}
-                    </td>
-                    <td className="px-4 py-2">
-                      {l.divisoes.length > 0 ? (
-                        <div className="text-foreground/70">
-                          {l.divisoes.map((d, i) => (
-                            <div key={d.id ?? i}>
-                              {nomeCategoriaComTipo(d.categoria, d.tipoAdquirente)} —{" "}
-                              {formatarMoeda(d.valor.toString())}
-                            </div>
-                          ))}
-                        </div>
-                      ) : podeEditar ? (
-                        <LinhaEditavel
-                          id={l.id}
-                          categoriaAtual={valorSelecaoCategoria(l.categoriaId, l.categoria?.tipo, l.tipoAdquirente)}
-                          observacaoAtual={l.observacao ?? ""}
-                          categorias={categorias}
-                        />
-                      ) : (
-                        <span className="text-foreground/70">
-                          {nomeCategoriaComTipo(l.categoria, l.tipoAdquirente)}
-                          {l.observacao && ` — ${l.observacao}`}
-                        </span>
+                {agruparRepetidos(g.itens).map((u) =>
+                  u.tipo === "repetido" ? (
+                    <GrupoRepetido
+                      key={u.chave}
+                      grupoId={u.chave.replace(/[^a-zA-Z0-9]/g, "_")}
+                      descricao={u.itens[0].descricao}
+                      categoriaAtual={valorSelecaoCategoria(
+                        u.itens[0].categoriaId,
+                        u.itens[0].categoria?.tipo,
+                        u.itens[0].tipoAdquirente
                       )}
+                      categoriaLabel={nomeCategoriaComTipo(u.itens[0].categoria, u.itens[0].tipoAdquirente)}
+                      itens={u.itens.map((l) => ({
+                        id: l.id,
+                        postoNome: l.posto.nome,
+                        bancoNome: l.banco.nome,
+                        valor: l.valor.toString(),
+                        observacaoAtual: l.observacao ?? "",
+                      }))}
+                      categorias={categorias}
+                      podeEditar={podeEditar}
+                      formIdReatribuir={FORM_REATRIBUIR}
+                      voltarPara={urlAtual}
+                    />
+                  ) : (
+                    <tr key={u.item.id} className="border-t border-black/10 dark:border-white/10 align-top">
                       {podeEditar && (
-                        <DivisaoLancamento
-                          lancamentoId={l.id}
-                          valorTotal={Number(l.valor)}
-                          divisoesAtuais={l.divisoes.map((d) => ({
-                            categoriaId: d.categoriaId,
-                            tipoAdquirente: d.tipoAdquirente,
-                            valor: Number(d.valor),
-                          }))}
-                          categorias={categorias}
-                        />
+                        <td className="px-4 py-2">
+                          <input type="checkbox" name="ids" value={u.item.id} form={FORM_REATRIBUIR} />
+                        </td>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-2">{u.item.posto.nome}</td>
+                      <td className="px-4 py-2">{u.item.banco.nome}</td>
+                      <td className="px-4 py-2 text-foreground/70">{u.item.descricao}</td>
+                      <td
+                        className={`px-4 py-2 text-right whitespace-nowrap ${
+                          Number(u.item.valor) < 0 ? "text-red-700 dark:text-red-400" : ""
+                        }`}
+                      >
+                        {formatarMoeda(u.item.valor.toString())}
+                      </td>
+                      <td className="px-4 py-2">
+                        {u.item.divisoes.length > 0 ? (
+                          <div className="text-foreground/70">
+                            {u.item.divisoes.map((d, i) => (
+                              <div key={d.id ?? i}>
+                                {nomeCategoriaComTipo(d.categoria, d.tipoAdquirente)} —{" "}
+                                {formatarMoeda(d.valor.toString())}
+                              </div>
+                            ))}
+                          </div>
+                        ) : podeEditar ? (
+                          <LinhaEditavel
+                            id={u.item.id}
+                            categoriaAtual={valorSelecaoCategoria(
+                              u.item.categoriaId,
+                              u.item.categoria?.tipo,
+                              u.item.tipoAdquirente
+                            )}
+                            observacaoAtual={u.item.observacao ?? ""}
+                            categorias={categorias}
+                          />
+                        ) : (
+                          <span className="text-foreground/70">
+                            {nomeCategoriaComTipo(u.item.categoria, u.item.tipoAdquirente)}
+                            {u.item.observacao && ` — ${u.item.observacao}`}
+                          </span>
+                        )}
+                        {podeEditar && (
+                          <DivisaoLancamento
+                            lancamentoId={u.item.id}
+                            valorTotal={Number(u.item.valor)}
+                            divisoesAtuais={u.item.divisoes.map((d) => ({
+                              categoriaId: d.categoriaId,
+                              tipoAdquirente: d.tipoAdquirente,
+                              valor: Number(d.valor),
+                            }))}
+                            categorias={categorias}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )}
                 <tr className="border-t border-dashed border-black/10 dark:border-white/10">
                   <td colSpan={podeEditar ? 6 : 5} className="px-4 py-1.5 text-xs text-foreground/60">
                     Subtotal: {g.subtotais.map((s) => `${s.nome} ${formatarMoeda(s.valor)}`).join(" · ")}
