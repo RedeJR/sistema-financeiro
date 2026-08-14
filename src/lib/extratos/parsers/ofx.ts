@@ -30,13 +30,44 @@ function detectarEncoding(buffer: Buffer): "utf-8" | "latin1" {
   return "utf-8";
 }
 
+// Assinatura de "mojibake" de UTF-8 lido como latin1: todo caractere
+// acentuado de português vira "Ã" (U+00C3, primeiro byte de qualquer par
+// UTF-8 começando com "Ã" ou "Â") seguido de um caractere no intervalo
+// U+0080-U+00BF (o segundo byte do par, também sempre nesse intervalo).
+// Escrito via charCodeAt (não uma classe de caracteres com um caractere de
+// controle literal U+0080 dentro dela) — mais claro e evita esse tipo de
+// caractere invisível ficando escondido no arquivo/diff.
+const RE_MOJIBAKE = new RegExp(`[ÃÂ][${String.fromCharCode(0x80)}-${String.fromCharCode(0xbf)}]`);
+
+// Alguns bancos (visto no Stone — 0% das descrições batendo com regra
+// nenhuma — e um pouco no Itaú) declaram um encoding errado no cabeçalho do
+// OFX (CHARSET 1252/8859-1) quando o arquivo foi escrito em UTF-8 de
+// verdade. Decodificar como o cabeçalho manda produz "mojibake" sem gerar
+// o caractere de substituição "�" que detectarEncoding/bufferParaTexto já
+// sabem reconhecer (todo byte é "válido" em latin1, só vira o caractere
+// errado) — ex: "TransferÃªncia" em vez de "Transferência". Isso nunca bate
+// com os acentos certos das regras de categorizer.ts, e é provavelmente a
+// causa raiz de tanto lançamento ter precisado de categorização manual.
+// Detecta a assinatura desse padrão e re-decodifica certo, independente do
+// que o cabeçalho declarou.
+function corrigirMojibake(texto: string): string {
+  if (!RE_MOJIBAKE.test(texto)) return texto;
+  try {
+    const corrigido = Buffer.from(texto, "latin1").toString("utf-8");
+    if (!corrigido.includes("�")) return corrigido;
+  } catch {
+    // Não decodificou — segue com o texto original abaixo.
+  }
+  return texto;
+}
+
 function bufferParaTexto(buffer: Buffer): string {
   const encoding = detectarEncoding(buffer);
   const texto = buffer.toString(encoding);
   if (encoding === "utf-8" && texto.includes("�")) {
-    return buffer.toString("latin1");
+    return corrigirMojibake(buffer.toString("latin1"));
   }
-  return texto;
+  return corrigirMojibake(texto);
 }
 
 function extrairBlocos(texto: string, tag: string): string[] {
