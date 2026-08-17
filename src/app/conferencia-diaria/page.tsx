@@ -37,6 +37,8 @@ export default async function ConferenciaDiariaPage({
     fornecedorId?: string;
     planoContaId?: string;
     dia?: string;
+    de?: string;
+    ate?: string;
     q?: string;
     erro?: string;
   }>;
@@ -46,10 +48,22 @@ export default async function ConferenciaDiariaPage({
 
   await gerarOcorrenciasRecorrentesPendentes();
 
-  const { postoId, fornecedorId, planoContaId, dia, q, erro } = await searchParams;
+  const { postoId, fornecedorId, planoContaId, dia, de, ate, q, erro } = await searchParams;
   const busca = q?.trim();
   const hoje = hojeUTC();
   const diaFiltro = dia ? dataUTC(dia) : hoje;
+  // Período (de/ate) é um modo à parte do dia único: quando preenchido,
+  // troca a regra "dia escolhido + tudo vencido" por uma janela de
+  // vencimento normal (sem carregar o vencido de fora do período).
+  const periodoAtivo = Boolean(de || ate);
+  const condicaoData = periodoAtivo
+    ? {
+        dataVencimento: {
+          ...(de ? { gte: dataUTC(de) } : {}),
+          ...(ate ? { lte: dataUTC(ate) } : {}),
+        },
+      }
+    : { OR: [{ dataVencimento: diaFiltro }, { dataVencimento: { lt: hoje } }] };
 
   const [contas, postos, fornecedores, grupos, bancos] = await Promise.all([
     prisma.contaAPagar.findMany({
@@ -62,11 +76,11 @@ export default async function ConferenciaDiariaPage({
         ...(postoId ? { postoId } : {}),
         ...(fornecedorId ? { fornecedorId } : {}),
         ...(planoContaId ? { planoContaId } : {}),
-        OR: [{ dataVencimento: diaFiltro }, { dataVencimento: { lt: hoje } }],
-        // Busca por fornecedor OU descrição — combinada com o OR de data
-        // acima via AND implícito (Prisma soma todas as chaves do objeto
-        // where com AND; o "OR" de data fica isolado nessa chave, esse
-        // filtro de busca é outra condição por fora).
+        ...condicaoData,
+        // Busca por fornecedor OU descrição — combinada com a condição de
+        // data acima via AND implícito (Prisma soma todas as chaves do
+        // objeto where com AND; o "OR" de data fica isolado nessa chave,
+        // esse filtro de busca é outra condição por fora).
         ...(busca
           ? {
               AND: [
@@ -100,8 +114,9 @@ export default async function ConferenciaDiariaPage({
       <h1 className="text-2xl font-semibold">Conferência Diária</h1>
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
       <p className="text-sm text-foreground/60">
-        Contas que vencem no dia escolhido, mais tudo que já venceu e ainda
-        não foi pago.
+        {periodoAtivo
+          ? "Contas com vencimento dentro do período escolhido."
+          : "Contas que vencem no dia escolhido, mais tudo que já venceu e ainda não foi pago."}
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
@@ -127,6 +142,31 @@ export default async function ConferenciaDiariaPage({
             type="date"
             name="dia"
             defaultValue={dia ?? paraDataInput(hoje)}
+            disabled={periodoAtivo}
+            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 disabled:opacity-40 dark:border-white/20"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="de" className="text-foreground/60">
+            ou período de
+          </label>
+          <input
+            id="de"
+            type="date"
+            name="de"
+            defaultValue={de ?? ""}
+            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="ate" className="text-foreground/60">
+            até
+          </label>
+          <input
+            id="ate"
+            type="date"
+            name="ate"
+            defaultValue={ate ?? ""}
             className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           />
         </div>
@@ -194,7 +234,7 @@ export default async function ConferenciaDiariaPage({
         >
           Filtrar
         </button>
-        {(postoId || fornecedorId || planoContaId || dia || busca) && (
+        {(postoId || fornecedorId || planoContaId || dia || de || ate || busca) && (
           <Link href="/conferencia-diaria" className="text-foreground/60 underline">
             Limpar filtros
           </Link>
