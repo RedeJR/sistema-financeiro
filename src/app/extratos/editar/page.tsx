@@ -517,6 +517,7 @@ export default async function EditarExtratosPage({
                               <div key={d.id ?? i}>
                                 {nomeCategoriaComTipo(d.categoria, d.tipoAdquirente)} —{" "}
                                 {formatarMoeda(d.valor.toString())}
+                                {d.observacao && ` — ${d.observacao}`}
                               </div>
                             ))}
                           </div>
@@ -545,6 +546,7 @@ export default async function EditarExtratosPage({
                               categoriaId: d.categoriaId,
                               tipoAdquirente: d.tipoAdquirente,
                               valor: Number(d.valor),
+                              observacao: d.observacao,
                             }))}
                             categorias={categorias}
                           />

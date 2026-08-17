@@ -22,6 +22,7 @@ export type ItemDivisao = {
   categoriaId: string | null;
   tipoAdquirente: "DEBITO" | "CREDITO" | null;
   valor: number;
+  observacao: string | null;
 };
 
 export async function salvarDivisaoLancamento(
@@ -56,6 +57,7 @@ export async function salvarDivisaoLancamento(
         categoriaId: i.categoriaId,
         tipoAdquirente: i.tipoAdquirente,
         valor: i.valor.toFixed(2),
+        observacao: i.observacao,
       })),
     }),
     // Categoria/tipo do lançamento "pai" ficam em branco — a categoria de

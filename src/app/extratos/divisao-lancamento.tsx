@@ -5,7 +5,12 @@ import { formatarMoeda, paraDecimalString } from "@/lib/dinheiro";
 import { salvarDivisaoLancamento, removerDivisaoLancamento, type ItemDivisao } from "./divisao-actions";
 
 type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "PADRAO" };
-type DivisaoAtual = { categoriaId: string | null; tipoAdquirente: "DEBITO" | "CREDITO" | null; valor: number };
+type DivisaoAtual = {
+  categoriaId: string | null;
+  tipoAdquirente: "DEBITO" | "CREDITO" | null;
+  valor: number;
+  observacao: string | null;
+};
 
 const campo =
   "rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:border-foreground/40 dark:border-white/20";
@@ -24,7 +29,7 @@ function decodificarCategoria(valor: string): { categoriaId: string | null; tipo
   return { categoriaId: id, tipoAdquirente: tipo === "DEBITO" || tipo === "CREDITO" ? tipo : null };
 }
 
-type LinhaForm = { categoriaSel: string; valorTexto: string };
+type LinhaForm = { categoriaSel: string; valorTexto: string; observacaoTexto: string };
 
 // "1234.56" -> "1234,56" — só troca o separador decimal, sem símbolo de
 // moeda nem separador de milhar (formatarMoeda tem os dois, ruim de reeditar
@@ -36,13 +41,14 @@ function paraTextoEditavel(valor: number): string {
 function linhasIniciais(divisoes: DivisaoAtual[]): LinhaForm[] {
   if (divisoes.length === 0) {
     return [
-      { categoriaSel: "", valorTexto: "" },
-      { categoriaSel: "", valorTexto: "" },
+      { categoriaSel: "", valorTexto: "", observacaoTexto: "" },
+      { categoriaSel: "", valorTexto: "", observacaoTexto: "" },
     ];
   }
   return divisoes.map((d) => ({
     categoriaSel: codificarCategoria(d.categoriaId, d.tipoAdquirente),
     valorTexto: paraTextoEditavel(d.valor),
+    observacaoTexto: d.observacao ?? "",
   }));
 }
 
@@ -69,7 +75,7 @@ export function DivisaoLancamento({
   }
 
   function adicionarLinha() {
-    setLinhas((atual) => [...atual, { categoriaSel: "", valorTexto: "" }]);
+    setLinhas((atual) => [...atual, { categoriaSel: "", valorTexto: "", observacaoTexto: "" }]);
   }
 
   function removerLinha(i: number) {
@@ -87,7 +93,8 @@ export function DivisaoLancamento({
     const itens: ItemDivisao[] = linhas.map((l) => {
       const { categoriaId, tipoAdquirente } = decodificarCategoria(l.categoriaSel);
       const n = Number(paraDecimalString(l.valorTexto) ?? "NaN");
-      return { categoriaId, tipoAdquirente, valor: n };
+      const observacao = l.observacaoTexto.trim();
+      return { categoriaId, tipoAdquirente, valor: n, observacao: observacao ? observacao : null };
     });
     startTransition(async () => {
       const resultado = await salvarDivisaoLancamento(lancamentoId, itens);
@@ -120,7 +127,7 @@ export function DivisaoLancamento({
       {aberto && (
         <div className="mt-2 space-y-2 rounded-md border border-black/10 p-3 dark:border-white/15">
           {linhas.map((l, i) => (
-            <div key={i} className="flex items-center gap-1">
+            <div key={i} className="flex flex-wrap items-center gap-1">
               <select
                 value={l.categoriaSel}
                 onChange={(e) => atualizarLinha(i, "categoriaSel", e.target.value)}
@@ -146,6 +153,12 @@ export function DivisaoLancamento({
                 placeholder="0,00"
                 inputMode="decimal"
                 className={`${campo} w-24`}
+              />
+              <input
+                value={l.observacaoTexto}
+                onChange={(e) => atualizarLinha(i, "observacaoTexto", e.target.value)}
+                placeholder="Observação (opcional)"
+                className={`${campo} min-w-[9rem] flex-1`}
               />
               {linhas.length > 2 && (
                 <button
