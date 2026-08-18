@@ -43,6 +43,43 @@ const SEM_CATEGORIA_DE_VERDADE: Prisma.LancamentoExtratoWhereInput = {
   divisoes: { none: {} },
 };
 
+// Categorias em que a Observação deixa de ser opcional: "Outros" nunca
+// explica sozinho o que é o lançamento, e "Venda a Prazo" precisa dizer
+// pra quem/o quê foi vendido — quem for conciliar depois não tem como
+// adivinhar. Mesmo tratamento de lembrete que "sem categoria" já tem (ver
+// SEM_CATEGORIA_DE_VERDADE), só que aqui o gatilho é ter a categoria certa
+// só que faltando o texto obrigatório.
+const CATEGORIAS_DESCRICAO_OBRIGATORIA = ["OUTROS", "VENDA A PRAZO"];
+
+// Casa tanto o lançamento inteiro (categoria direta + observacao vazia)
+// quanto uma das partes de um dividido (ver LancamentoExtratoDivisao) —
+// mesma dualidade do filtro por categoria normal (comentário em
+// somarValorFiltrado). Embrulhado em AND: [...] (não um "OR" solto no nível
+// raiz) de propósito — where já pode ter sua própria chave "OR" quando um
+// filtro de categoria normal está ativo, e um segundo "OR" no mesmo objeto
+// se sobrescreveria (spread de objeto, chave duplicada).
+const SEM_DESCRICAO_OBRIGATORIA: Prisma.LancamentoExtratoWhereInput = {
+  AND: [
+    {
+      OR: [
+        {
+          categoria: { nome: { in: CATEGORIAS_DESCRICAO_OBRIGATORIA } },
+          divisoes: { none: {} },
+          OR: [{ observacao: null }, { observacao: "" }],
+        },
+        {
+          divisoes: {
+            some: {
+              categoria: { nome: { in: CATEGORIAS_DESCRICAO_OBRIGATORIA } },
+              OR: [{ observacao: null }, { observacao: "" }],
+            },
+          },
+        },
+      ],
+    },
+  ],
+};
+
 function whereDosFiltros(filtros: FiltrosExtratos) {
   const { postoId, bancoId, categoria, de, ate, arquivo } = filtros;
 
@@ -51,6 +88,7 @@ function whereDosFiltros(filtros: FiltrosExtratos) {
   if (postoId) where.postoId = postoId;
   if (bancoId) where.bancoId = bancoId;
   if (categoria === "sem") Object.assign(where, SEM_CATEGORIA_DE_VERDADE);
+  else if (categoria === "sem-descricao") Object.assign(where, SEM_DESCRICAO_OBRIGATORIA);
   else if (categoria) {
     where.OR = [{ categoriaId: categoria }, { divisoes: { some: { categoriaId: categoria } } }];
   }
@@ -77,7 +115,11 @@ async function somarValorFiltrado(
   where: Prisma.LancamentoExtratoWhereInput,
   categoriaFiltro: string | undefined
 ): Promise<number> {
-  if (!categoriaFiltro || categoriaFiltro === "sem") {
+  if (!categoriaFiltro || categoriaFiltro === "sem" || categoriaFiltro === "sem-descricao") {
+    // "sem-descricao" não é uma categoria única pra fatiar dividido — o
+    // que importa aqui é o lançamento INTEIRO (a pessoa que for revisar
+    // precisa ver o valor todo pra saber do que se trata), então soma
+    // direto como no "sem categoria".
     const agg = await prisma.lancamentoExtrato.aggregate({ where, _sum: { valor: true } });
     return Number(agg._sum.valor ?? 0);
   }
@@ -114,9 +156,10 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
     .slice((pagina - 1) * DIAS_POR_PAGINA, pagina * DIAS_POR_PAGINA)
     .map((d) => d.data);
 
-  const [total, totalSemCategoria, somaValor, lancamentos] = await Promise.all([
+  const [total, totalSemCategoria, totalSemDescricaoObrigatoria, somaValor, lancamentos] = await Promise.all([
     prisma.lancamentoExtrato.count({ where }),
     prisma.lancamentoExtrato.count({ where: { ...where, ...SEM_CATEGORIA_DE_VERDADE } }),
+    prisma.lancamentoExtrato.count({ where: { ...where, ...SEM_DESCRICAO_OBRIGATORIA } }),
     somarValorFiltrado(where, filtros.categoria),
     // Sem skip/take: busca TODOS os lançamentos dos dias dessa página, por
     // maior que seja um dia específico — é exatamente o que evita a
@@ -137,6 +180,7 @@ export async function buscarLancamentosExtrato(filtros: FiltrosExtratos) {
     lancamentos,
     total,
     totalSemCategoria,
+    totalSemDescricaoObrigatoria,
     somaValor,
     pagina,
     totalPaginas,

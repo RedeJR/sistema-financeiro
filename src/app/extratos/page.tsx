@@ -105,7 +105,8 @@ export default async function ExtratosPage({
     prisma.categoriaExtrato.findMany({ where: { ativo: true }, orderBy: { ordem: "asc" } }),
   ]);
 
-  const { lancamentos, total, totalSemCategoria, somaValor, pagina, totalPaginas } = resultado;
+  const { lancamentos, total, totalSemCategoria, totalSemDescricaoObrigatoria, somaValor, pagina, totalPaginas } =
+    resultado;
   const temFiltro = Boolean(postoId || bancoId || categoria || de || ate);
   const grupos = agruparPorDia(lancamentos);
 
@@ -200,6 +201,7 @@ export default async function ExtratosPage({
           >
             <option value="">Todas</option>
             <option value="sem">Sem categoria (revisar)</option>
+            <option value="sem-descricao">Sem descrição obrigatória (revisar)</option>
             {categorias.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nome}
@@ -251,6 +253,17 @@ export default async function ExtratosPage({
             {" · "}
             <Link href="/extratos/editar?categoria=sem" className="text-amber-700 underline dark:text-amber-500">
               {totalSemCategoria} sem categoria
+            </Link>
+          </>
+        )}
+        {totalSemDescricaoObrigatoria > 0 && (
+          <>
+            {" · "}
+            <Link
+              href="/extratos/editar?categoria=sem-descricao"
+              className="text-amber-700 underline dark:text-amber-500"
+            >
+              {totalSemDescricaoObrigatoria} sem descrição obrigatória
             </Link>
           </>
         )}
