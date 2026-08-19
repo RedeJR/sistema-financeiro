@@ -174,9 +174,15 @@ export async function statusConciliacaoPorGrupo(
         select: { valor: true, lancamentoExtrato: { select: { postoId: true, bancoId: true, data: true } } },
       }),
     ]);
+    // Soma com sinal (não Math.abs por linha) — um pagamento que saiu e
+    // voltou (ex: PIX enviado + devolução, a usuária categoriza os dois como
+    // "Despesas Pagas" pra zerar o efeito no total do dia) tem que se
+    // cancelar aqui. Tirando o abs() de cada linha antes de somar, os dois
+    // lançamentos contavam em dobro em vez de se anular (bug real, viu na
+    // prática: SINERGIA 13/08, +232,75 e -232,75 viraram +465,50).
     for (const l of diretos) {
       const k = chaveGrupo(l.postoId, l.bancoId, l.data.toISOString());
-      totalExtratoPorChave.set(k, (totalExtratoPorChave.get(k) ?? 0) + Math.abs(Number(l.valor)));
+      totalExtratoPorChave.set(k, (totalExtratoPorChave.get(k) ?? 0) + Number(l.valor));
     }
     for (const d of divisoes) {
       const k = chaveGrupo(
@@ -184,7 +190,7 @@ export async function statusConciliacaoPorGrupo(
         d.lancamentoExtrato.bancoId,
         d.lancamentoExtrato.data.toISOString()
       );
-      totalExtratoPorChave.set(k, (totalExtratoPorChave.get(k) ?? 0) + Math.abs(Number(d.valor)));
+      totalExtratoPorChave.set(k, (totalExtratoPorChave.get(k) ?? 0) + Number(d.valor));
     }
   }
 
@@ -195,7 +201,9 @@ export async function statusConciliacaoPorGrupo(
       status = "NAO_CONCILIADO";
     } else {
       const totalDespesas = g.despesas.reduce((soma, d) => soma + d.valor, 0);
-      const totalExtrato = totalExtratoPorChave.get(k) ?? 0;
+      // totalExtratoPorChave é a soma COM SINAL (débito negativo) — o abs()
+      // é só na hora de comparar com o total de despesas (sempre positivo).
+      const totalExtrato = Math.abs(totalExtratoPorChave.get(k) ?? 0);
       status = Math.abs(totalDespesas - totalExtrato) < 0.01 ? "CONCILIADO" : "DIVERGENTE";
     }
     resultado.set(g.chave, { status });
@@ -390,22 +398,30 @@ export async function conferenciaTotalDiario(params: {
     if (!c.dataPagamento) continue;
     acc(c.postoId, c.dataPagamento).totalContasPagas += Number(c.valor);
   }
+  // Soma com sinal (não Math.abs por linha, mesmo motivo de
+  // statusConciliacaoPorGrupo acima) — um pagamento que saiu e voltou
+  // (PIX + devolução, ambos categorizados "Despesas Pagas" pra zerar o
+  // efeito no total do dia) precisa se cancelar na soma, não contar em
+  // dobro.
   for (const l of lancamentosDireto) {
-    acc(l.postoId, l.data).totalExtrato += Math.abs(Number(l.valor));
+    acc(l.postoId, l.data).totalExtrato += Number(l.valor);
   }
   for (const d of divisoes) {
-    acc(d.lancamentoExtrato.postoId, d.lancamentoExtrato.data).totalExtrato += Math.abs(Number(d.valor));
+    acc(d.lancamentoExtrato.postoId, d.lancamentoExtrato.data).totalExtrato += Number(d.valor);
   }
 
   const linhas: LinhaConferenciaDiaria[] = [...porChave.entries()].map(([k, a]) => {
     const [pId, dataIso] = k.split("|");
+    // totalExtrato acumulado é COM SINAL (débito negativo) — abs() só na
+    // hora de exibir/comparar com o total de contas pagas (sempre positivo).
+    const totalExtratoAbs = Math.abs(a.totalExtrato);
     return {
       postoId: pId,
       postoNome: nomePosto.get(pId) ?? "—",
       data: dataUTC(dataIso),
       totalContasPagas: a.totalContasPagas,
-      totalExtratoDespesasPagas: a.totalExtrato,
-      diferenca: Math.round((a.totalContasPagas - a.totalExtrato) * 100) / 100,
+      totalExtratoDespesasPagas: totalExtratoAbs,
+      diferenca: Math.round((a.totalContasPagas - totalExtratoAbs) * 100) / 100,
     };
   });
 
