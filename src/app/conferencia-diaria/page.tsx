@@ -36,7 +36,6 @@ export default async function ConferenciaDiariaPage({
     postoId?: string;
     fornecedorId?: string;
     planoContaId?: string;
-    dia?: string;
     de?: string;
     ate?: string;
     q?: string;
@@ -48,22 +47,20 @@ export default async function ConferenciaDiariaPage({
 
   await gerarOcorrenciasRecorrentesPendentes();
 
-  const { postoId, fornecedorId, planoContaId, dia, de, ate, q, erro } = await searchParams;
+  const { postoId, fornecedorId, planoContaId, de, ate, q, erro } = await searchParams;
   const busca = q?.trim();
   const hoje = hojeUTC();
-  const diaFiltro = dia ? dataUTC(dia) : hoje;
-  // Período (de/ate) é um modo à parte do dia único: quando preenchido,
-  // troca a regra "dia escolhido + tudo vencido" por uma janela de
-  // vencimento normal (sem carregar o vencido de fora do período).
-  const periodoAtivo = Boolean(de || ate);
-  const condicaoData = periodoAtivo
-    ? {
-        dataVencimento: {
-          ...(de ? { gte: dataUTC(de) } : {}),
-          ...(ate ? { lte: dataUTC(ate) } : {}),
-        },
-      }
-    : { OR: [{ dataVencimento: diaFiltro }, { dataVencimento: { lt: hoje } }] };
+  // Só duas datas: inicial (opcional — sem ela, pega tudo que já venceu até
+  // a final) e final (obrigatória na prática, default hoje). Sem "de" e sem
+  // mexer em "ate", o resultado é igual ao antigo padrão "hoje + tudo
+  // vencido": dataVencimento <= hoje.
+  const dataAte = ate ? dataUTC(ate) : hoje;
+  const condicaoData = {
+    dataVencimento: {
+      ...(de ? { gte: dataUTC(de) } : {}),
+      lte: dataAte,
+    },
+  };
 
   const [contas, postos, fornecedores, grupos, bancos] = await Promise.all([
     prisma.contaAPagar.findMany({
@@ -77,19 +74,13 @@ export default async function ConferenciaDiariaPage({
         ...(fornecedorId ? { fornecedorId } : {}),
         ...(planoContaId ? { planoContaId } : {}),
         ...condicaoData,
-        // Busca por fornecedor OU descrição — combinada com a condição de
-        // data acima via AND implícito (Prisma soma todas as chaves do
-        // objeto where com AND; o "OR" de data fica isolado nessa chave,
-        // esse filtro de busca é outra condição por fora).
+        // Busca por fornecedor OU descrição — sem risco de colisão de
+        // chave aqui, condicaoData não usa "OR" (só "dataVencimento").
         ...(busca
           ? {
-              AND: [
-                {
-                  OR: [
-                    { fornecedor: { nome: { contains: busca, mode: "insensitive" } } },
-                    { descricao: { contains: busca, mode: "insensitive" } },
-                  ],
-                },
+              OR: [
+                { fornecedor: { nome: { contains: busca, mode: "insensitive" } } },
+                { descricao: { contains: busca, mode: "insensitive" } },
               ],
             }
           : {}),
@@ -114,9 +105,8 @@ export default async function ConferenciaDiariaPage({
       <h1 className="text-2xl font-semibold">Conferência Diária</h1>
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
       <p className="text-sm text-foreground/60">
-        {periodoAtivo
-          ? "Contas com vencimento dentro do período escolhido."
-          : "Contas que vencem no dia escolhido, mais tudo que já venceu e ainda não foi pago."}
+        Contas com vencimento até a data final escolhida (inclui tudo que já venceu e ainda não foi pago), a
+        partir da data inicial se você preencher.
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
@@ -134,21 +124,8 @@ export default async function ConferenciaDiariaPage({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="dia" className="text-foreground/60">
-            Dia
-          </label>
-          <input
-            id="dia"
-            type="date"
-            name="dia"
-            defaultValue={dia ?? paraDataInput(hoje)}
-            disabled={periodoAtivo}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 disabled:opacity-40 dark:border-white/20"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">
-            ou período de
+            Data inicial
           </label>
           <input
             id="de"
@@ -160,13 +137,13 @@ export default async function ConferenciaDiariaPage({
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="ate" className="text-foreground/60">
-            até
+            Data final
           </label>
           <input
             id="ate"
             type="date"
             name="ate"
-            defaultValue={ate ?? ""}
+            defaultValue={ate ?? paraDataInput(hoje)}
             className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           />
         </div>
@@ -234,7 +211,7 @@ export default async function ConferenciaDiariaPage({
         >
           Filtrar
         </button>
-        {(postoId || fornecedorId || planoContaId || dia || de || ate || busca) && (
+        {(postoId || fornecedorId || planoContaId || de || ate || busca) && (
           <Link href="/conferencia-diaria" className="text-foreground/60 underline">
             Limpar filtros
           </Link>
