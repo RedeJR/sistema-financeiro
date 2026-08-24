@@ -138,6 +138,19 @@ export default async function DespesasPagasPage({
     Object.entries(filtros).filter(([, v]) => v) as [string, string][]
   ).toString();
 
+  // Relatório unificado (ver /relatorios) — chega de lá já filtrado só pra
+  // Pagas (esse módulo), carregando posto/fornecedor/plano de contas que já
+  // estavam aplicados aqui. "de"/"ate" não entra: aqui é data de PAGAMENTO,
+  // lá em /relatorios é data de VENCIMENTO — semântica diferente, carregar
+  // sem avisar confundiria mais do que ajudaria.
+  const qsRelatorio = new URLSearchParams();
+  qsRelatorio.set("status", "PAGA");
+  qsRelatorio.set("statusEnviado", "1");
+  if (postoId) qsRelatorio.append("postoId", postoId);
+  if (fornecedorId) qsRelatorio.append("fornecedorId", fornecedorId);
+  if (planoContaId) qsRelatorio.append("planoContaId", planoContaId);
+  const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
+
   const grupos = agruparPorDia(contas);
   const gruposComBanco = grupos.filter((g): g is GrupoDespesa & { bancoId: string } => g.bancoId !== null);
   const statusPorChave = await statusConciliacaoPorGrupo(
@@ -292,7 +305,7 @@ export default async function DespesasPagasPage({
             Exportar (Excel/CSV)
           </Link>
           <Link
-            href={`/despesas-pagas/relatorio${qs ? `?${qs}` : ""}`}
+            href={linkRelatorio}
             target="_blank"
             className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >

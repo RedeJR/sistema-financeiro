@@ -101,19 +101,39 @@ export default async function ContasAPagarPage({
   const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor), 0);
   const temFiltro = Boolean(postoId || status || de || ate || busca);
 
+  // Relatório unificado (ver /relatorios) — chega de lá já filtrado só pra
+  // A pagar (esse módulo). "de"/"ate" aqui já é vencimento, mesma coisa lá,
+  // então carrega direto.
+  const qsRelatorio = new URLSearchParams();
+  qsRelatorio.set("status", "A_PAGAR");
+  qsRelatorio.set("statusEnviado", "1");
+  if (postoId) qsRelatorio.append("postoId", postoId);
+  if (de) qsRelatorio.set("de", de);
+  if (ate) qsRelatorio.set("ate", ate);
+  const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
+
   return (
     <div className="space-y-4">
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Contas a Pagar</h1>
-        {podeEditar && (
+        <div className="flex items-center gap-2">
           <Link
-            href="/contas-a-pagar/novo"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            href={linkRelatorio}
+            target="_blank"
+            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
-            + Nova conta
+            Relatório (imprimir / PDF)
           </Link>
-        )}
+          {podeEditar && (
+            <Link
+              href="/contas-a-pagar/novo"
+              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            >
+              + Nova conta
+            </Link>
+          )}
+        </div>
       </div>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">

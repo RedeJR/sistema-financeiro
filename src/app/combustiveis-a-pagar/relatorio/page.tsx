@@ -1,7 +1,7 @@
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { BotaoImprimir } from "@/app/despesas-pagas/relatorio/botao-imprimir";
+import { BotaoImprimir } from "./botao-imprimir";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
