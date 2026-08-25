@@ -65,7 +65,11 @@ export default async function ConciliacaoPage({
 
   const whereDespesaComum: Prisma.ContaAPagarWhereInput = {
     paga: true,
-    ...(postoId ? { postoId } : {}),
+    // Posto aqui é sempre o PAGADOR (ver comentário no topo de
+    // src/lib/conciliacao.ts) — essa tela compara contra o extrato bancário
+    // de verdade, que é sempre do posto de quem pagou, não do dono da
+    // despesa. postoPagamentoId null = pago pelo próprio posto da conta.
+    ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
     ...(bancoId ? { bancoPagamentoId: bancoId } : {}),
     ...periodoDespesa,
   };
@@ -79,7 +83,7 @@ export default async function ConciliacaoPage({
   const [despesasSemLancamento, lancamentosSemDespesa, totalConciliados, conciliados] = await Promise.all([
     prisma.contaAPagar.findMany({
       where: { ...whereDespesaComum, lancamentoExtratoConciliado: null },
-      include: { posto: true, fornecedor: true, bancoPagamento: true },
+      include: { posto: true, postoPagamento: true, fornecedor: true, bancoPagamento: true },
       orderBy: { dataPagamento: "desc" },
       take: 200,
     }),
@@ -265,10 +269,18 @@ export default async function ConciliacaoPage({
               </tr>
             </thead>
             <tbody>
-              {despesasSemLancamento.map((d) => (
+              {despesasSemLancamento.map((d) => {
+                const pagadorNome = d.postoPagamento?.nome ?? d.posto.nome;
+                const pagadorId = d.postoPagamentoId ?? d.postoId;
+                return (
                 <tr key={d.id} className="border-t border-black/10 dark:border-white/10 align-top">
                   <td className="px-4 py-2 whitespace-nowrap">{formatarData(d.dataPagamento)}</td>
-                  <td className="px-4 py-2">{d.posto.nome}</td>
+                  <td className="px-4 py-2">
+                    {pagadorNome}
+                    {d.postoPagamentoId && (
+                      <span className="block text-xs text-foreground/50">despesa de {d.posto.nome}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2">{d.fornecedor.nome}</td>
                   <td className="px-4 py-2">{d.bancoPagamento?.nome ?? "—"}</td>
                   <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(d.valor.toString())}</td>
@@ -287,7 +299,7 @@ export default async function ConciliacaoPage({
                             Escolher lançamento…
                           </option>
                           {lancamentosSemDespesa
-                            .filter((l) => l.postoId === d.postoId)
+                            .filter((l) => l.postoId === pagadorId)
                             .map((l) => (
                               <option key={l.id} value={l.id}>
                                 {formatarData(l.data)} · {l.banco.nome} · {formatarMoeda(Math.abs(Number(l.valor)))} ·{" "}
@@ -305,7 +317,8 @@ export default async function ConciliacaoPage({
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
               {despesasSemLancamento.length === 0 && (
                 <tr>
                   <td colSpan={podeEditar ? 6 : 5} className="px-4 py-6 text-center text-foreground/50">

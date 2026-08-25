@@ -49,6 +49,9 @@ export async function buscarDespesasPagas(filtros: FiltrosDespesasPagas) {
     },
     include: {
       posto: true,
+      // Posto que efetivamente pagou, quando diferente do dono da despesa —
+      // ver ContaAPagar.postoPagamentoId e o agrupamento em page.tsx.
+      postoPagamento: true,
       fornecedor: true,
       planoConta: { include: { grupo: true } },
       bancoPagamento: true,

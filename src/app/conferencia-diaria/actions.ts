@@ -21,6 +21,7 @@ export async function marcarComoPagas(formData: FormData) {
   const ids = formData.getAll("ids").filter((v): v is string => typeof v === "string");
   const bancoId = formData.get("bancoId");
   const dataPagamento = formData.get("dataPagamento");
+  const postoPagamentoId = formData.get("postoPagamentoId");
 
   if (ids.length === 0) {
     redirect(`${ROTA}?erro=nenhuma-selecionada`);
@@ -38,6 +39,11 @@ export async function marcarComoPagas(formData: FormData) {
       paga: true,
       bancoPagamentoId: bancoId,
       dataPagamento: dataUTC(dataPagamento),
+      // Vazio ("Mesmo posto da conta") = null, e todo o motor de conciliação
+      // trata null como "pago pelo próprio posto" (ver postoPagamentoId ??
+      // postoId em src/lib/conciliacao.ts). Só grava algo aqui quando a
+      // usuária escolheu explicitamente um posto pagador diferente.
+      postoPagamentoId: typeof postoPagamentoId === "string" && postoPagamentoId ? postoPagamentoId : null,
     },
   });
 

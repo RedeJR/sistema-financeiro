@@ -248,6 +248,25 @@ export default async function ConferenciaDiariaPage({
               </select>
             </div>
             <div className="flex flex-col gap-1">
+              <label htmlFor="postoPagamentoId" className="text-foreground/60">
+                Pago pelo posto
+              </label>
+              <select
+                id="postoPagamentoId"
+                name="postoPagamentoId"
+                form={FORM_PAGAR}
+                defaultValue=""
+                className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+              >
+                <option value="">Mesmo posto da conta</option>
+                {postos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
               <label htmlFor="dataPagamento" className="text-foreground/60">
                 Data do pagamento
               </label>
@@ -268,6 +287,11 @@ export default async function ConferenciaDiariaPage({
             >
               Marcar selecionadas como pagas
             </button>
+            <p className="w-full text-xs text-foreground/50">
+              &quot;Pago pelo posto&quot; só precisa mudar quando o dinheiro saiu do banco de um posto DIFERENTE do
+              dono da conta (ex: OLIVEIRA pagando uma conta que é da SUL AMERICA) — nesse caso a conciliação com o
+              extrato bancário é feita contra o posto escolhido aqui, não contra o posto da conta.
+            </p>
           </form>
         </>
       )}

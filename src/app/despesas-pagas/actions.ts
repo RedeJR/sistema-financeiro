@@ -20,6 +20,11 @@ const schemaAvulsa = z.object({
   planoContaId: z.string().trim().min(1, "Escolha uma conta do plano de contas."),
   bancoId: z.string().trim().min(1, "Escolha o banco onde foi pago."),
   dataPagamento: z.string().trim().min(1, "Informe a data do pagamento."),
+  postoPagamentoId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v : null)),
   numeroDocumento: z
     .string()
     .trim()
@@ -58,6 +63,7 @@ export async function criarDespesaAvulsa(
     planoContaId: formData.get("planoContaId"),
     bancoId: formData.get("bancoId"),
     dataPagamento: formData.get("dataPagamento"),
+    postoPagamentoId: formData.get("postoPagamentoId"),
     numeroDocumento: formData.get("numeroDocumento"),
     descricao: formData.get("descricao"),
     valor: formData.get("valor"),
@@ -86,6 +92,7 @@ export async function criarDespesaAvulsa(
         avulsa: true,
         dataPagamento,
         bancoPagamentoId: parsed.data.bancoId,
+        postoPagamentoId: parsed.data.postoPagamentoId,
       },
     });
   } catch (e) {
@@ -104,18 +111,26 @@ export async function criarDespesaAvulsa(
 }
 
 // Desfaz o pagamento — volta a conta pro estado "a pagar", liberando edição
-// de novo em Contas a Pagar. Não some com o histórico: só zera paga/banco/data.
+// de novo em Contas a Pagar. Não some com o histórico: só zera paga/banco/
+// data/posto pagador. Também desfaz o vínculo de conciliação, se houver
+// (senão o lançamento do extrato continuava "ligado" a uma despesa que não
+// está mais paga, e nunca mais aparecia pra revisão em Conciliação de
+// Extratos nem podia ser religado a nada).
 export async function desfazerPagamento(formData: FormData) {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
   const id = formData.get("id");
   if (typeof id !== "string") return;
 
-  await prisma.contaAPagar.update({
-    where: { id },
-    data: { paga: false, bancoPagamentoId: null, dataPagamento: null },
-  });
+  await prisma.$transaction([
+    prisma.lancamentoExtrato.updateMany({ where: { contaAPagarId: id }, data: { contaAPagarId: null } }),
+    prisma.contaAPagar.update({
+      where: { id },
+      data: { paga: false, bancoPagamentoId: null, dataPagamento: null, postoPagamentoId: null },
+    }),
+  ]);
 
   revalidatePath(ROTA);
   revalidatePath("/contas-a-pagar");
   revalidatePath("/conferencia-diaria");
+  revalidatePath("/extratos/conciliacao");
 }

@@ -5,16 +5,20 @@ import { prisma } from "@/lib/prisma";
 // débito do extrato bancário (Sistema 1 — Conciliação de Extratos), ver
 // PROJETO_SISTEMA_FINANCEIRO.md, "Integração dos dois sistemas".
 //
-// Critério de match: mesmo Posto, mesmo Banco (bancoPagamento da despesa ==
-// banco do lançamento), mesmo valor (em módulo — despesa é sempre positiva,
-// débito do extrato é negativo) e mesma data de pagamento.
+// Critério de match: mesmo Posto PAGADOR, mesmo Banco (bancoPagamento da
+// despesa == banco do lançamento), mesmo valor (em módulo — despesa é sempre
+// positiva, débito do extrato é negativo) e mesma data de pagamento.
 //
-// Só vincula automaticamente quando há EXATAMENTE UM candidato dos dois
-// lados — ambíguo (duas despesas iguais no mesmo dia, por exemplo) ou sem
-// candidato nenhum fica de fora, pra revisão manual. Mesmo princípio
-// conservador do categorizer.ts: não adivinhar com risco de errar
-// silenciosamente (ver seção "Transf. entre contas" do PROJETO).
-
+// "Posto pagador" (ver ContaAPagar.postoPagamentoId) é o posto de quem o
+// dinheiro realmente saiu — normalmente igual ao posto dono da despesa
+// (`postoId`), mas nem sempre: um posto às vezes paga conta de outro (ex:
+// OLIVEIRA pagando despesa da SUL AMERICA). O LancamentoExtrato.postoId do
+// outro lado é SEMPRE o posto da conta bancária de verdade (é de lá que o
+// extrato foi importado), então o cruzamento tem que comparar com o posto
+// PAGADOR da despesa, nunca com o dono — usar postoId aqui faz o motor nunca
+// achar o lançamento certo (ele está no extrato de outro posto). `?? postoId`
+// cobre o caso comum (postoPagamentoId não preenchido = pago pelo próprio
+// posto da conta).
 function chave(postoId: string, bancoId: string, valorAbs: string, dataIso: string): string {
   return `${postoId}|${bancoId}|${valorAbs}|${dataIso}`;
 }
@@ -29,10 +33,20 @@ export async function rodarConciliacaoAutomatica(
         paga: true,
         lancamentoExtratoConciliado: null,
         bancoPagamentoId: { not: null },
-        ...(postoId ? { postoId } : {}),
+        // postoId aqui filtra pelo posto PAGADOR (ver comentário acima) —
+        // cobre tanto quem tem postoPagamentoId explícito quanto quem usa o
+        // próprio posto da conta (postoPagamentoId null).
+        ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
         ...(bancoId ? { bancoPagamentoId: bancoId } : {}),
       },
-      select: { id: true, postoId: true, bancoPagamentoId: true, valor: true, dataPagamento: true },
+      select: {
+        id: true,
+        postoId: true,
+        postoPagamentoId: true,
+        bancoPagamentoId: true,
+        valor: true,
+        dataPagamento: true,
+      },
     }),
     prisma.lancamentoExtrato.findMany({
       where: {
@@ -45,12 +59,14 @@ export async function rodarConciliacaoAutomatica(
     }),
   ]);
 
-  // Agrupa candidatos de cada lado pela mesma chave (posto+banco+valor+data)
-  // — só vira vínculo automático quando os dois lados têm exatamente 1.
+  // Agrupa candidatos de cada lado pela mesma chave (posto pagador+banco+
+  // valor+data) — só vira vínculo automático quando os dois lados têm
+  // exatamente 1.
   const despesasPorChave = new Map<string, typeof despesas>();
   for (const d of despesas) {
     if (!d.bancoPagamentoId || !d.dataPagamento) continue;
-    const k = chave(d.postoId, d.bancoPagamentoId, Number(d.valor).toFixed(2), d.dataPagamento.toISOString());
+    const postoPagador = d.postoPagamentoId ?? d.postoId;
+    const k = chave(postoPagador, d.bancoPagamentoId, Number(d.valor).toFixed(2), d.dataPagamento.toISOString());
     const lista = despesasPorChave.get(k) ?? [];
     lista.push(d);
     despesasPorChave.set(k, lista);
@@ -105,6 +121,9 @@ export type StatusConciliacaoGrupo = "CONCILIADO" | "DIVERGENTE" | "NAO_CONCILIA
 
 export type GrupoParaStatus = {
   chave: string;
+  // Posto PAGADOR do grupo (ver comentário no topo do arquivo) — quem chama
+  // essa função precisa já ter resolvido postoPagamentoId ?? postoId antes
+  // de montar o grupo, não o postoId (dono) direto.
   postoId: string;
   bancoId: string;
   data: Date;
@@ -353,10 +372,13 @@ export async function conferenciaTotalDiario(params: {
         // aqui também, o total do dia acusaria diferença falsa sempre que
         // teve combustível baixado (a extrato dele foi pra outra categoria).
         combustivel: false,
-        ...(postoId ? { postoId } : {}),
+        // postoId filtra pelo posto PAGADOR (mesmo motivo do comentário no
+        // topo do arquivo) — essa comparação é contra o extrato bancário
+        // real, que é sempre do posto de quem pagou.
+        ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
         ...(filtroData ? { dataPagamento: filtroData } : {}),
       },
-      select: { postoId: true, dataPagamento: true, valor: true },
+      select: { postoId: true, postoPagamentoId: true, dataPagamento: true, valor: true },
     }),
     prisma.lancamentoExtrato.findMany({
       where: {
@@ -396,7 +418,9 @@ export async function conferenciaTotalDiario(params: {
 
   for (const c of contasPagas) {
     if (!c.dataPagamento) continue;
-    acc(c.postoId, c.dataPagamento).totalContasPagas += Number(c.valor);
+    // Agrupa pelo posto PAGADOR, não pelo dono da despesa — ver comentário
+    // no topo do arquivo (ContaAPagar.postoPagamentoId).
+    acc(c.postoPagamentoId ?? c.postoId, c.dataPagamento).totalContasPagas += Number(c.valor);
   }
   // Soma com sinal (não Math.abs por linha, mesmo motivo de
   // statusConciliacaoPorGrupo acima) — um pagamento que saiu e voltou

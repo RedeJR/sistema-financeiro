@@ -20,6 +20,10 @@ model Posto {
   cnpj               String?
   ativo              Boolean             @default(true)
   contasAPagar       ContaAPagar[]
+  // Contas pagas onde ESSE posto foi quem realmente pagou (banco de conta
+  // dele), mesmo quando a despesa em si (`contasAPagar` acima) pertence a
+  // outro posto — ver ContaAPagar.postoPagamentoId.
+  contasPagasPorEste ContaAPagar[]       @relation("PostoPagamento")
   lancamentosExtrato LancamentoExtrato[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -275,6 +279,19 @@ model ContaAPagar {
   bancoPagamentoId String?
   bancoPagamento   Banco?    @relation(fields: [bancoPagamentoId], references: [id], onDelete: SetNull)
 
+  // Posto que efetivamente pagou (saiu do banco dele) — só preenchido quando
+  // é DIFERENTE do posto dono da despesa (`postoId` acima). Problema real
+  // encontrado pela usuária: um posto às vezes paga conta de outro (ex:
+  // OLIVEIRA pagando despesa que é da SUL AMERICA), e toda a conciliação
+  // bancária (ver src/lib/conciliacao.ts) cruza Contas a Pagar com o extrato
+  // batendo Posto+Banco+Valor+Data — sem esse campo, o cruzamento sempre
+  // assumia postoId como o posto do banco também, e nunca achava o
+  // lançamento certo (ele está no extrato de OUTRO posto). NULL = pago pelo
+  // próprio posto da conta (caso comum, sem preencher nada) — todo o motor
+  // de conciliação trata null como "= postoId" (ver `?? postoId` nos usos).
+  postoPagamentoId String?
+  postoPagamento   Posto?  @relation("PostoPagamento", fields: [postoPagamentoId], references: [id], onDelete: SetNull)
+
   // Lado reverso do vínculo de conciliação — ver LancamentoExtrato.contaAPagarId.
   lancamentoExtratoConciliado LancamentoExtrato?
 
@@ -314,6 +331,7 @@ model ContaAPagar {
 
   @@index([dataVencimento])
   @@index([postoId])
+  @@index([postoPagamentoId])
   @@index([grupoRecorrenciaId])
   @@map("contas_a_pagar")
 }

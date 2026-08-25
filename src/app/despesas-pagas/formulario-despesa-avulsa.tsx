@@ -91,6 +91,25 @@ export function FormularioDespesaAvulsa({ postos, fornecedores, grupos, bancos }
         />
       </div>
 
+      <div className="flex flex-col gap-1">
+        <label htmlFor="postoPagamentoId" className="text-sm font-medium text-foreground/80">
+          Pago pelo posto <span className="font-normal text-foreground/50">(só se for diferente do Posto acima)</span>
+        </label>
+        <select
+          id="postoPagamentoId"
+          name="postoPagamentoId"
+          defaultValue={v?.postoPagamentoId ?? ""}
+          className={campoSelect}
+        >
+          <option value="">Mesmo posto acima</option>
+          {postos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo label="Valor" name="valor" required defaultValue={v?.valor} placeholder="0,00" inputMode="decimal" />
         <Campo

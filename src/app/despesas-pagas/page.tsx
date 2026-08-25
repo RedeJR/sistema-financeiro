@@ -30,11 +30,18 @@ type GrupoDespesa = {
   despesas: Despesa[];
 };
 
-// Agrupa por dia + posto + banco — o mesmo agrupamento usado em /extratos,
-// pra decidir o status de conciliação em bloco (ver statusConciliacaoPorGrupo
-// em @/lib/conciliacao pro critério real, que é vínculo por despesa, não
-// soma do dia). Despesa sem banco de pagamento definido não dá pra comparar
-// com extrato nenhum, então fica num grupo à parte sem status.
+// Agrupa por dia + posto PAGADOR + banco — o mesmo agrupamento usado em
+// /extratos, pra decidir o status de conciliação em bloco (ver
+// statusConciliacaoPorGrupo em @/lib/conciliacao pro critério real, que é
+// vínculo por despesa, não soma do dia). Despesa sem banco de pagamento
+// definido não dá pra comparar com extrato nenhum, então fica num grupo à
+// parte sem status.
+//
+// "Posto pagador" (postoPagamentoId ?? postoId), não o dono da despesa —
+// o extrato bancário só existe do lado de quem realmente pagou (ex: OLIVEIRA
+// paga uma conta que é da SUL AMERICA — o grupo aparece em OLIVEIRA, é lá
+// que o débito realmente está no banco). O dono de cada despesa continua
+// visível na lista expandida do grupo (ver "Ver despesas do grupo" abaixo).
 function agruparPorDia(despesas: Despesa[]): GrupoDespesa[] {
   const grupos: GrupoDespesa[] = [];
   const porChave = new Map<string, GrupoDespesa>();
@@ -42,14 +49,15 @@ function agruparPorDia(despesas: Despesa[]): GrupoDespesa[] {
   for (const d of despesas) {
     if (!d.dataPagamento) continue;
     const bancoId = d.bancoPagamentoId;
-    const chave = `${d.dataPagamento.toISOString()}_${d.postoId}_${bancoId ?? "sem-banco"}`;
+    const postoPagadorId = d.postoPagamentoId ?? d.postoId;
+    const chave = `${d.dataPagamento.toISOString()}_${postoPagadorId}_${bancoId ?? "sem-banco"}`;
     let g = porChave.get(chave);
     if (!g) {
       g = {
         chave,
         data: d.dataPagamento,
-        postoId: d.postoId,
-        postoNome: d.posto.nome,
+        postoId: postoPagadorId,
+        postoNome: d.postoPagamento?.nome ?? d.posto.nome,
         bancoId,
         bancoNome: d.bancoPagamento?.nome ?? null,
         quantidade: 0,
@@ -105,6 +113,11 @@ export default async function DespesasPagasPage({
   // ainda apareceria como "não conciliado"/"divergente" até alguém visitar
   // /extratos/conciliacao. Exige permissão de editar em Extratos porque é lá
   // que o vínculo realmente mexe nos dados (ver rodarConciliacaoAutomatica).
+  // Nota: o filtro "Posto" dessa tela é sobre o DONO da despesa, mas dentro
+  // de rodarConciliacaoAutomatica esse mesmo valor filtra pelo posto
+  // PAGADOR (só um recorte de performance, não afeta o que já está pago —
+  // só atrasa um pouco a sugestão automática pra despesa paga por outro
+  // posto enquanto o filtro estiver ativo; sem filtro nenhum, roda tudo).
   if (podeEditarExtratos) {
     await rodarConciliacaoAutomatica(postoId || undefined, bancoId || undefined);
   }
@@ -352,6 +365,14 @@ export default async function DespesasPagasPage({
                         <span>
                           {c.fornecedor.nome}
                           <span className="text-foreground/60"> — {c.planoConta.grupo.nome} / {c.planoConta.nome}</span>
+                          {c.postoPagamentoId && c.postoPagamentoId !== c.postoId && (
+                            <span
+                              className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-400"
+                              title="O grupo acima é agrupado pelo posto que pagou; essa despesa em si é de outro posto."
+                            >
+                              despesa do posto {c.posto.nome}
+                            </span>
+                          )}
                           {c.avulsa && (
                             <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-400">
                               avulsa
