@@ -2,7 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissaoQualquer } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { buscarRelatorio, agruparPorVencimento, agruparPorPlanoConta, type FiltrosRelatorio } from "./consulta";
+import {
+  buscarRelatorio,
+  agruparPorVencimento,
+  agruparPorPlanoConta,
+  agruparPorPosto,
+  type FiltrosRelatorio,
+} from "./consulta";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function formatarData(d: Date): string {
@@ -22,7 +28,8 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const postoIdsSelecionados = paraArray(filtros.postoId);
   const fornecedorIdsSelecionados = paraArray(filtros.fornecedorId);
   const planoContaIdsSelecionados = paraArray(filtros.planoContaId);
-  const ordem = filtros.ordem === "planoConta" ? "planoConta" : "vencimento";
+  const ordem =
+    filtros.ordem === "planoConta" ? "planoConta" : filtros.ordem === "posto" ? "posto" : "vencimento";
 
   // Antes do primeiro "Filtrar" (sem "statusEnviado" na URL — link direto de
   // fora ou primeira visita), as duas caixas aparecem marcadas — é só
@@ -44,7 +51,12 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   ]);
 
   const total = linhas.reduce((soma, l) => soma + Number(l.valor), 0);
-  const grupos = ordem === "planoConta" ? agruparPorPlanoConta(linhas) : agruparPorVencimento(linhas);
+  const grupos =
+    ordem === "planoConta"
+      ? agruparPorPlanoConta(linhas)
+      : ordem === "posto"
+        ? agruparPorPosto(linhas)
+        : agruparPorVencimento(linhas);
 
   const temFiltro = Boolean(
     filtros.statusEnviado ||
@@ -89,6 +101,8 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
             <label htmlFor="postoId" className="text-foreground/60">
               Posto <span className="text-xs">(Ctrl/Cmd+clique pra mais de um)</span>
             </label>
+            {/* Filtra por quem PAGOU, não por dono da despesa — escolher a
+                OLIVEIRA traz também o que ela pagou pra outros postos. */}
             <select
               id="postoId"
               name="postoId"
@@ -103,6 +117,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                 </option>
               ))}
             </select>
+            <p className="max-w-[11rem] text-xs text-foreground/50">Filtra por quem pagou, não pelo dono da despesa.</p>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -187,6 +202,10 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                 <input type="radio" name="ordem" value="planoConta" defaultChecked={ordem === "planoConta"} />
                 Plano de contas (agrupa por conta)
               </label>
+              <label className="flex items-center gap-1.5">
+                <input type="radio" name="ordem" value="posto" defaultChecked={ordem === "posto"} />
+                Posto (agrupa por quem pagou)
+              </label>
             </div>
           </div>
 
@@ -224,7 +243,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                         bloco acima — não repete como coluna. */}
                     {ordem !== "vencimento" && <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>}
                     <th className="px-4 py-1.5 text-left font-medium">Situação</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Posto</th>
+                    {ordem !== "posto" && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
                     <th className="px-4 py-1.5 text-left font-medium">Fornecedor</th>
                     {ordem !== "planoConta" && (
                       <th className="px-4 py-1.5 text-left font-medium">Plano de contas</th>
@@ -234,8 +253,13 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                   </tr>
                 </thead>
                 <tbody>
-                  {g.linhas.map((l) => (
-                    <tr key={l.id} className="border-t border-black/5 dark:border-white/10">
+                  {g.linhas.map((l, i) => (
+                    <tr
+                      key={l.id}
+                      className={`border-t border-black/5 dark:border-white/10 ${
+                        i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""
+                      }`}
+                    >
                       {ordem !== "vencimento" && (
                         <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
                       )}
@@ -250,8 +274,23 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-1.5">{l.posto.nome}</td>
-                      <td className="px-4 py-1.5">{l.fornecedor.nome}</td>
+                      {ordem !== "posto" && (
+                        <td className="px-4 py-1.5">
+                          {(l.postoPagamento ?? l.posto).nome}
+                          {l.postoPagamentoId && (
+                            <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-4 py-1.5">
+                        {l.fornecedor.nome}
+                        {/* Nessa visão o cabeçalho do grupo já é quem pagou —
+                            só falta dizer de quem é a despesa quando for de
+                            outro posto. */}
+                        {ordem === "posto" && l.postoPagamentoId && (
+                          <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
+                        )}
+                      </td>
                       {ordem !== "planoConta" && (
                         <td className="px-4 py-1.5 text-foreground/70">
                           {l.planoConta.grupo.nome} / {l.planoConta.nome}
