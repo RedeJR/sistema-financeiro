@@ -90,13 +90,21 @@ export async function rodarConciliacaoAutomatica(
 
   if (vinculos.length === 0) return { novosVinculos: 0 };
 
+  // Timeout maior que o padrão (5s) — essa função roda a cada visita de
+  // /despesas-pagas e /extratos/conciliacao (ver chamadas nas duas páginas),
+  // e o volume de vínculos automáticos cresce junto com a base (bug real:
+  // depois de relançar um lote grande de contas da OLIVEIRA, a lista de
+  // vínculos passou de 5s pra gravar e a transação inteira estourava,
+  // derrubando as duas páginas com erro 500 — ninguém conseguia nem ver
+  // Despesas Pagas).
   await prisma.$transaction(
     vinculos.map((v) =>
       prisma.lancamentoExtrato.update({
         where: { id: v.lancamentoId },
         data: { contaAPagarId: v.despesaId },
       })
-    )
+    ),
+    { timeout: 60000, maxWait: 15000 }
   );
 
   return { novosVinculos: vinculos.length };
@@ -303,6 +311,9 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
 
   if (baixas.length === 0) return { novasBaixas: 0 };
 
+  // Mesmo motivo do timeout maior em rodarConciliacaoAutomatica acima — essa
+  // função também roda a cada visita de /extratos/conciliacao, e o volume de
+  // baixas automáticas cresce junto com a base.
   await prisma.$transaction(
     baixas.flatMap((b) => [
       prisma.contaAPagar.update({
@@ -313,7 +324,8 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
         where: { id: b.lancamentoId },
         data: { contaAPagarId: b.contaId },
       }),
-    ])
+    ]),
+    { timeout: 60000, maxWait: 15000 }
   );
 
   return { novasBaixas: baixas.length };
