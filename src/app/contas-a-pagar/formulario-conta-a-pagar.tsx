@@ -25,6 +25,10 @@ type Props = {
   // src/lib/sugestao-plano-conta.ts) — só some ao trocar de fornecedor num
   // lançamento NOVO (não mexe durante edição), e continua editável depois.
   sugestaoPlanoContaPorFornecedor?: Record<string, string>;
+  // URL da lista de onde a usuária veio (com o filtro que já tinha aplicado)
+  // — volta pra lá depois de salvar, em vez de cair na lista sem filtro
+  // nenhum. Ver actions.ts (criarContaAPagar/atualizarContaAPagar).
+  voltarPara?: string;
   modoEdicao?: boolean;
   valoresIniciais?: {
     postoId: string;
@@ -52,6 +56,7 @@ export function FormularioContaAPagar({
   fornecedores: fornecedoresIniciais,
   grupos,
   sugestaoPlanoContaPorFornecedor = {},
+  voltarPara,
   modoEdicao = false,
   valoresIniciais,
 }: Props) {
@@ -146,6 +151,7 @@ export function FormularioContaAPagar({
 
   return (
     <form key={formKey} action={formAction} className="max-w-2xl space-y-4">
+      {voltarPara && <input type="hidden" name="voltarPara" value={voltarPara} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-sm font-medium text-foreground/80">
@@ -376,7 +382,7 @@ export function FormularioContaAPagar({
       <div className="flex gap-2">
         <SubmitButton>Salvar</SubmitButton>
         <Link
-          href="/contas-a-pagar"
+          href={voltarPara || "/contas-a-pagar"}
           className="rounded-md px-4 py-2 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
         >
           Cancelar

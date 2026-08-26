@@ -3,8 +3,13 @@ import { exigirPermissao } from "@/lib/auth";
 import { sugestaoPlanoContaPorFornecedor } from "@/lib/sugestao-plano-conta";
 import { FormularioDespesaAvulsa } from "../formulario-despesa-avulsa";
 
-export default async function NovaDespesaAvulsaPage() {
+export default async function NovaDespesaAvulsaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ voltarPara?: string }>;
+}) {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
+  const { voltarPara } = await searchParams;
 
   const [postos, fornecedores, grupos, bancos, sugestaoPlanoConta] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -38,6 +43,7 @@ export default async function NovaDespesaAvulsaPage() {
           grupos={grupos}
           bancos={bancos}
           sugestaoPlanoContaPorFornecedor={sugestaoPlanoConta}
+          voltarPara={voltarPara}
         />
       )}
     </div>

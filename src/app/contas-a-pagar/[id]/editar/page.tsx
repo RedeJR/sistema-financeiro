@@ -10,14 +10,17 @@ function paraDataInput(d: Date): string {
 
 export default async function EditarContaAPagarPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ voltarPara?: string }>;
 }) {
   // Alcançável tanto pelo Contas a Pagar quanto pelo botão "Editar" da
   // Conferência Diária — ver exigirPermissaoQualquer em @/lib/auth.
   await exigirPermissaoQualquer(["CONTAS_A_PAGAR", "CONFERENCIA_DIARIA"], "editar");
 
   const { id } = await params;
+  const { voltarPara } = await searchParams;
   const [conta, postos, fornecedores, grupos] = await Promise.all([
     prisma.contaAPagar.findUnique({ where: { id } }),
     // Busca todos (não só ativos) pra não perder a referência se algo foi
@@ -58,6 +61,7 @@ export default async function EditarContaAPagarPage({
         postos={postos}
         fornecedores={fornecedores}
         grupos={grupos}
+        voltarPara={voltarPara}
         valoresIniciais={{
           postoId: conta.postoId,
           fornecedorId: conta.fornecedorId,

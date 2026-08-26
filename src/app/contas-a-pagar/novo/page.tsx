@@ -4,8 +4,13 @@ import { sugestaoPlanoContaPorFornecedor } from "@/lib/sugestao-plano-conta";
 import { FormularioContaAPagar } from "../formulario-conta-a-pagar";
 import { criarContaAPagar } from "../actions";
 
-export default async function NovaContaAPagarPage() {
+export default async function NovaContaAPagarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ voltarPara?: string }>;
+}) {
   await exigirPermissao("CONTAS_A_PAGAR", "editar");
+  const { voltarPara } = await searchParams;
 
   const [postos, fornecedores, grupos, sugestaoPlanoConta] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -36,6 +41,7 @@ export default async function NovaContaAPagarPage() {
           fornecedores={fornecedores}
           grupos={grupos}
           sugestaoPlanoContaPorFornecedor={sugestaoPlanoConta}
+          voltarPara={voltarPara}
           valoresIniciais={{
             postoId: "",
             fornecedorId: "",

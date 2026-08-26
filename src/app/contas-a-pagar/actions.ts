@@ -220,7 +220,16 @@ export async function criarContaAPagar(
   }
 
   revalidatePath(ROTA);
-  redirect(ROTA);
+  redirect(destinoAposSalvar(formData));
+}
+
+// Volta pro filtro que já estava aplicado na lista de onde a usuária veio
+// (ver campo oculto "voltarPara" em formulario-conta-a-pagar.tsx), em vez de
+// cair sempre na lista sem filtro nenhum — pedido dela, dava retrabalho de
+// filtrar de novo toda vez que lançava ou editava uma conta.
+function destinoAposSalvar(formData: FormData): string {
+  const voltarPara = formData.get("voltarPara");
+  return typeof voltarPara === "string" && voltarPara ? voltarPara : ROTA;
 }
 
 export async function atualizarContaAPagar(
@@ -280,7 +289,7 @@ export async function atualizarContaAPagar(
   }
 
   revalidatePath(ROTA);
-  redirect(ROTA);
+  redirect(destinoAposSalvar(formData));
 }
 
 export async function excluirContaAPagar(formData: FormData) {

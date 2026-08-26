@@ -150,6 +150,9 @@ export default async function DespesasPagasPage({
   const qs = new URLSearchParams(
     Object.entries(filtros).filter(([, v]) => v) as [string, string][]
   ).toString();
+  // Pra "+ Despesa avulsa" voltar pro filtro atual depois de salvar, em vez
+  // de cair na lista sem filtro nenhum (pedido da usuária).
+  const qsVoltarPara = `voltarPara=${encodeURIComponent(`/despesas-pagas${qs ? `?${qs}` : ""}`)}`;
 
   // Relatório unificado (ver /relatorios) — chega de lá já filtrado só pra
   // Pagas (esse módulo), carregando posto/fornecedor/plano de contas que já
@@ -194,7 +197,7 @@ export default async function DespesasPagasPage({
         <h1 className="text-2xl font-semibold">Despesas Pagas</h1>
         {podeEditar && (
           <Link
-            href="/despesas-pagas/nova"
+            href={`/despesas-pagas/nova?${qsVoltarPara}`}
             className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
           >
             + Despesa avulsa

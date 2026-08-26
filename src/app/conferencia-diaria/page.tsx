@@ -50,6 +50,19 @@ export default async function ConferenciaDiariaPage({
   const { postoId, fornecedorId, planoContaId, de, ate, q, erro } = await searchParams;
   const busca = q?.trim();
   const hoje = hojeUTC();
+
+  // "voltarPara" no link Editar: sem isso, editar uma conta daqui (o
+  // formulário é compartilhado com Contas a Pagar) voltava pra Contas a
+  // Pagar sem filtro nenhum em vez de voltar pra cá, com o filtro que já
+  // estava aplicado. Ver contas-a-pagar/actions.ts.
+  const qsAtual = new URLSearchParams(
+    Object.entries({ postoId, fornecedorId, planoContaId, de, ate, q: busca }).filter(([, v]) => v) as [
+      string,
+      string
+    ][]
+  ).toString();
+  const urlAtual = `/conferencia-diaria${qsAtual ? `?${qsAtual}` : ""}`;
+  const qsVoltarPara = `voltarPara=${encodeURIComponent(urlAtual)}`;
   // Só duas datas: inicial (opcional — sem ela, pega tudo que já venceu até
   // a final) e final (obrigatória na prática, default hoje). Sem "de" e sem
   // mexer em "ate", o resultado é igual ao antigo padrão "hoje + tudo
@@ -348,7 +361,7 @@ export default async function ConferenciaDiariaPage({
                   {podeEditar && (
                     <td className="px-4 py-2 text-right">
                       <Link
-                        href={`/contas-a-pagar/${c.id}/editar`}
+                        href={`/contas-a-pagar/${c.id}/editar?${qsVoltarPara}`}
                         className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
                       >
                         Editar

@@ -112,6 +112,16 @@ export default async function ContasAPagarPage({
   if (ate) qsRelatorio.set("ate", ate);
   const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
 
+  // "voltarPara": pra depois de criar ou editar uma conta, voltar exatamente
+  // pro filtro que já estava aplicado aqui, em vez de cair na lista inteira
+  // sem filtro nenhum (pedido da usuária — dava retrabalho de filtrar de
+  // novo toda vez). Ver formulario-conta-a-pagar.tsx e actions.ts.
+  const qsAtual = new URLSearchParams(
+    Object.entries({ postoId, status, de, ate, q }).filter(([, v]) => v) as [string, string][]
+  ).toString();
+  const urlAtual = `/contas-a-pagar${qsAtual ? `?${qsAtual}` : ""}`;
+  const qsVoltarPara = `voltarPara=${encodeURIComponent(urlAtual)}`;
+
   return (
     <div className="space-y-4">
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
@@ -127,7 +137,7 @@ export default async function ContasAPagarPage({
           </Link>
           {podeEditar && (
             <Link
-              href="/contas-a-pagar/novo"
+              href={`/contas-a-pagar/novo?${qsVoltarPara}`}
               className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
             >
               + Nova conta
@@ -290,7 +300,7 @@ export default async function ContasAPagarPage({
                   <td className="px-4 py-2">
                     <div className="flex items-center justify-end gap-1">
                       <Link
-                        href={`/contas-a-pagar/${c.id}/editar`}
+                        href={`/contas-a-pagar/${c.id}/editar?${qsVoltarPara}`}
                         className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
                       >
                         Editar

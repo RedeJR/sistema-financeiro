@@ -107,7 +107,11 @@ export async function criarDespesaAvulsa(
 
   revalidatePath(ROTA);
   revalidatePath("/contas-a-pagar");
-  redirect(ROTA);
+  // Volta pro filtro que já estava aplicado na lista (ver campo oculto
+  // "voltarPara" em formulario-despesa-avulsa.tsx) — pedido da usuária, sem
+  // isso caía sempre na lista sem filtro nenhum.
+  const voltarPara = formData.get("voltarPara");
+  redirect(typeof voltarPara === "string" && voltarPara ? voltarPara : ROTA);
 }
 
 // Desfaz o pagamento — volta a conta pro estado "a pagar", liberando edição

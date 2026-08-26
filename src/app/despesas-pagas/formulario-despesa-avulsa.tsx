@@ -23,6 +23,9 @@ type Props = {
   // src/lib/sugestao-plano-conta.ts e o mesmo mecanismo em
   // formulario-conta-a-pagar.tsx.
   sugestaoPlanoContaPorFornecedor?: Record<string, string>;
+  // URL da lista de onde a usuária veio, com o filtro aplicado — volta pra
+  // lá depois de salvar. Ver actions.ts (criarDespesaAvulsa).
+  voltarPara?: string;
 };
 
 const campoSelect =
@@ -34,6 +37,7 @@ export function FormularioDespesaAvulsa({
   grupos,
   bancos,
   sugestaoPlanoContaPorFornecedor = {},
+  voltarPara,
 }: Props) {
   const [state, formAction] = useActionState<ActionState, FormData>(criarDespesaAvulsa, null);
   const formKey = useFormKey(state);
@@ -54,6 +58,7 @@ export function FormularioDespesaAvulsa({
 
   return (
     <form key={formKey} action={formAction} className="max-w-2xl space-y-4">
+      {voltarPara && <input type="hidden" name="voltarPara" value={voltarPara} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-sm font-medium text-foreground/80">
@@ -159,7 +164,7 @@ export function FormularioDespesaAvulsa({
       <div className="flex gap-2">
         <SubmitButton>Salvar</SubmitButton>
         <Link
-          href="/despesas-pagas"
+          href={voltarPara || "/despesas-pagas"}
           className="rounded-md px-4 py-2 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
         >
           Cancelar
