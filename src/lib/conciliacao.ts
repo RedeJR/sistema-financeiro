@@ -464,3 +464,166 @@ export async function conferenciaTotalDiario(params: {
   linhas.sort((x, y) => y.data.getTime() - x.data.getTime() || x.postoNome.localeCompare(y.postoNome));
   return linhas;
 }
+
+// ---------------------------------------------------------------------------
+// Painel de conciliação (dashboard da home): uma linha por posto, com uma
+// "faixa" dia a dia do período — pedido da usuária foi bem específico: não é
+// o VALOR que importa aqui, é "bater o olho e falar: o extrato desse posto
+// tá sem conciliar desde tal dia". Por isso enumera TODO dia do período
+// (mesmo sem nenhum dado dos dois lados), em vez de só os dias com
+// movimento — um buraco na faixa é exatamente o sinal que ela quer ver.
+//
+// Mesma base de comparação de conferenciaTotalDiario (despesas pagas x
+// extrato categorizado "Despesas Pagas", por posto PAGADOR) — só que aqui
+// também aceita filtrar por banco (uma conta bancária específica de um
+// posto que tenha mais de uma), e devolve o dia a dia em vez do total do
+// período.
+export type StatusCelulaDia = "sem-atividade" | "falta-extrato" | "falta-despesa" | "conciliado" | "divergente";
+
+export type CelulaDiaria = {
+  data: Date;
+  despesaTotal: number;
+  extratoTotal: number;
+  status: StatusCelulaDia;
+};
+
+export type LinhaStatusPosto = {
+  postoId: string;
+  postoNome: string;
+  celulas: CelulaDiaria[];
+  totalDespesa: number;
+  totalExtrato: number;
+  diasComProblema: number; // falta-extrato + falta-despesa + divergente
+  ultimoDiaComExtrato: Date | null; // último dia do período com extrato categorizado — base pro aviso "sem conciliar desde"
+};
+
+function classificarCelula(despesa: number, extrato: number): StatusCelulaDia {
+  const temDespesa = despesa > 0.005;
+  const temExtrato = extrato > 0.005;
+  if (!temDespesa && !temExtrato) return "sem-atividade";
+  if (temDespesa && !temExtrato) return "falta-extrato";
+  if (!temDespesa && temExtrato) return "falta-despesa";
+  return Math.abs(despesa - extrato) < 0.01 ? "conciliado" : "divergente";
+}
+
+export async function statusDiarioPorPosto(params: {
+  postoId?: string;
+  bancoId?: string;
+  de: string; // "YYYY-MM-DD"
+  ate: string;
+}): Promise<LinhaStatusPosto[]> {
+  const { postoId, bancoId, de, ate } = params;
+
+  const categoriaDespesasPagas = await prisma.categoriaExtrato.findUnique({
+    where: { nome: "DESPESAS PAGAS" },
+  });
+  if (!categoriaDespesasPagas) return [];
+
+  const dataUTC = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+  const dataInicio = dataUTC(de);
+  const dataFim = dataUTC(ate);
+  const filtroData = { gte: dataInicio, lte: dataFim };
+
+  const [contasPagas, lancamentosDireto, divisoes, postos] = await Promise.all([
+    prisma.contaAPagar.findMany({
+      where: {
+        paga: true,
+        combustivel: false,
+        ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
+        ...(bancoId ? { bancoPagamentoId: bancoId } : {}),
+        dataPagamento: filtroData,
+      },
+      select: { postoId: true, postoPagamentoId: true, dataPagamento: true, valor: true },
+    }),
+    prisma.lancamentoExtrato.findMany({
+      where: {
+        categoriaId: categoriaDespesasPagas.id,
+        ...(postoId ? { postoId } : {}),
+        ...(bancoId ? { bancoId } : {}),
+        data: filtroData,
+      },
+      select: { postoId: true, data: true, valor: true },
+    }),
+    prisma.lancamentoExtratoDivisao.findMany({
+      where: {
+        categoriaId: categoriaDespesasPagas.id,
+        lancamentoExtrato: {
+          ...(postoId ? { postoId } : {}),
+          ...(bancoId ? { bancoId } : {}),
+          data: filtroData,
+        },
+      },
+      select: { valor: true, lancamentoExtrato: { select: { postoId: true, data: true } } },
+    }),
+    prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+  ]);
+
+  type Acumulado = { despesa: number; extrato: number };
+  const porChave = new Map<string, Acumulado>();
+  const chave = (pId: string, data: Date) => `${pId}|${data.toISOString().slice(0, 10)}`;
+  function acc(pId: string, data: Date): Acumulado {
+    const k = chave(pId, data);
+    let a = porChave.get(k);
+    if (!a) {
+      a = { despesa: 0, extrato: 0 };
+      porChave.set(k, a);
+    }
+    return a;
+  }
+
+  for (const c of contasPagas) {
+    if (!c.dataPagamento) continue;
+    acc(c.postoPagamentoId ?? c.postoId, c.dataPagamento).despesa += Number(c.valor);
+  }
+  for (const l of lancamentosDireto) {
+    acc(l.postoId, l.data).extrato += Number(l.valor);
+  }
+  for (const d of divisoes) {
+    acc(d.lancamentoExtrato.postoId, d.lancamentoExtrato.data).extrato += Number(d.valor);
+  }
+
+  // Todo dia do período, na ordem — inclusive os sem nenhum dado, é o que
+  // desenha o "buraco" na faixa.
+  const dias: Date[] = [];
+  for (let t = dataInicio.getTime(); t <= dataFim.getTime(); t += 86400000) {
+    dias.push(new Date(t));
+  }
+
+  const postosRelevantes = postoId ? postos.filter((p) => p.id === postoId) : postos;
+
+  const linhas: LinhaStatusPosto[] = postosRelevantes
+    .map((p) => {
+      let totalDespesa = 0;
+      let totalExtrato = 0;
+      let diasComProblema = 0;
+      let ultimoDiaComExtrato: Date | null = null;
+
+      const celulas: CelulaDiaria[] = dias.map((dia) => {
+        const a = porChave.get(chave(p.id, dia));
+        const despesa = a?.despesa ?? 0;
+        const extrato = Math.abs(a?.extrato ?? 0);
+        totalDespesa += despesa;
+        totalExtrato += extrato;
+        const status = classificarCelula(despesa, extrato);
+        if (status === "falta-extrato" || status === "falta-despesa" || status === "divergente") diasComProblema++;
+        if (extrato > 0.005) ultimoDiaComExtrato = dia;
+        return { data: dia, despesaTotal: despesa, extratoTotal: extrato, status };
+      });
+
+      return {
+        postoId: p.id,
+        postoNome: p.nome,
+        celulas,
+        totalDespesa,
+        totalExtrato,
+        diasComProblema,
+        ultimoDiaComExtrato,
+      };
+    })
+    // Só mostra posto com alguma atividade no período (senão a lista fica
+    // cheia de linha em branco de posto que nem opera nesse intervalo).
+    .filter((l) => l.totalDespesa > 0 || l.totalExtrato > 0)
+    .sort((a, b) => b.diasComProblema - a.diasComProblema || b.totalDespesa - a.totalDespesa);
+
+  return linhas;
+}
