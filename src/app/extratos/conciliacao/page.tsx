@@ -116,6 +116,16 @@ export default async function ConciliacaoPage({
           </Link>
           <h1 className="text-2xl font-semibold">Conciliação automática</h1>
         </div>
+        {/* Essa tela só liga/desliga despesa x lançamento — pra corrigir o
+            lançamento em si (categoria, posto, banco, ou excluir), é em
+            /extratos/editar. Link com o mesmo filtro aplicado aqui pra não
+            ter que escolher tudo de novo. */}
+        <Link
+          href={`/extratos/editar${qs ? `?${qs}` : ""}`}
+          className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+        >
+          Editar lançamentos deste filtro →
+        </Link>
       </div>
       <p className="text-sm text-foreground/60">
         Cruza as despesas marcadas como pagas com os débitos do extrato bancário — mesmo Posto, Banco,
