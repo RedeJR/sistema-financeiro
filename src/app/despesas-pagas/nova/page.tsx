@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
+import { sugestaoPlanoContaPorFornecedor } from "@/lib/sugestao-plano-conta";
 import { FormularioDespesaAvulsa } from "../formulario-despesa-avulsa";
 
 export default async function NovaDespesaAvulsaPage() {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
 
-  const [postos, fornecedores, grupos, bancos] = await Promise.all([
+  const [postos, fornecedores, grupos, bancos, sugestaoPlanoConta] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.grupoPlanoConta.findMany({
@@ -14,6 +15,7 @@ export default async function NovaDespesaAvulsaPage() {
       include: { contas: { where: { ativo: true }, orderBy: { nome: "asc" } } },
     }),
     prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+    sugestaoPlanoContaPorFornecedor(),
   ]);
 
   return (
@@ -30,7 +32,13 @@ export default async function NovaDespesaAvulsaPage() {
           Cadastros).
         </p>
       ) : (
-        <FormularioDespesaAvulsa postos={postos} fornecedores={fornecedores} grupos={grupos} bancos={bancos} />
+        <FormularioDespesaAvulsa
+          postos={postos}
+          fornecedores={fornecedores}
+          grupos={grupos}
+          bancos={bancos}
+          sugestaoPlanoContaPorFornecedor={sugestaoPlanoConta}
+        />
       )}
     </div>
   );

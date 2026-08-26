@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Campo } from "@/components/ui/campo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
@@ -19,15 +19,38 @@ type Props = {
   fornecedores: Opcao[];
   grupos: GrupoComContas[];
   bancos: Opcao[];
+  // fornecedorId -> planoContaId mais usado historicamente por ele — ver
+  // src/lib/sugestao-plano-conta.ts e o mesmo mecanismo em
+  // formulario-conta-a-pagar.tsx.
+  sugestaoPlanoContaPorFornecedor?: Record<string, string>;
 };
 
 const campoSelect =
   "rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/40 dark:border-white/20";
 
-export function FormularioDespesaAvulsa({ postos, fornecedores, grupos, bancos }: Props) {
+export function FormularioDespesaAvulsa({
+  postos,
+  fornecedores,
+  grupos,
+  bancos,
+  sugestaoPlanoContaPorFornecedor = {},
+}: Props) {
   const [state, formAction] = useActionState<ActionState, FormData>(criarDespesaAvulsa, null);
   const formKey = useFormKey(state);
   const v = state?.values;
+
+  // Sugestão de plano de contas ao trocar de fornecedor (despesa avulsa
+  // nasce sempre "nova", sem modo edição) — mesmo mecanismo do formulário de
+  // Contas a Pagar: só atualiza quando existe sugestão de verdade, pra não
+  // apagar uma escolha manual ao trocar pra um fornecedor sem histórico.
+  const [fornecedorSelecionado, setFornecedorSelecionado] = useState(v?.fornecedorId ?? "");
+  const [planoContaSugerido, setPlanoContaSugerido] = useState<string | undefined>(undefined);
+
+  function aoMudarFornecedor(novoFornecedorId: string) {
+    setFornecedorSelecionado(novoFornecedorId);
+    const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
+    if (sugestao) setPlanoContaSugerido(sugestao);
+  }
 
   return (
     <form key={formKey} action={formAction} className="max-w-2xl space-y-4">
@@ -51,7 +74,14 @@ export function FormularioDespesaAvulsa({ postos, fornecedores, grupos, bancos }
           <label htmlFor="fornecedorId" className="text-sm font-medium text-foreground/80">
             Fornecedor
           </label>
-          <select id="fornecedorId" name="fornecedorId" defaultValue={v?.fornecedorId ?? ""} className={campoSelect} required>
+          <select
+            id="fornecedorId"
+            name="fornecedorId"
+            value={fornecedorSelecionado}
+            onChange={(e) => aoMudarFornecedor(e.target.value)}
+            className={campoSelect}
+            required
+          >
             <option value="" disabled>
               Escolha um fornecedor
             </option>
@@ -64,7 +94,11 @@ export function FormularioDespesaAvulsa({ postos, fornecedores, grupos, bancos }
         </div>
       </div>
 
-      <SeletorPlanoConta grupos={grupos} valorInicial={v?.planoContaId} />
+      <SeletorPlanoConta
+        key={planoContaSugerido ?? "sem-sugestao"}
+        grupos={grupos}
+        valorInicial={planoContaSugerido ?? v?.planoContaId}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">

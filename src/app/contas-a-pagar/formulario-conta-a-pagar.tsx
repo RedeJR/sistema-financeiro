@@ -21,6 +21,10 @@ type Props = {
   postos: Opcao[];
   fornecedores: Opcao[];
   grupos: GrupoComContas[];
+  // fornecedorId -> planoContaId mais usado historicamente por ele (ver
+  // src/lib/sugestao-plano-conta.ts) — só some ao trocar de fornecedor num
+  // lançamento NOVO (não mexe durante edição), e continua editável depois.
+  sugestaoPlanoContaPorFornecedor?: Record<string, string>;
   modoEdicao?: boolean;
   valoresIniciais?: {
     postoId: string;
@@ -47,6 +51,7 @@ export function FormularioContaAPagar({
   postos,
   fornecedores: fornecedoresIniciais,
   grupos,
+  sugestaoPlanoContaPorFornecedor = {},
   modoEdicao = false,
   valoresIniciais,
 }: Props) {
@@ -57,6 +62,20 @@ export function FormularioContaAPagar({
   // Fornecedor: lista local + cadastro rápido sem sair da tela.
   const [fornecedores, setFornecedores] = useState(fornecedoresIniciais);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState(v?.fornecedorId ?? "");
+  // Sugestão de plano de contas ao trocar de fornecedor — só em lançamento
+  // novo (ver comentário no tipo Props). undefined = "sem sugestão pra esse
+  // fornecedor" ou "ainda não mexeu no campo", os dois tratados igual: não
+  // força nada, deixa o valor atual do SeletorPlanoConta como está.
+  const [planoContaSugerido, setPlanoContaSugerido] = useState<string | undefined>(undefined);
+
+  function aoMudarFornecedor(novoFornecedorId: string) {
+    setFornecedorSelecionado(novoFornecedorId);
+    // Só atualiza (e força remontar o SeletorPlanoConta) quando existe
+    // sugestão de verdade pro fornecedor novo — fornecedor sem histórico
+    // não mexe no que já estava selecionado, nem limpa nada.
+    const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
+    if (!modoEdicao && sugestao) setPlanoContaSugerido(sugestao);
+  }
   const [mostrarNovoFornecedor, setMostrarNovoFornecedor] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [novoDocumento, setNovoDocumento] = useState("");
@@ -161,7 +180,7 @@ export function FormularioContaAPagar({
             id="fornecedorId"
             name="fornecedorId"
             value={fornecedorSelecionado}
-            onChange={(e) => setFornecedorSelecionado(e.target.value)}
+            onChange={(e) => aoMudarFornecedor(e.target.value)}
             className={campoSelect}
             required
           >
@@ -202,7 +221,15 @@ export function FormularioContaAPagar({
         </div>
       </div>
 
-      <SeletorPlanoConta grupos={grupos} valorInicial={v?.planoContaId} />
+      {/* key força remontar (e reaplicar valorInicial) só quando a sugestão
+          muda de verdade — trocar pra um fornecedor sem sugestão, ou pro
+          mesmo plano de contas sugerido, não mexe no que já estava
+          selecionado. */}
+      <SeletorPlanoConta
+        key={planoContaSugerido ?? "sem-sugestao"}
+        grupos={grupos}
+        valorInicial={planoContaSugerido ?? v?.planoContaId}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo
