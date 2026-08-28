@@ -47,6 +47,19 @@ type Props = {
 const campoSelect =
   "rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/40 dark:border-white/20";
 
+// Índice igual ao de Date.getUTCDay() (0 = domingo ... 6 = sábado) — é o
+// mesmo valor gravado em ContaAPagar.diasSemanaRecorrencia, ver
+// recorrencia.ts.
+const DIAS_SEMANA = [
+  { valor: 0, rotulo: "Dom" },
+  { valor: 1, rotulo: "Seg" },
+  { valor: 2, rotulo: "Ter" },
+  { valor: 3, rotulo: "Qua" },
+  { valor: 4, rotulo: "Qui" },
+  { valor: 5, rotulo: "Sex" },
+  { valor: 6, rotulo: "Sáb" },
+];
+
 function paraDataInput(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -105,12 +118,31 @@ export function FormularioContaAPagar({
   }
 
   // Parcelamento / recorrência (só no lançamento, não na edição de uma linha
-  // já existente).
-  const [recorrente, setRecorrente] = useState(false);
+  // já existente). Mensal, Semanal e Parcelado são mutuamente exclusivos —
+  // cada checkbox desabilita os outros em vez de deixar marcar uma
+  // combinação inválida e só avisar depois de tentar salvar (o servidor
+  // ainda valida de novo, ver criarContaAPagar em actions.ts).
+  const [frequencia, setFrequencia] = useState<"" | "MENSAL" | "SEMANAL">("");
+  const [diasSemana, setDiasSemana] = useState<number[]>([]);
+  const [parcelado, setParcelado] = useState(false);
   const [numeroParcelas, setNumeroParcelas] = useState(1);
   const [vencimentoSeed, setVencimentoSeed] = useState(v?.dataVencimento ?? "");
   const [valorSeed, setValorSeed] = useState(v?.valor ?? "");
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
+
+  function alternarFrequencia(valor: "MENSAL" | "SEMANAL") {
+    setFrequencia((atual) => (atual === valor ? "" : valor));
+  }
+
+  function alternarDiaSemana(dia: number) {
+    setDiasSemana((atual) => (atual.includes(dia) ? atual.filter((d) => d !== dia) : [...atual, dia].sort()));
+  }
+
+  function alternarParcelado() {
+    const novo = !parcelado;
+    setParcelado(novo);
+    setNumeroParcelas(novo ? Math.max(2, numeroParcelas) : 1);
+  }
 
   function regenerarParcelas(n: number) {
     if (!vencimentoSeed) return;
@@ -148,7 +180,7 @@ export function FormularioContaAPagar({
     setParcelas((atual) => atual.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
   }
 
-  const mostrarGradeParcelas = !modoEdicao && !recorrente && numeroParcelas > 1;
+  const mostrarGradeParcelas = !modoEdicao && parcelado && numeroParcelas > 1;
 
   return (
     <form key={formKey} action={formAction} className="max-w-2xl space-y-4">
@@ -289,31 +321,89 @@ export function FormularioContaAPagar({
       </div>
 
       {!modoEdicao && (
-        <div className="space-y-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
-          <div className="flex items-center gap-2">
-            <input
-              id="recorrente"
-              type="checkbox"
-              name="recorrente"
-              checked={recorrente}
-              onChange={(e) => setRecorrente(e.target.checked)}
-            />
-            <label htmlFor="recorrente" className="text-sm">
-              Despesa mensal recorrente (o sistema relança automaticamente, com previsão até o fim do ano)
-            </label>
-          </div>
+        <div className="space-y-4 rounded-lg border border-black/10 p-4 dark:border-white/15">
+          <input type="hidden" name="frequenciaRecorrencia" value={frequencia} />
+          {diasSemana.map((dia) => (
+            <input key={dia} type="hidden" name="diasSemana" value={dia} />
+          ))}
 
-          {!recorrente && (
-            <Campo
-              label="Número de parcelas"
-              name="numeroParcelas"
-              type="number"
-              value={numeroParcelas}
-              onChange={(e) => setNumeroParcelas(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
-              min={1}
-              max={60}
-            />
-          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground/80">Recorrência</p>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="freqMensal"
+                  type="checkbox"
+                  checked={frequencia === "MENSAL"}
+                  disabled={parcelado}
+                  onChange={() => alternarFrequencia("MENSAL")}
+                />
+                <label htmlFor="freqMensal" className="text-sm">
+                  Mensal <span className="text-foreground/50">(relança todo mês, até o fim do ano)</span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="freqSemanal"
+                  type="checkbox"
+                  checked={frequencia === "SEMANAL"}
+                  disabled={parcelado}
+                  onChange={() => alternarFrequencia("SEMANAL")}
+                />
+                <label htmlFor="freqSemanal" className="text-sm">
+                  Semanal
+                </label>
+              </div>
+
+              {frequencia === "SEMANAL" && (
+                <div className="ml-6 flex flex-wrap gap-2 rounded-md border border-black/10 p-2 dark:border-white/15">
+                  {DIAS_SEMANA.map((dia) => (
+                    <label
+                      key={dia.valor}
+                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs has-checked:bg-foreground has-checked:text-background"
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={diasSemana.includes(dia.valor)}
+                        onChange={() => alternarDiaSemana(dia.valor)}
+                      />
+                      {dia.rotulo}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  id="parcelado"
+                  type="checkbox"
+                  checked={parcelado}
+                  disabled={frequencia !== ""}
+                  onChange={alternarParcelado}
+                />
+                <label htmlFor="parcelado" className="text-sm font-medium text-foreground/80">
+                  Parcelado
+                </label>
+              </div>
+
+              {parcelado && (
+                <Campo
+                  label="Número de parcelas"
+                  name="numeroParcelas"
+                  type="number"
+                  value={numeroParcelas}
+                  onChange={(e) => setNumeroParcelas(Math.max(2, Math.min(60, Number(e.target.value) || 2)))}
+                  min={2}
+                  max={60}
+                />
+              )}
+            </div>
+          </div>
 
           {mostrarGradeParcelas && (
             <div className="space-y-2">
@@ -371,10 +461,10 @@ export function FormularioContaAPagar({
           )}
 
           <p className="text-xs text-foreground/50">
-            Parcelamento gera todas as parcelas de uma vez, já com vencimento
-            sugerido no mesmo dia dos meses seguintes — dá pra ajustar cada
-            uma antes de salvar. Não dá pra marcar parcelamento e recorrência
-            ao mesmo tempo.
+            Recorrência e parcelamento são exclusivos — marcar um desmarca a
+            possibilidade do outro. Parcelado gera todas as parcelas de uma
+            vez, já com vencimento sugerido no mesmo dia dos meses seguintes
+            — dá pra ajustar cada uma antes de salvar.
           </p>
         </div>
       )}

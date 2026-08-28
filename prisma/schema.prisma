@@ -252,10 +252,15 @@ model PlanoConta {
 // "Status" (a vencer/vencida/paga) NÃO é campo gravado — é calculado na hora
 // (paga vem do campo `paga`; vencida/a vencer compara `dataVencimento` com
 // hoje). Parcelamento gera N linhas de uma vez, ligadas por
-// `grupoParcelamentoId`, cada uma editável depois. Recorrência mensal usa
-// `grupoRecorrenciaId` pra ligar as ocorrências já geradas — uma nova
-// ocorrência do mês corrente é gerada sob demanda (ver aba2/actions.ts) toda
-// vez que a tela é aberta, não por um job agendado.
+// `grupoParcelamentoId`, cada uma editável depois. Recorrência (mensal ou
+// semanal) usa `grupoRecorrenciaId` pra ligar as ocorrências já geradas —
+// uma nova ocorrência é gerada sob demanda (ver recorrencia.ts) toda vez que
+// a tela é aberta, não por um job agendado.
+enum FrequenciaRecorrencia {
+  MENSAL
+  SEMANAL
+}
+
 model ContaAPagar {
   id              String     @id @default(cuid())
   postoId         String
@@ -327,10 +332,16 @@ model ContaAPagar {
   numeroParcela       Int?
   totalParcelas       Int?
 
-  // Recorrência mensal: todas as ocorrências da mesma despesa recorrente
-  // compartilham esse id (a primeira ocorrência usa o próprio id dela).
-  recorrente         Boolean @default(false)
-  grupoRecorrenciaId String?
+  // Recorrência (mensal ou semanal): todas as ocorrências da mesma despesa
+  // recorrente compartilham esse id (a primeira ocorrência usa o próprio id
+  // dela). frequenciaRecorrencia só é preenchido quando recorrente = true.
+  // diasSemanaRecorrencia só vale pra frequência SEMANAL — dias da semana em
+  // que a despesa relança, mesmo índice de Date.getUTCDay() (0 = domingo ...
+  // 6 = sábado); ver gerarOcorrenciasRecorrentesPendentes em recorrencia.ts.
+  recorrente             Boolean                @default(false)
+  frequenciaRecorrencia  FrequenciaRecorrencia?
+  diasSemanaRecorrencia  Int[]                  @default([])
+  grupoRecorrenciaId     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

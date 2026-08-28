@@ -279,7 +279,11 @@ export default async function ContasAPagarPage({
                       parcela {c.numeroParcela}/{c.totalParcelas}
                     </span>
                   ) : null}
-                  {c.recorrente ? <span className="block text-xs text-foreground/40">recorrente</span> : null}
+                  {c.recorrente ? (
+                    <span className="block text-xs text-foreground/40">
+                      recorrente{c.frequenciaRecorrencia === "SEMANAL" ? " (semanal)" : " (mensal)"}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-2">{c.posto.nome}</td>
                 <td className="px-4 py-2">{c.fornecedor.nome}</td>

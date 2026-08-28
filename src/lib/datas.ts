@@ -14,6 +14,14 @@ export function adicionarMeses(data: Date, meses: number): Date {
   return primeiroDiaDoMesAlvo;
 }
 
+// Soma `dias` a uma data em UTC — usado na recorrência semanal de Contas a
+// Pagar (ver src/app/contas-a-pagar/recorrencia.ts).
+export function adicionarDias(data: Date, dias: number): Date {
+  const resultado = new Date(data);
+  resultado.setUTCDate(resultado.getUTCDate() + dias);
+  return resultado;
+}
+
 export function inicioDoMes(data: Date): Date {
   return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), 1));
 }

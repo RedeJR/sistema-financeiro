@@ -98,18 +98,36 @@ const schemaUnica = schemaComuns.extend({
     }),
 });
 
+// "" (nenhuma), "MENSAL" ou "SEMANAL" — ver o par de checkboxes Mensal/
+// Semanal em formulario-conta-a-pagar.tsx (o front já impede marcar as duas
+// ao mesmo tempo, isso aqui é só a defesa do lado do servidor).
+function lerFrequenciaRecorrencia(formData: FormData): "MENSAL" | "SEMANAL" | null {
+  const valor = formData.get("frequenciaRecorrencia");
+  return valor === "MENSAL" || valor === "SEMANAL" ? valor : null;
+}
+
 export async function criarContaAPagar(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   await exigirPermissao("CONTAS_A_PAGAR", "editar");
 
-  const recorrente = formData.get("recorrente") === "on";
+  const frequenciaRecorrencia = lerFrequenciaRecorrencia(formData);
+  const recorrente = frequenciaRecorrencia !== null;
   const numeroParcelas = Math.max(1, Math.min(MAX_PARCELAS, Number(formData.get("numeroParcelas")) || 1));
+  const diasSemanaRecorrencia = [...new Set(formData.getAll("diasSemana").map(Number))]
+    .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
+    .sort();
 
   if (recorrente && numeroParcelas > 1) {
     return {
       error: "Uma despesa recorrente não pode ser parcelada ao mesmo tempo.",
+      values: valoresDoFormulario(formData),
+    };
+  }
+  if (frequenciaRecorrencia === "SEMANAL" && diasSemanaRecorrencia.length === 0) {
+    return {
+      error: "Escolha pelo menos um dia da semana pra recorrência semanal.",
       values: valoresDoFormulario(formData),
     };
   }
@@ -218,6 +236,8 @@ export async function criarContaAPagar(
             dataVencimento,
             valor: parsedUnica.data.valor,
             recorrente: true,
+            frequenciaRecorrencia,
+            diasSemanaRecorrencia: frequenciaRecorrencia === "SEMANAL" ? diasSemanaRecorrencia : [],
             grupoRecorrenciaId: id,
           },
         });

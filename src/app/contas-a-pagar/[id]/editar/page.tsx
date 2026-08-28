@@ -53,7 +53,7 @@ export default async function EditarContaAPagarPage({
       <h2 className="text-lg font-medium">
         Editar conta a pagar
         {conta.totalParcelas ? ` — parcela ${conta.numeroParcela}/${conta.totalParcelas}` : ""}
-        {conta.recorrente ? " — recorrente" : ""}
+        {conta.recorrente ? ` — recorrente (${conta.frequenciaRecorrencia === "SEMANAL" ? "semanal" : "mensal"})` : ""}
       </h2>
       <FormularioContaAPagar
         action={acaoComId}
