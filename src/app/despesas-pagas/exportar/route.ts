@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const filtros = {
     postoId: params.get("postoId") ?? undefined,
+    postoDono: params.get("postoDono") ?? undefined,
     fornecedorId: params.get("fornecedorId") ?? undefined,
     planoContaId: params.get("planoContaId") ?? undefined,
     bancoId: params.get("bancoId") ?? undefined,

@@ -106,7 +106,7 @@ export default async function DespesasPagasPage({
   const podeEditar = podeEditarDespesas;
 
   const filtros = await searchParams;
-  const { postoId, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
+  const { postoId, postoDono, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
 
   // Roda a sugestão automática de conciliação (idempotente) antes de calcular
   // o status dos grupos — sem isso, um extrato importado agorinha mesmo
@@ -231,6 +231,15 @@ export default async function DespesasPagasPage({
               </option>
             ))}
           </select>
+          {/* Padrão busca por quem PAGOU, não pelo dono da despesa (mesmo
+              critério do resto do sistema) — pedido da usuária: filtrar a
+              OLIVEIRA tem que trazer o que ela pagou de outros postos
+              também. Esse checkbox inverte pra quando ela quer ver só o que
+              é dono mesmo, sem olhar quem pagou. */}
+          <label className="flex items-center gap-1.5 text-xs text-foreground/60">
+            <input type="checkbox" name="postoDono" value="1" defaultChecked={postoDono === "1"} />
+            Buscar pelo posto dono da despesa
+          </label>
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="fornecedorId" className="text-foreground/60">
