@@ -23,6 +23,26 @@ export function isUniqueConstraintError(e: unknown): boolean {
   );
 }
 
+// Quais colunas bateram na constraint única, pra distinguir "nome duplicado"
+// de "CNPJ duplicado" num model com mais de um campo @unique (ver Posto).
+// Prisma 7 com driver adapter (@prisma/adapter-pg) não preenche mais
+// `meta.target` como nas versões antigas — o nome da coluna vem embrulhado
+// em `meta.driverAdapterError.cause.constraint.fields` (confirmado testando
+// direto contra o Postgres; ver prisma/temp-debug-unique.ts no histórico).
+// Checa os dois formatos pra não quebrar se isso mudar de novo.
+export function camposUniqueViolados(e: unknown): string[] {
+  if (!(e instanceof Prisma.PrismaClientKnownRequestError) || e.code !== "P2002") return [];
+  const meta = e.meta as Record<string, unknown> | undefined;
+  const alvo = meta?.target;
+  if (Array.isArray(alvo)) return alvo.map(String);
+  if (typeof alvo === "string") return [alvo];
+  const driverError = meta?.driverAdapterError as Record<string, unknown> | undefined;
+  const cause = driverError?.cause as Record<string, unknown> | undefined;
+  const constraint = cause?.constraint as Record<string, unknown> | undefined;
+  const campos = constraint?.fields;
+  return Array.isArray(campos) ? campos.map(String) : [];
+}
+
 export function isForeignKeyConstraintError(e: unknown): boolean {
   return (
     e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003"

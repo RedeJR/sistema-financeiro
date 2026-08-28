@@ -7,7 +7,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, exigirPermissaoQualquer } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
-import { isForeignKeyConstraintError, valoresDoFormulario, type ActionState } from "@/lib/form-state";
+import { formatarDocumento } from "@/lib/documento";
+import {
+  isForeignKeyConstraintError,
+  isUniqueConstraintError,
+  valoresDoFormulario,
+  type ActionState,
+} from "@/lib/form-state";
 
 const ROTA = "/contas-a-pagar";
 const MAX_PARCELAS = 60;
@@ -28,10 +34,22 @@ export async function criarFornecedorRapido(
 
   const nomeLimpo = nome.trim().toUpperCase();
   if (!nomeLimpo) return { error: "Informe o nome do fornecedor." };
+  // Mesma normalização/checagem de duplicidade do cadastro completo (ver
+  // cadastros/fornecedores/actions.ts) — aqui também, só que sem
+  // useActionState, por isso o erro só vira uma string simples.
+  const documentoFormatado = documento?.trim() ? formatarDocumento(documento) : null;
 
-  const fornecedor = await prisma.fornecedor.create({
-    data: { nome: nomeLimpo, documento: documento?.trim() || null },
-  });
+  let fornecedor;
+  try {
+    fornecedor = await prisma.fornecedor.create({
+      data: { nome: nomeLimpo, documento: documentoFormatado },
+    });
+  } catch (e) {
+    if (isUniqueConstraintError(e)) {
+      return { error: "Já existe um fornecedor cadastrado com esse CNPJ/CPF." };
+    }
+    throw e;
+  }
 
   revalidatePath("/cadastros/fornecedores");
   return { id: fornecedor.id, nome: fornecedor.nome };

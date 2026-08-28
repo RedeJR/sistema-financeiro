@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { SeletorPlanoConta } from "@/components/ui/seletor-plano-conta";
 import { useFormKey } from "@/hooks/use-form-key";
 import { adicionarMeses } from "@/lib/datas";
+import { formatarDocumento } from "@/lib/documento";
 import { criarFornecedorRapido } from "./actions";
 import type { ActionState } from "@/lib/form-state";
 
@@ -210,7 +211,7 @@ export function FormularioContaAPagar({
               <input
                 placeholder="CNPJ ou CPF (opcional)"
                 value={novoDocumento}
-                onChange={(e) => setNovoDocumento(e.target.value)}
+                onChange={(e) => setNovoDocumento(formatarDocumento(e.target.value))}
                 className={`${campoSelect} w-full`}
               />
               {erroFornecedor && <p className="text-xs text-red-600 dark:text-red-400">{erroFornecedor}</p>}

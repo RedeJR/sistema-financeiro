@@ -17,7 +17,10 @@ datasource db {
 model Posto {
   id                 String              @id @default(cuid())
   nome               String              @unique
-  cnpj               String?
+  // Único quando preenchido — Postgres trata NULL como distinto entre si,
+  // então vários postos sem CNPJ cadastrado convivem sem problema. Formatado
+  // sempre como 00.000.000/0000-00 antes de salvar (ver src/lib/documento.ts).
+  cnpj               String?             @unique
   ativo              Boolean             @default(true)
   contasAPagar       ContaAPagar[]
   // Contas pagas onde ESSE posto foi quem realmente pagou (banco de conta
@@ -34,7 +37,10 @@ model Posto {
 model Fornecedor {
   id           String        @id @default(cuid())
   nome         String
-  documento    String? // CNPJ ou CPF, sem formatação fixa (aceita os dois)
+  // CNPJ ou CPF (aceita os dois), único quando preenchido — mesmo raciocínio
+  // do Posto.cnpj acima. Formatado sempre como 000.000.000-00 (CPF) ou
+  // 00.000.000/0000-00 (CNPJ) antes de salvar (ver src/lib/documento.ts).
+  documento    String?       @unique
   ativo        Boolean       @default(true)
   contasAPagar ContaAPagar[]
   createdAt    DateTime      @default(now())

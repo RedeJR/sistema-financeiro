@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
+import { formatarDocumento } from "@/lib/documento";
 import {
+  camposUniqueViolados,
   isForeignKeyConstraintError,
   isUniqueConstraintError,
   valoresDoFormulario,
@@ -20,12 +22,26 @@ const schema = z.object({
     .trim()
     .min(1, "Informe o nome do posto.")
     .transform((v) => v.toUpperCase()),
+  // Normaliza o formato aqui também (não só no onChange do campo) — ver
+  // mesmo comentário em cadastros/fornecedores/actions.ts.
   cnpj: z
     .string()
     .trim()
     .optional()
-    .transform((v) => (v ? v : null)),
+    .transform((v) => (v ? formatarDocumento(v) : null)),
 });
+
+// "nome" e "cnpj" são únicos os dois — distingue qual bateu pelo `meta.target`
+// que o Postgres devolve no erro, pra não dizer "nome duplicado" quando na
+// verdade foi o CNPJ que já existia (ou vice-versa).
+function mensagemPostoDuplicado(e: unknown): string | null {
+  if (!isUniqueConstraintError(e)) return null;
+  const campos = camposUniqueViolados(e);
+  if (campos.some((c) => c.toLowerCase().includes("cnpj"))) {
+    return "Já existe um posto cadastrado com esse CNPJ.";
+  }
+  return "Já existe um posto com esse nome.";
+}
 
 export async function criarPosto(
   _prev: ActionState,
@@ -47,11 +63,9 @@ export async function criarPosto(
   try {
     await prisma.posto.create({ data: parsed.data });
   } catch (e) {
-    if (isUniqueConstraintError(e)) {
-      return {
-        error: "Já existe um posto com esse nome.",
-        values: valoresDoFormulario(formData),
-      };
+    const erro = mensagemPostoDuplicado(e);
+    if (erro) {
+      return { error: erro, values: valoresDoFormulario(formData) };
     }
     throw e;
   }
@@ -84,11 +98,9 @@ export async function atualizarPosto(
       data: parsed.data,
     });
   } catch (e) {
-    if (isUniqueConstraintError(e)) {
-      return {
-        error: "Já existe um posto com esse nome.",
-        values: valoresDoFormulario(formData),
-      };
+    const erro = mensagemPostoDuplicado(e);
+    if (erro) {
+      return { error: erro, values: valoresDoFormulario(formData) };
     }
     throw e;
   }

@@ -7,6 +7,7 @@ import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { SeletorPlanoConta } from "@/components/ui/seletor-plano-conta";
 import { useFormKey } from "@/hooks/use-form-key";
+import { formatarDocumento } from "@/lib/documento";
 import type { ActionState } from "@/lib/form-state";
 import { criarFornecedorRapido } from "../contas-a-pagar/actions";
 import { criarDespesaAvulsa } from "./actions";
@@ -142,7 +143,7 @@ export function FormularioDespesaAvulsa({
               <input
                 placeholder="CNPJ ou CPF (opcional)"
                 value={novoDocumento}
-                onChange={(e) => setNovoDocumento(e.target.value)}
+                onChange={(e) => setNovoDocumento(formatarDocumento(e.target.value))}
                 className={`${campoSelect} w-full`}
               />
               {erroFornecedor && <p className="text-xs text-red-600 dark:text-red-400">{erroFornecedor}</p>}

@@ -6,6 +6,7 @@ import { Campo } from "@/components/ui/campo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFormKey } from "@/hooks/use-form-key";
+import { formatarDocumento } from "@/lib/documento";
 import type { ActionState } from "@/lib/form-state";
 
 type Props = {
@@ -32,6 +33,9 @@ export function FormularioPosto({ action, valoresIniciais }: Props) {
         name="cnpj"
         defaultValue={valores?.cnpj ?? undefined}
         placeholder="00.000.000/0000-00"
+        onChange={(e) => {
+          e.target.value = formatarDocumento(e.target.value);
+        }}
       />
       <ErroFormulario mensagem={state?.error} />
       <div className="flex gap-2">
