@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { Campo } from "@/components/ui/campo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { SeletorPlanoConta } from "@/components/ui/seletor-plano-conta";
 import { useFormKey } from "@/hooks/use-form-key";
 import type { ActionState } from "@/lib/form-state";
+import { criarFornecedorRapido } from "../contas-a-pagar/actions";
 import { criarDespesaAvulsa } from "./actions";
 
 type Opcao = { id: string; nome: string };
@@ -33,7 +34,7 @@ const campoSelect =
 
 export function FormularioDespesaAvulsa({
   postos,
-  fornecedores,
+  fornecedores: fornecedoresIniciais,
   grupos,
   bancos,
   sugestaoPlanoContaPorFornecedor = {},
@@ -43,6 +44,9 @@ export function FormularioDespesaAvulsa({
   const formKey = useFormKey(state);
   const v = state?.values;
 
+  // Fornecedor: lista local + cadastro rápido sem sair da tela — mesmo
+  // mecanismo do formulário de Contas a Pagar.
+  const [fornecedores, setFornecedores] = useState(fornecedoresIniciais);
   // Sugestão de plano de contas ao trocar de fornecedor (despesa avulsa
   // nasce sempre "nova", sem modo edição) — mesmo mecanismo do formulário de
   // Contas a Pagar: só atualiza quando existe sugestão de verdade, pra não
@@ -54,6 +58,28 @@ export function FormularioDespesaAvulsa({
     setFornecedorSelecionado(novoFornecedorId);
     const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
     if (sugestao) setPlanoContaSugerido(sugestao);
+  }
+
+  const [mostrarNovoFornecedor, setMostrarNovoFornecedor] = useState(false);
+  const [novoNome, setNovoNome] = useState("");
+  const [novoDocumento, setNovoDocumento] = useState("");
+  const [erroFornecedor, setErroFornecedor] = useState<string | null>(null);
+  const [criandoFornecedor, startTransition] = useTransition();
+
+  function handleCriarFornecedor() {
+    setErroFornecedor(null);
+    startTransition(async () => {
+      const resultado = await criarFornecedorRapido(novoNome, novoDocumento || null);
+      if ("error" in resultado) {
+        setErroFornecedor(resultado.error);
+        return;
+      }
+      setFornecedores((atual) => [...atual, resultado].sort((a, b) => a.nome.localeCompare(b.nome)));
+      aoMudarFornecedor(resultado.id);
+      setMostrarNovoFornecedor(false);
+      setNovoNome("");
+      setNovoDocumento("");
+    });
   }
 
   return (
@@ -76,9 +102,18 @@ export function FormularioDespesaAvulsa({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="fornecedorId" className="text-sm font-medium text-foreground/80">
-            Fornecedor
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="fornecedorId" className="text-sm font-medium text-foreground/80">
+              Fornecedor
+            </label>
+            <button
+              type="button"
+              onClick={() => setMostrarNovoFornecedor((s) => !s)}
+              className="text-xs text-foreground/60 underline"
+            >
+              {mostrarNovoFornecedor ? "Cancelar" : "+ Novo fornecedor"}
+            </button>
+          </div>
           <select
             id="fornecedorId"
             name="fornecedorId"
@@ -96,6 +131,31 @@ export function FormularioDespesaAvulsa({
               </option>
             ))}
           </select>
+          {mostrarNovoFornecedor && (
+            <div className="mt-1 space-y-2 rounded-md border border-black/10 p-3 dark:border-white/15">
+              <input
+                placeholder="Nome do fornecedor"
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+                className={`${campoSelect} w-full`}
+              />
+              <input
+                placeholder="CNPJ ou CPF (opcional)"
+                value={novoDocumento}
+                onChange={(e) => setNovoDocumento(e.target.value)}
+                className={`${campoSelect} w-full`}
+              />
+              {erroFornecedor && <p className="text-xs text-red-600 dark:text-red-400">{erroFornecedor}</p>}
+              <button
+                type="button"
+                disabled={criandoFornecedor}
+                onClick={handleCriarFornecedor}
+                className="rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
+              >
+                {criandoFornecedor ? "Salvando..." : "Adicionar fornecedor"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
