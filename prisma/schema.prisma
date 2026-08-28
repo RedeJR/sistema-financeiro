@@ -346,6 +346,14 @@ model ContaAPagar {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Trava contra duplicidade na geração automática de ocorrências futuras —
+  // sem isso, duas chamadas de gerarOcorrenciasRecorrentesPendentes rodando
+  // por perto (duas abas abertas ao mesmo tempo, por exemplo) liam a "última
+  // ocorrência" antes de qualquer uma das duas ter gravado a próxima, e cada
+  // uma criava a mesma data de novo — foi exatamente o que gerou ~700 linhas
+  // duplicadas em produção (achado numa checagem em 2026-08-28). NULL não
+  // conflita com NULL, então despesas não recorrentes continuam livres.
+  @@unique([grupoRecorrenciaId, dataVencimento])
   @@index([dataVencimento])
   @@index([postoId])
   @@index([postoPagamentoId])
