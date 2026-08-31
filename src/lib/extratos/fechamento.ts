@@ -111,8 +111,16 @@ export async function gerarFechamento(params: {
   const idxPorCategoria = new Map(categoriasTodas.map((c, i) => [c.id, i]));
 
   const [lancamentos, divisoes, semCategoria] = await Promise.all([
+    // `divisoes: { none: {} }` é essencial aqui — um lançamento dividido às
+    // vezes também acaba com categoriaId preenchido no registro principal
+    // (ex: sobra de antes de ser dividido, ou um categoriaId setado por
+    // engano por cima). Sem esse filtro, esse lançamento entra CONTADO EM
+    // DOBRO: uma vez aqui pelo categoriaId, outra vez pela soma das divisões
+    // logo abaixo — foi exatamente isso que aconteceu com um lançamento da
+    // SINERGIA em 2026-08-28 (ver histórico). Divisões são sempre a fonte de
+    // verdade quando existem (ver comentário no schema, ContaAPagar.divisoes).
     prisma.lancamentoExtrato.findMany({
-      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: { not: null } },
+      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: { not: null }, divisoes: { none: {} } },
       select: { data: true, valor: true, categoriaId: true },
     }),
     // Lançamentos DIVIDIDOS (ver LancamentoExtratoDivisao) não têm categoriaId
@@ -211,8 +219,11 @@ async function gerarDetalhes(params: {
   const idsAlvo = categoriasAlvo.map((c) => c.id);
 
   const [diretos, divisoes] = await Promise.all([
+    // `divisoes: { none: {} }` pelo mesmo motivo de gerarFechamento acima —
+    // sem isso, um lançamento dividido com categoriaId também preenchido no
+    // registro principal aparece duas vezes no detalhamento.
     prisma.lancamentoExtrato.findMany({
-      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: { in: idsAlvo } },
+      where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: { in: idsAlvo }, divisoes: { none: {} } },
       select: { data: true, valor: true, observacao: true, descricao: true, categoriaId: true },
     }),
     // Parte de um lançamento dividido (ver LancamentoExtratoDivisao) — ainda
