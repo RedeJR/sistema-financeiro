@@ -38,4 +38,12 @@ body {
   @page {
     margin: 10mm;
   }
+  /* Por padrão o navegador descarta cor de fundo/texto ao imprimir (economia
+     de tinta) — sem isso, o cabeçalho azul-marinho do Relatório de Contas
+     (ver relatorios/page.tsx) sumiria na hora de imprimir/exportar em PDF,
+     mesmo aparecendo certo na tela. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

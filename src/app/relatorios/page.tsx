@@ -231,7 +231,11 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
       <div className="space-y-4">
         {grupos.map((g) => (
           <div key={g.chave} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-            <div className="border-b border-black/10 bg-black/[0.03] px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-white/[0.04]">
+            {/* Azul-marinho transparente (pedido da usuária) — dá pra ver a
+                cor sem perder a legibilidade do texto por cima. Ver
+                print-color-adjust em globals.css: sem isso a cor some ao
+                imprimir/exportar em PDF. */}
+            <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
               {g.subtitulo ? `${g.subtitulo} / ${g.titulo}` : g.titulo} — {g.linhas.length} conta
               {g.linhas.length === 1 ? "" : "s"} — total {formatarMoeda(g.total)}
             </div>
@@ -242,7 +246,6 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                     {/* A dimensão usada pra agrupar já está no cabeçalho do
                         bloco acima — não repete como coluna. */}
                     {ordem !== "vencimento" && <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>}
-                    <th className="px-4 py-1.5 text-left font-medium">Situação</th>
                     {ordem !== "posto" && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
                     <th className="px-4 py-1.5 text-left font-medium">Fornecedor</th>
                     {ordem !== "planoConta" && (
@@ -263,17 +266,6 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                       {ordem !== "vencimento" && (
                         <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
                       )}
-                      <td className="px-4 py-1.5 whitespace-nowrap">
-                        {l.paga ? (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800 dark:bg-green-900/40 dark:text-green-400">
-                            Paga{l.dataPagamento ? ` em ${formatarData(l.dataPagamento)}` : ""}
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs text-foreground/60 dark:bg-white/10">
-                            A pagar
-                          </span>
-                        )}
-                      </td>
                       {ordem !== "posto" && (
                         <td className="px-4 py-1.5">
                           {(l.postoPagamento ?? l.posto).nome}
@@ -312,6 +304,16 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
             Nenhuma conta encontrada pra esse filtro.
           </p>
         )}
+      </div>
+
+      {/* Total do período filtrado, mesma cor do cabeçalho de cada grupo
+          (pedido da usuária) — fecha o relatório com o número que soma tudo
+          que está sendo mostrado acima, filtro nenhum a mais. */}
+      <div className="flex items-center justify-between rounded-lg bg-blue-950/10 px-4 py-2 text-sm font-semibold text-foreground/80 dark:bg-blue-950/25">
+        <span>
+          Total do período — {linhas.length} conta{linhas.length === 1 ? "" : "s"}
+        </span>
+        <span>{formatarMoeda(total)}</span>
       </div>
     </div>
   );
