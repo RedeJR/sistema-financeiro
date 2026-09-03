@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { hojeUTC } from "@/lib/datas";
-import { rodarConciliacaoAutomaticaCombustiveis } from "@/lib/conciliacao";
+import { rodarConciliacaoAutomaticaCombustiveis, combustiveisNoExtratoSemConta } from "@/lib/conciliacao";
 import { excluirCombustivelAPagar } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
@@ -63,6 +63,12 @@ export default async function CombustiveisAPagarPage({
   if (podeEditar) {
     await rodarConciliacaoAutomaticaCombustiveis();
   }
+
+  // Lembrete: dinheiro que já saiu do banco como Combustíveis mas não tem
+  // Combustível a Pagar vinculada — sinal de que alguém esqueceu de lançar
+  // (ou é um caso ambíguo esperando revisão manual). Ver comentário da
+  // função em conciliacao.ts.
+  const semConta = await combustiveisNoExtratoSemConta();
 
   const { postoId, status, pagamento, de, ate, q, erro } = await searchParams;
   const busca = q?.trim();
@@ -156,6 +162,29 @@ export default async function CombustiveisAPagarPage({
         em Conciliação de Extratos. O que já foi baixado não some — use o filtro &quot;Situação de
         pagamento&quot; abaixo pra ver o que já foi pago.
       </p>
+
+      {semConta.length > 0 && (
+        <div className="space-y-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40">
+          {semConta.map((l) => (
+            <p key={l.id} className="text-sm text-amber-800 dark:text-amber-400">
+              ⚠️ {formatarData(l.data)} — saiu {formatarMoeda(Math.abs(l.valor).toString())} do{" "}
+              {l.bancoNome} do posto {l.postoNome} como Combustíveis, mas não tem nenhuma Combustível a
+              Pagar vinculada.{" "}
+              <Link
+                href={`/extratos/conciliacao?${new URLSearchParams({
+                  postoId: l.postoId,
+                  bancoId: l.bancoId,
+                  de: l.data.toISOString().slice(0, 10),
+                  ate: l.data.toISOString().slice(0, 10),
+                }).toString()}`}
+                className="underline"
+              >
+                Ver no extrato
+              </Link>
+            </p>
+          ))}
+        </div>
+      )}
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
         <div className="flex flex-col gap-1">

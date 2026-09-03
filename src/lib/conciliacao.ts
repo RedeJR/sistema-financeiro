@@ -331,6 +331,63 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
   return { novasBaixas: baixas.length };
 }
 
+export type CombustivelSemConta = {
+  id: string;
+  data: Date;
+  postoNome: string;
+  postoId: string;
+  bancoNome: string;
+  bancoId: string;
+  valor: number;
+};
+
+// Lembrete: débito do extrato categorizado "Combustíveis" que sobrou sem
+// nenhuma Combustível a Pagar vinculada (pedido da usuária, achado ao notar
+// que uma baixa automática não tinha de onde vir — o dinheiro saiu do banco,
+// mas ninguém tinha lançado aquele combustível no sistema). Cobre tanto o
+// caso "zero candidato" quanto o "ambíguo" (rodarConciliacaoAutomaticaCombustiveis
+// só liga sozinho quando é 1-pra-1) — os dois querem dizer "isso aqui precisa
+// de alguém olhando".
+//
+// Só considera a partir da primeira Combustível a Pagar já lançada (ou seja,
+// desde que esse fluxo passou a ser usado de verdade) — sem isso, todo débito
+// de combustível de antes dessa aba existir (lançado sem vínculo nenhum, de
+// propósito, no fluxo antigo) apareceria como "faltando", o que não é
+// verdade. Sem nenhuma Combustível a Pagar lançada ainda, não tem como saber
+// desde quando comparar — devolve lista vazia em vez de arriscar um "desde
+// sempre" que traria histórico irrelevante.
+export async function combustiveisNoExtratoSemConta(): Promise<CombustivelSemConta[]> {
+  const [categoriaCombustiveis, desde] = await Promise.all([
+    prisma.categoriaExtrato.findUnique({ where: { nome: "COMBUSTÍVEIS" } }),
+    prisma.contaAPagar.aggregate({
+      where: { combustivel: true },
+      _min: { dataEmissao: true },
+    }),
+  ]);
+  if (!categoriaCombustiveis || !desde._min.dataEmissao) return [];
+
+  const lancamentos = await prisma.lancamentoExtrato.findMany({
+    where: {
+      categoriaId: categoriaCombustiveis.id,
+      contaAPagarId: null,
+      valor: { lt: 0 },
+      data: { gte: desde._min.dataEmissao },
+    },
+    include: { posto: true, banco: true },
+    orderBy: { data: "asc" },
+  });
+
+  return lancamentos.map((l) => ({
+    id: l.id,
+    data: l.data,
+    postoNome: l.posto.nome,
+    postoId: l.postoId,
+    bancoNome: l.banco.nome,
+    bancoId: l.bancoId,
+    valor: Number(l.valor),
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Conferência por total do dia (complementa o vínculo linha-a-linha acima).
 // ---------------------------------------------------------------------------
