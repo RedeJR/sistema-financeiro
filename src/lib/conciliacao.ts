@@ -349,24 +349,32 @@ export type CombustivelSemConta = {
 // só liga sozinho quando é 1-pra-1) — os dois querem dizer "isso aqui precisa
 // de alguém olhando".
 //
-// Só considera a partir de setembro/2026 — mês em que a usuária começou a
-// usar essa aba de verdade (pedido explícito dela: antes disso é fluxo
-// antigo, onde o débito de combustível no extrato era categorizado sem
-// vínculo nenhum de propósito, e apareceria como "faltando" à toa). Data
-// fixa porque é um fato histórico (quando o fluxo começou), não algo que
-// muda — não precisa (nem deve) se recalcular sozinho depois.
-const DESDE_USO_COMBUSTIVEIS_A_PAGAR = new Date("2026-09-01T00:00:00.000Z");
-
+// Só considera a partir do primeiro VENCIMENTO entre as Combustível a Pagar
+// já lançadas — não a emissão/descarga (pedido explícito da usuária: teve
+// descarga registrada em 31/08 pra combustível cujo vencimento e pagamento
+// de verdade caem em setembro, mês em que ela começou a usar essa aba de
+// propósito; usar a emissão pegava esse 31/08 e trazia aviso de um dia que
+// não devia contar). Sem nenhuma Combustível a Pagar lançada ainda, não tem
+// como saber desde quando comparar — devolve lista vazia em vez de arriscar
+// um "desde sempre" que traria o histórico antigo (débito de combustível no
+// extrato categorizado sem vínculo de propósito, no fluxo de antes dessa
+// aba existir).
 export async function combustiveisNoExtratoSemConta(): Promise<CombustivelSemConta[]> {
-  const categoriaCombustiveis = await prisma.categoriaExtrato.findUnique({ where: { nome: "COMBUSTÍVEIS" } });
-  if (!categoriaCombustiveis) return [];
+  const [categoriaCombustiveis, desde] = await Promise.all([
+    prisma.categoriaExtrato.findUnique({ where: { nome: "COMBUSTÍVEIS" } }),
+    prisma.contaAPagar.aggregate({
+      where: { combustivel: true },
+      _min: { dataVencimento: true },
+    }),
+  ]);
+  if (!categoriaCombustiveis || !desde._min.dataVencimento) return [];
 
   const lancamentos = await prisma.lancamentoExtrato.findMany({
     where: {
       categoriaId: categoriaCombustiveis.id,
       contaAPagarId: null,
       valor: { lt: 0 },
-      data: { gte: DESDE_USO_COMBUSTIVEIS_A_PAGAR },
+      data: { gte: desde._min.dataVencimento },
     },
     include: { posto: true, banco: true },
     orderBy: { data: "asc" },
