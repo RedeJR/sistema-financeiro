@@ -31,7 +31,7 @@ export async function rodarConciliacaoAutomatica(
     prisma.contaAPagar.findMany({
       where: {
         paga: true,
-        lancamentoExtratoConciliado: null,
+        lancamentosExtratoConciliados: { none: {} },
         bancoPagamentoId: { not: null },
         // postoId aqui filtra pelo posto PAGADOR (ver comentário acima) —
         // cobre tanto quem tem postoPagamentoId explícito quanto quem usa o
@@ -250,18 +250,35 @@ export async function statusConciliacaoPorGrupo(
 // decide que foi paga — pedido explícito da usuária ("a baixa da conta será
 // automática após a conciliação bancária").
 //
-// Critério de match: mesmo posto + mesmo valor (em módulo) + lançamento
-// categorizado "Combustíveis" no extrato (a usuária já revisa/categoriza os
-// débitos do extrato normalmente — reaproveita esse trabalho em vez de
-// pedir uma segunda categorização). SEM exigir data igual: a data de
-// vencimento do combustível é só uma previsão, o débito real no banco pode
-// cair em outro dia. Só liga automaticamente quando há exatamente 1
-// candidato de cada lado pra aquela chave (posto+valor) — mesmo princípio
-// conservador do resto do sistema (categorizer.ts, motor de conciliação
-// normal): ambíguo fica pra revisão manual em vez de arriscar ligar errado.
+// Critério de match, em duas passadas:
+//
+// 1) Mesmo posto + mesmo valor (em módulo) + lançamento categorizado
+//    "Combustíveis" no extrato (a usuária já revisa/categoriza os débitos do
+//    extrato normalmente — reaproveita esse trabalho em vez de pedir uma
+//    segunda categorização). SEM exigir data igual: a data de vencimento do
+//    combustível é só uma previsão, o débito real no banco pode cair em
+//    outro dia.
+// 2) Pra quem sobrou sem par na passada 1 (pedido da usuária): ela às vezes
+//    lança em Combustível a Pagar o valor somado de vários boletos que
+//    vencem no mesmo dia — nesse caso o extrato tem VÁRIOS débitos
+//    separados (um por boleto), não um só. Junta os lançamentos "Combustíveis"
+//    ainda sem conta por posto+banco+DIA e soma o valor; se a soma bater com
+//    uma conta pendente daquele posto, vincula os vários lançamentos do dia
+//    a essa única conta.
+//
+// Nas duas passadas, só liga automaticamente quando há exatamente 1
+// candidato de cada lado — mesmo princípio conservador do resto do sistema
+// (categorizer.ts, motor de conciliação normal): ambíguo fica pra revisão
+// manual em vez de arriscar ligar errado.
 function chaveCombustivel(postoId: string, valorAbs: string): string {
   return `${postoId}|${valorAbs}`;
 }
+
+function chaveDiaCombustivel(postoId: string, bancoId: string, dataIso: string): string {
+  return `${postoId}|${bancoId}|${dataIso}`;
+}
+
+type BaixaCombustivel = { contaId: string; lancamentoIds: string[]; data: Date; bancoId: string };
 
 export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasBaixas: number }> {
   const categoriaCombustiveis = await prisma.categoriaExtrato.findUnique({
@@ -271,7 +288,7 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
 
   const [pendentes, lancamentos] = await Promise.all([
     prisma.contaAPagar.findMany({
-      where: { combustivel: true, paga: false, lancamentoExtratoConciliado: null },
+      where: { combustivel: true, paga: false, lancamentosExtratoConciliados: { none: {} } },
       select: { id: true, postoId: true, valor: true },
     }),
     prisma.lancamentoExtrato.findMany({
@@ -296,16 +313,70 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
     lancamentosPorChave.set(k, lista);
   }
 
-  const baixas: { contaId: string; lancamentoId: string; data: Date; bancoId: string }[] = [];
+  // Passada 1: 1 lançamento pro valor exato de 1 conta.
+  const baixas: BaixaCombustivel[] = [];
+  const contaIdsUsados = new Set<string>();
+  const lancamentoIdsUsados = new Set<string>();
   for (const [k, listaPendentes] of pendentesPorChave) {
     if (listaPendentes.length !== 1) continue;
     const listaLancamentos = lancamentosPorChave.get(k);
     if (!listaLancamentos || listaLancamentos.length !== 1) continue;
     baixas.push({
       contaId: listaPendentes[0].id,
-      lancamentoId: listaLancamentos[0].id,
+      lancamentoIds: [listaLancamentos[0].id],
       data: listaLancamentos[0].data,
       bancoId: listaLancamentos[0].bancoId,
+    });
+    contaIdsUsados.add(listaPendentes[0].id);
+    lancamentoIdsUsados.add(listaLancamentos[0].id);
+  }
+
+  // Passada 2: soma de vários lançamentos do mesmo posto+banco+dia contra o
+  // que sobrou sem par na passada 1.
+  const pendentesRestantes = pendentes.filter((p) => !contaIdsUsados.has(p.id));
+  const lancamentosRestantes = lancamentos.filter((l) => !lancamentoIdsUsados.has(l.id));
+
+  const pendentesRestantesPorChave = new Map<string, typeof pendentesRestantes>();
+  for (const p of pendentesRestantes) {
+    const k = chaveCombustivel(p.postoId, Number(p.valor).toFixed(2));
+    const lista = pendentesRestantesPorChave.get(k) ?? [];
+    lista.push(p);
+    pendentesRestantesPorChave.set(k, lista);
+  }
+
+  const gruposDia = new Map<string, typeof lancamentosRestantes>();
+  for (const l of lancamentosRestantes) {
+    const k = chaveDiaCombustivel(l.postoId, l.bancoId, l.data.toISOString());
+    const lista = gruposDia.get(k) ?? [];
+    lista.push(l);
+    gruposDia.set(k, lista);
+  }
+  // postoId -> lista de grupos (um por banco+dia) daquele posto, já com a
+  // soma calculada — pra procurar por posto sem precisar reagrupar tudo de
+  // novo a cada conta pendente.
+  const gruposPorPosto = new Map<
+    string,
+    { itens: typeof lancamentosRestantes; somaAbs: string; bancoId: string; data: Date }[]
+  >();
+  for (const itens of gruposDia.values()) {
+    const somaAbs = itens.reduce((s, l) => s + Math.abs(Number(l.valor)), 0).toFixed(2);
+    const lista = gruposPorPosto.get(itens[0].postoId) ?? [];
+    lista.push({ itens, somaAbs, bancoId: itens[0].bancoId, data: itens[0].data });
+    gruposPorPosto.set(itens[0].postoId, lista);
+  }
+
+  for (const [, listaPendentes] of pendentesRestantesPorChave) {
+    if (listaPendentes.length !== 1) continue; // ambíguo desse lado
+    const conta = listaPendentes[0];
+    const valorAbs = Number(conta.valor).toFixed(2);
+    const gruposQueBatem = (gruposPorPosto.get(conta.postoId) ?? []).filter((g) => g.somaAbs === valorAbs);
+    if (gruposQueBatem.length !== 1) continue; // nenhum grupo bate, ou mais de um bate (ambíguo)
+    const grupo = gruposQueBatem[0];
+    baixas.push({
+      contaId: conta.id,
+      lancamentoIds: grupo.itens.map((i) => i.id),
+      data: grupo.data,
+      bancoId: grupo.bancoId,
     });
   }
 
@@ -320,8 +391,8 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
         where: { id: b.contaId },
         data: { paga: true, dataPagamento: b.data, bancoPagamentoId: b.bancoId },
       }),
-      prisma.lancamentoExtrato.update({
-        where: { id: b.lancamentoId },
+      prisma.lancamentoExtrato.updateMany({
+        where: { id: { in: b.lancamentoIds } },
         data: { contaAPagarId: b.contaId },
       }),
     ]),

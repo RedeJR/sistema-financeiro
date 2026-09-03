@@ -153,10 +153,14 @@ model LancamentoExtrato {
 
   // Conciliação (Sistema 1 x Sistema 2, ver PROJETO_SISTEMA_FINANCEIRO.md
   // seção "Integração dos dois sistemas"): liga esse débito do extrato à
-  // despesa paga correspondente em Contas a Pagar. @unique porque uma
-  // despesa só concilia com UM lançamento e vice-versa — ver
-  // src/lib/conciliacao.ts pro motor que sugere esses vínculos.
-  contaAPagarId String?      @unique
+  // despesa paga correspondente em Contas a Pagar. NÃO é @unique — uma
+  // despesa normal ainda só concilia com UM lançamento (isso é garantido na
+  // aplicação, ver vincularManualmente/rodarConciliacaoAutomatica em
+  // conciliacao.ts), mas Combustível a Pagar pode representar vários
+  // boletos somados num valor só, e nesse caso vários lançamentos do mesmo
+  // dia (um por boleto) vinculam à MESMA conta — ver
+  // rodarConciliacaoAutomaticaCombustiveis.
+  contaAPagarId String?
   contaAPagar   ContaAPagar? @relation(fields: [contaAPagarId], references: [id], onDelete: SetNull)
 
   // Desmembramento: um único débito do banco às vezes cobre mais de uma
@@ -304,7 +308,10 @@ model ContaAPagar {
   postoPagamento   Posto?  @relation("PostoPagamento", fields: [postoPagamentoId], references: [id], onDelete: SetNull)
 
   // Lado reverso do vínculo de conciliação — ver LancamentoExtrato.contaAPagarId.
-  lancamentoExtratoConciliado LancamentoExtrato?
+  // Lista (não mais um só) desde que Combustível a Pagar passou a poder
+  // vincular vários lançamentos (vários boletos do mesmo dia) numa única
+  // conta — pra despesa normal, continua sempre 0 ou 1 na prática.
+  lancamentosExtratoConciliados LancamentoExtrato[]
 
   // Despesa avulsa: lançada direto como paga na tela de Despesas Pagas,
   // fora do planejamento normal de Contas a Pagar (ex: algo que "surgiu no

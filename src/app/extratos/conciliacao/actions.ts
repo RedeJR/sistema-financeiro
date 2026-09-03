@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isUniqueConstraintError } from "@/lib/form-state";
 
 const ROTA = "/extratos/conciliacao";
 
@@ -36,17 +35,24 @@ export async function vincularManualmente(formData: FormData) {
     redirect(`${voltar}${voltar.includes("?") ? "&" : "?"}erro=sem-lancamento`);
   }
 
-  try {
-    await prisma.lancamentoExtrato.update({
-      where: { id: lancamentoId },
-      data: { contaAPagarId: despesaId },
-    });
-  } catch (e) {
-    if (isUniqueConstraintError(e)) {
-      redirect(`${voltar}${voltar.includes("?") ? "&" : "?"}erro=ja-vinculado`);
-    }
-    throw e;
+  // Uma despesa normal só concilia com UM lançamento (o banco não impede
+  // mais isso sozinho — ver comentário em LancamentoExtrato.contaAPagarId
+  // no schema, que deixou de ser @unique só pra Combustível a Pagar poder
+  // vincular vários lançamentos do mesmo dia numa única conta somada). O
+  // vínculo manual daqui nunca cria isso de propósito, então barra se já
+  // existir QUALQUER lançamento vinculado a essa despesa.
+  const jaVinculado = await prisma.lancamentoExtrato.findFirst({
+    where: { contaAPagarId: despesaId },
+    select: { id: true },
+  });
+  if (jaVinculado) {
+    redirect(`${voltar}${voltar.includes("?") ? "&" : "?"}erro=ja-vinculado`);
   }
+
+  await prisma.lancamentoExtrato.update({
+    where: { id: lancamentoId },
+    data: { contaAPagarId: despesaId },
+  });
 
   revalidarTudo();
   redirect(voltar);

@@ -82,7 +82,7 @@ export default async function ConciliacaoPage({
 
   const [despesasSemLancamento, lancamentosSemDespesa, totalConciliados, conciliados] = await Promise.all([
     prisma.contaAPagar.findMany({
-      where: { ...whereDespesaComum, lancamentoExtratoConciliado: null },
+      where: { ...whereDespesaComum, lancamentosExtratoConciliados: { none: {} } },
       include: { posto: true, postoPagamento: true, fornecedor: true, bancoPagamento: true },
       orderBy: { dataPagamento: "desc" },
       take: 200,
