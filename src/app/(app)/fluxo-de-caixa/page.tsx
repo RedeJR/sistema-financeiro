@@ -182,48 +182,46 @@ export default async function FluxoDeCaixaPage({
         Despesas − Despesas Extras.
       </p>
 
-      <form className="flex flex-col gap-3 text-sm print:hidden">
+      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
         <div className="flex flex-col gap-1">
           <label className="text-foreground/60">Postos</label>
           <SeletorPostos postos={postosTodos} selecionados={postoIds} />
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="de" className="text-foreground/60">
-              De
-            </label>
-            <input
-              id="de"
-              type="date"
-              name="de"
-              defaultValue={de}
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="ate" className="text-foreground/60">
-              até
-            </label>
-            <input
-              id="ate"
-              type="date"
-              name="ate"
-              defaultValue={ate}
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
-            Filtrar
-          </button>
-          {temFiltro && (
-            <Link href="/fluxo-de-caixa" className="text-foreground/60 underline">
-              Limpar filtros
-            </Link>
-          )}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="de" className="text-foreground/60">
+            De
+          </label>
+          <input
+            id="de"
+            type="date"
+            name="de"
+            defaultValue={de}
+            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          />
         </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="ate" className="text-foreground/60">
+            até
+          </label>
+          <input
+            id="ate"
+            type="date"
+            name="ate"
+            defaultValue={ate}
+            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+        >
+          Filtrar
+        </button>
+        {temFiltro && (
+          <Link href="/fluxo-de-caixa" className="text-foreground/60 underline">
+            Limpar filtros
+          </Link>
+        )}
       </form>
 
       {podeEditar ? (
