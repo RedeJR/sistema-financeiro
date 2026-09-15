@@ -250,26 +250,40 @@ export async function statusConciliacaoPorGrupo(
 // decide que foi paga — pedido explícito da usuária ("a baixa da conta será
 // automática após a conciliação bancária").
 //
-// Critério de match, em duas passadas:
+// Critério de match, em duas passadas — agrupando as contas pendentes por
+// posto+valor (não mais exigindo que o valor seja único entre TODAS as
+// contas pendentes): duas contas do mesmo posto podem ter o valor
+// exatamente igual (ex: dois boletos praticamente idênticos, um vencendo
+// antes do outro) sem que isso trave a baixa automática das duas — o que
+// importa é achar exatamente TANTOS candidatos quanto contas naquele grupo,
+// não exatamente 1 candidato no sistema inteiro.
 //
 // 1) Mesmo posto + mesmo valor (em módulo) + lançamento categorizado
 //    "Combustíveis" no extrato (a usuária já revisa/categoriza os débitos do
 //    extrato normalmente — reaproveita esse trabalho em vez de pedir uma
 //    segunda categorização). SEM exigir data igual: a data de vencimento do
 //    combustível é só uma previsão, o débito real no banco pode cair em
-//    outro dia.
+//    outro dia. Um grupo de k contas com esse valor só baixa quando sobram
+//    exatamente k lançamentos avulsos com esse valor pra esse posto.
 // 2) Pra quem sobrou sem par na passada 1 (pedido da usuária): ela às vezes
 //    lança em Combustível a Pagar o valor somado de vários boletos que
 //    vencem no mesmo dia — nesse caso o extrato tem VÁRIOS débitos
-//    separados (um por boleto), não um só. Junta os lançamentos "Combustíveis"
-//    ainda sem conta por posto+banco+DIA e soma o valor; se a soma bater com
-//    uma conta pendente daquele posto, vincula os vários lançamentos do dia
-//    a essa única conta.
+//    separados (um por boleto, às vezes até por parte de um boleto), não um
+//    só. Testa combinações dos lançamentos "Combustíveis" ainda sem conta,
+//    agrupados por posto+banco+DIA, procurando dividir esse dia em k
+//    "pacotes" que somem o valor da conta — um por conta do grupo. Antes só
+//    somava o dia inteiro como um bloco só, então um dia com dois boletos
+//    (quatro lançamentos, por exemplo) somava os quatro juntos e nunca
+//    batia com o valor de nenhuma conta sozinha — bug relatado pela usuária
+//    em 2026-09-16 (conta de combustível do CANTAREIRA vencendo 08/09 sem
+//    baixar, com o extrato mostrando 4 débitos daquele dia em vez de 1).
 //
-// Nas duas passadas, só liga automaticamente quando há exatamente 1
-// candidato de cada lado — mesmo princípio conservador do resto do sistema
-// (categorizer.ts, motor de conciliação normal): ambíguo fica pra revisão
-// manual em vez de arriscar ligar errado.
+// Nos dois casos, só baixa quando o número de candidatos bate certinho com
+// o número de contas do grupo (nem menos — sem candidato pra todo mundo —
+// nem mais — ambíguo demais, pode sobrar um lançamento de outra coisa
+// disfarçado de combinação válida) — mesmo princípio conservador do resto
+// do sistema (categorizer.ts, motor de conciliação normal): ambíguo fica
+// pra revisão manual em vez de arriscar ligar errado.
 function chaveCombustivel(postoId: string, valorAbs: string): string {
   return `${postoId}|${valorAbs}`;
 }
@@ -279,6 +293,44 @@ function chaveDiaCombustivel(postoId: string, bancoId: string, dataIso: string):
 }
 
 type BaixaCombustivel = { contaId: string; lancamentoIds: string[]; data: Date; bancoId: string };
+
+// Busca exaustiva (viável porque o volume por posto+banco+dia é sempre
+// pequeno na prática — por isso a guarda de tamanho): tenta dividir `itens`
+// em exatamente `k` grupos disjuntos que somem `alvo` cada um. Sobras (itens
+// que não entram em nenhum grupo) são permitidas. Devolve a primeira
+// divisão válida encontrada, ou null se não existir nenhuma.
+function particionarEmKGrupos(
+  itens: { id: string; valorAbs: number }[],
+  alvo: number,
+  k: number
+): string[][] | null {
+  if (k === 0) return [];
+  if (itens.length < k || itens.length > 14) return null;
+
+  function buscar(disponiveis: typeof itens, restante: number): string[][] | null {
+    if (restante === 0) return [];
+    const n = disponiveis.length;
+    for (let mascara = 1; mascara < 1 << n; mascara++) {
+      let soma = 0;
+      const indices: number[] = [];
+      for (let i = 0; i < n; i++) {
+        if (mascara & (1 << i)) {
+          soma += disponiveis[i].valorAbs;
+          indices.push(i);
+        }
+      }
+      if (Math.abs(soma - alvo) > 0.001) continue;
+      const sobra = disponiveis.filter((_, i) => !indices.includes(i));
+      const resto = buscar(sobra, restante - 1);
+      if (resto !== null) {
+        return [indices.map((i) => disponiveis[i].id), ...resto];
+      }
+    }
+    return null;
+  }
+
+  return buscar(itens, k);
+}
 
 export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasBaixas: number }> {
   const categoriaCombustiveis = await prisma.categoriaExtrato.findUnique({
@@ -313,37 +365,40 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
     lancamentosPorChave.set(k, lista);
   }
 
-  // Passada 1: 1 lançamento pro valor exato de 1 conta.
+  // Passada 1: k contas com o mesmo valor batem com exatamente k
+  // lançamentos avulsos daquele mesmo valor (pareados em qualquer ordem —
+  // tanto faz qual lançamento vai pra qual conta quando os valores são
+  // idênticos).
   const baixas: BaixaCombustivel[] = [];
   const contaIdsUsados = new Set<string>();
   const lancamentoIdsUsados = new Set<string>();
   for (const [k, listaPendentes] of pendentesPorChave) {
-    if (listaPendentes.length !== 1) continue;
     const listaLancamentos = lancamentosPorChave.get(k);
-    if (!listaLancamentos || listaLancamentos.length !== 1) continue;
-    baixas.push({
-      contaId: listaPendentes[0].id,
-      lancamentoIds: [listaLancamentos[0].id],
-      data: listaLancamentos[0].data,
-      bancoId: listaLancamentos[0].bancoId,
+    if (!listaLancamentos || listaLancamentos.length !== listaPendentes.length) continue;
+    listaPendentes.forEach((conta, i) => {
+      const l = listaLancamentos[i];
+      baixas.push({ contaId: conta.id, lancamentoIds: [l.id], data: l.data, bancoId: l.bancoId });
+      contaIdsUsados.add(conta.id);
+      lancamentoIdsUsados.add(l.id);
     });
-    contaIdsUsados.add(listaPendentes[0].id);
-    lancamentoIdsUsados.add(listaLancamentos[0].id);
   }
 
-  // Passada 2: soma de vários lançamentos do mesmo posto+banco+dia contra o
-  // que sobrou sem par na passada 1.
-  const pendentesRestantes = pendentes.filter((p) => !contaIdsUsados.has(p.id));
-  const lancamentosRestantes = lancamentos.filter((l) => !lancamentoIdsUsados.has(l.id));
-
-  const pendentesRestantesPorChave = new Map<string, typeof pendentesRestantes>();
-  for (const p of pendentesRestantes) {
+  // Passada 2: pra quem sobrou, tenta achar — dentro de um único grupo
+  // posto+banco+dia — uma divisão em k pacotes que somem o valor da conta,
+  // sendo k o número de contas daquele posto+valor que ainda faltam. Só usa
+  // esse grupo se ele resolver exatamente k (nem k+1, que seria mais
+  // lançamento sobrando do que conta pra explicar — ambíguo) e se for o
+  // único grupo do posto capaz de resolver esses k.
+  const pendentesRestantesPorChave = new Map<string, typeof pendentes>();
+  for (const p of pendentes) {
+    if (contaIdsUsados.has(p.id)) continue;
     const k = chaveCombustivel(p.postoId, Number(p.valor).toFixed(2));
     const lista = pendentesRestantesPorChave.get(k) ?? [];
     lista.push(p);
     pendentesRestantesPorChave.set(k, lista);
   }
 
+  const lancamentosRestantes = lancamentos.filter((l) => !lancamentoIdsUsados.has(l.id));
   const gruposDia = new Map<string, typeof lancamentosRestantes>();
   for (const l of lancamentosRestantes) {
     const k = chaveDiaCombustivel(l.postoId, l.bancoId, l.data.toISOString());
@@ -351,32 +406,37 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
     lista.push(l);
     gruposDia.set(k, lista);
   }
-  // postoId -> lista de grupos (um por banco+dia) daquele posto, já com a
-  // soma calculada — pra procurar por posto sem precisar reagrupar tudo de
-  // novo a cada conta pendente.
-  const gruposPorPosto = new Map<
-    string,
-    { itens: typeof lancamentosRestantes; somaAbs: string; bancoId: string; data: Date }[]
-  >();
+  const gruposPorPosto = new Map<string, { itens: typeof lancamentosRestantes; bancoId: string; data: Date }[]>();
   for (const itens of gruposDia.values()) {
-    const somaAbs = itens.reduce((s, l) => s + Math.abs(Number(l.valor)), 0).toFixed(2);
     const lista = gruposPorPosto.get(itens[0].postoId) ?? [];
-    lista.push({ itens, somaAbs, bancoId: itens[0].bancoId, data: itens[0].data });
+    lista.push({ itens, bancoId: itens[0].bancoId, data: itens[0].data });
     gruposPorPosto.set(itens[0].postoId, lista);
   }
 
   for (const [, listaPendentes] of pendentesRestantesPorChave) {
-    if (listaPendentes.length !== 1) continue; // ambíguo desse lado
-    const conta = listaPendentes[0];
-    const valorAbs = Number(conta.valor).toFixed(2);
-    const gruposQueBatem = (gruposPorPosto.get(conta.postoId) ?? []).filter((g) => g.somaAbs === valorAbs);
-    if (gruposQueBatem.length !== 1) continue; // nenhum grupo bate, ou mais de um bate (ambíguo)
-    const grupo = gruposQueBatem[0];
-    baixas.push({
-      contaId: conta.id,
-      lancamentoIds: grupo.itens.map((i) => i.id),
-      data: grupo.data,
-      bancoId: grupo.bancoId,
+    const kNecessario = listaPendentes.length;
+    const valorAlvo = Number(listaPendentes[0].valor);
+    const gruposDoPosto = gruposPorPosto.get(listaPendentes[0].postoId) ?? [];
+
+    const gruposQueResolvem: { bancoId: string; data: Date; particao: string[][] }[] = [];
+    for (const grupo of gruposDoPosto) {
+      // Filtra o que já foi usado por OUTRO grupo posto+valor resolvido
+      // nesta mesma passada — sem isso, dois grupos diferentes de valor
+      // igual poderiam reivindicar o mesmo lançamento.
+      const itensDisponiveis = grupo.itens.filter((l) => !lancamentoIdsUsados.has(l.id));
+      const itensParaBusca = itensDisponiveis.map((l) => ({ id: l.id, valorAbs: Math.abs(Number(l.valor)) }));
+      const particao = particionarEmKGrupos(itensParaBusca, valorAlvo, kNecessario);
+      if (!particao) continue;
+      const particaoMaior = particionarEmKGrupos(itensParaBusca, valorAlvo, kNecessario + 1);
+      if (particaoMaior) continue; // esse grupo sozinho já é ambíguo (sobra pra mais um "pacote" do que precisa)
+      gruposQueResolvem.push({ bancoId: grupo.bancoId, data: grupo.data, particao });
+    }
+    if (gruposQueResolvem.length !== 1) continue; // nenhum grupo resolve, ou mais de um resolve (ambíguo)
+
+    const { particao, bancoId, data } = gruposQueResolvem[0];
+    listaPendentes.forEach((conta, i) => {
+      baixas.push({ contaId: conta.id, lancamentoIds: particao[i], data, bancoId });
+      for (const id of particao[i]) lancamentoIdsUsados.add(id);
     });
   }
 
