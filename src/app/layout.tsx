@@ -24,10 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full">
         <NavPrincipal />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-          {children}
+        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-8">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </body>
     </html>
