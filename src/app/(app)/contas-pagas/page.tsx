@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import {
   buscarRelatorio,
   agruparPorVencimento,
@@ -87,70 +88,40 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
       <form className="space-y-3 text-sm print:hidden">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
-            <label htmlFor="postoId" className="text-foreground/60">
-              Posto <span className="text-xs">(Ctrl/Cmd+clique pra mais de um)</span>
-            </label>
+            <label className="text-foreground/60">Posto</label>
             {/* Filtra por quem PAGOU, não por dono da despesa — escolher a
                 OLIVEIRA traz também o que ela pagou pra outros postos. */}
-            <select
-              id="postoId"
-              name="postoId"
-              multiple
-              size={5}
-              defaultValue={postoIdsSelecionados}
-              className="min-w-[11rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-            >
-              {postos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
+            <SeletorDropdown
+              nome="postoId"
+              rotuloTodos="Todos os postos"
+              selecionados={postoIdsSelecionados}
+              itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+            />
             <p className="max-w-[11rem] text-xs text-foreground/50">Filtra por quem pagou, não pelo dono da despesa.</p>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="fornecedorId" className="text-foreground/60">
-              Fornecedor
-            </label>
-            <select
-              id="fornecedorId"
-              name="fornecedorId"
-              multiple
-              size={5}
-              defaultValue={fornecedorIdsSelecionados}
-              className="min-w-[13rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-            >
-              {fornecedores.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.nome}
-                </option>
-              ))}
-            </select>
+            <label className="text-foreground/60">Fornecedor</label>
+            <SeletorDropdown
+              nome="fornecedorId"
+              rotuloTodos="Todos os fornecedores"
+              selecionados={fornecedorIdsSelecionados}
+              itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome }))}
+            />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="planoContaId" className="text-foreground/60">
-              Plano de contas
-            </label>
-            <select
-              id="planoContaId"
-              name="planoContaId"
-              multiple
-              size={5}
-              defaultValue={planoContaIdsSelecionados}
-              className="min-w-[13rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-            >
-              {gruposPlanoConta.map((g) => (
-                <optgroup key={g.id} label={g.nome}>
-                  {g.contas.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <label className="text-foreground/60">Plano de contas</label>
+            <SeletorDropdown
+              nome="planoContaId"
+              rotuloTodos="Todos os planos de conta"
+              selecionados={planoContaIdsSelecionados}
+              grupos={gruposPlanoConta.map((g) => ({
+                id: g.id,
+                nome: g.nome,
+                itens: g.contas.map((c) => ({ id: c.id, nome: c.nome })),
+              }))}
+            />
           </div>
 
           <div className="flex flex-col gap-1">

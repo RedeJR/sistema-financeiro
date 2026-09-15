@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { buscarFluxoCaixa } from "./consulta";
 import { salvarFluxoCaixa } from "./actions";
-import { SeletorPostos } from "./seletor-postos";
 import { BotaoImprimir } from "./botao-imprimir";
 import { TabelaFluxoCaixa } from "./tabela-fluxo-caixa";
 
@@ -64,7 +64,12 @@ export default async function FluxoDeCaixaPage({
       <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
         <div className="flex flex-col gap-1">
           <label className="text-foreground/60">Postos</label>
-          <SeletorPostos postos={postosTodos} selecionados={postoIds} />
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postosTodos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">
