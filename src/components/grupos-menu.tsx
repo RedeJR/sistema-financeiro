@@ -40,7 +40,7 @@ export function GruposMenu({ grupos }: { grupos: GrupoMenu[] }) {
               </span>
             </button>
             {aberto && (
-              <div className="ml-3 flex flex-col gap-0.5 border-l border-black/10 py-0.5 pl-3 dark:border-white/15">
+              <div className="ml-3 flex flex-col gap-0.5 border-l border-blue-200 py-0.5 pl-3 dark:border-blue-900/50">
                 {grupo.itens.map((item) =>
                   item.disponivel ? (
                     <Link

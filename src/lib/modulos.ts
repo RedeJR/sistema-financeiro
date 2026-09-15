@@ -28,7 +28,9 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
 export const GRUPOS_NAV: { label: string; modulos: Modulo[] }[] = [
   { label: "Despesas", modulos: ["CONTAS_A_PAGAR", "CONFERENCIA_DIARIA", "CONTAS_PAGAS"] },
   { label: "Combustíveis", modulos: ["COMBUSTIVEIS_A_PAGAR", "COMBUSTIVEIS_PAGOS"] },
-  { label: "Conciliação", modulos: ["EXTRATOS", "DESPESAS_PAGAS", "CARTOES", "VENDAS_A_PRAZO", "FLUXO_DE_CAIXA"] },
+  { label: "Conciliação", modulos: ["EXTRATOS", "DESPESAS_PAGAS", "CARTOES", "VENDAS_A_PRAZO"] },
 ];
 
-export const MODULOS_AVULSOS: Modulo[] = ["CADASTROS", "USUARIOS"];
+// Fluxo de Caixa fica de fora da Conciliação, como botão avulso — pedido
+// explícito da usuária.
+export const MODULOS_AVULSOS: Modulo[] = ["FLUXO_DE_CAIXA", "CADASTROS", "USUARIOS"];

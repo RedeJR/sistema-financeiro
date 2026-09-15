@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { hojeUTC } from "@/lib/datas";
-import { gerarOcorrenciasRecorrentesPendentes } from "@/app/contas-a-pagar/recorrencia";
+import { gerarOcorrenciasRecorrentesPendentes } from "@/app/(app)/contas-a-pagar/recorrencia";
 import { marcarComoPagas } from "./actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
 import { ErroFormulario } from "@/components/ui/erro-formulario";

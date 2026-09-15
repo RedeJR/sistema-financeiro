@@ -50,7 +50,7 @@ export async function NavPrincipal() {
     : [];
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-black/10 print:hidden dark:border-white/15">
+    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-blue-100 bg-blue-50 print:hidden dark:border-blue-900/50 dark:bg-blue-950/40">
       <div className="px-4 py-4">
         <Link href="/" className="font-semibold tracking-tight">
           Sistema Financeiro
@@ -61,7 +61,7 @@ export async function NavPrincipal() {
         <div className="flex-1 overflow-y-auto px-2">
           <GruposMenu grupos={grupos} />
           {avulsos.length > 0 && (
-            <nav className="mt-2 flex flex-col gap-0.5 border-t border-black/10 pt-2 dark:border-white/15">
+            <nav className="mt-2 flex flex-col gap-0.5 border-t border-blue-100 pt-2 dark:border-blue-900/50">
               {avulsos.map((item) =>
                 item.disponivel ? (
                   <Link
@@ -87,7 +87,7 @@ export async function NavPrincipal() {
       )}
 
       {usuario && (
-        <div className="border-t border-black/10 px-4 py-3 text-sm dark:border-white/15">
+        <div className="border-t border-blue-100 px-4 py-3 text-sm dark:border-blue-900/50">
           <p className="mb-2 truncate text-foreground/60">{usuario.nome}</p>
           <form action={sair}>
             <button
