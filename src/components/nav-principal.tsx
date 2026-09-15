@@ -7,6 +7,7 @@ const ROTA_POR_MODULO: Record<string, string> = {
   CADASTROS: "/cadastros",
   CONTAS_A_PAGAR: "/contas-a-pagar",
   COMBUSTIVEIS_A_PAGAR: "/combustiveis-a-pagar",
+  COMBUSTIVEIS_PAGOS: "/combustiveis-pagos",
   CONFERENCIA_DIARIA: "/conferencia-diaria",
   DESPESAS_PAGAS: "/despesas-pagas",
   EXTRATOS: "/extratos",

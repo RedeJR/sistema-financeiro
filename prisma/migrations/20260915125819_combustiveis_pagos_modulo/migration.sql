@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "Modulo" ADD VALUE 'COMBUSTIVEIS_PAGOS';
+

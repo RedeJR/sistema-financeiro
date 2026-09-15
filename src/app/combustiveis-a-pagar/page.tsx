@@ -47,7 +47,6 @@ export default async function CombustiveisAPagarPage({
   searchParams: Promise<{
     postoId?: string;
     status?: string;
-    pagamento?: string;
     de?: string;
     ate?: string;
     q?: string;
@@ -70,22 +69,17 @@ export default async function CombustiveisAPagarPage({
   // função em conciliacao.ts.
   const semConta = await combustiveisNoExtratoSemConta();
 
-  const { postoId, status, pagamento, de, ate, q, erro } = await searchParams;
+  const { postoId, status, de, ate, q, erro } = await searchParams;
   const busca = q?.trim();
 
-  // Padrão (sem filtro nenhum) continua só o que está em aberto — igual
-  // sempre foi. "pago"/"todos" existem só pra achar o que já foi baixado
-  // pela conciliação automática, que some daqui e não aparece em nenhum
-  // outro lugar do sistema (Despesas Pagas e Relatórios excluem combustível
-  // de propósito, por ter fluxo próprio) — pedido da usuária depois de
-  // notar que sumia da tela sem explicação.
-  const filtroPago = pagamento === "pago" ? true : pagamento === "todos" ? undefined : false;
-
+  // Essa tela só mostra o que está em aberto — o que já foi pago tem tela
+  // própria agora (Combustíveis Pagos, ver /combustiveis-pagos), pedido da
+  // usuária pra não ficar tudo misturado com filtro na mesma tela.
   const [contas, postos] = await Promise.all([
     prisma.contaAPagar.findMany({
       where: {
         combustivel: true,
-        ...(filtroPago !== undefined ? { paga: filtroPago } : {}),
+        paga: false,
         ...(postoId ? { postoId } : {}),
         ...(de || ate
           ? {
@@ -107,22 +101,19 @@ export default async function CombustiveisAPagarPage({
             }
           : {}),
       },
-      include: { posto: true, fornecedor: true, bancoPagamento: true },
+      include: { posto: true, fornecedor: true },
       orderBy: { dataVencimento: "asc" },
     }),
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
   ]);
 
   const hoje = hojeUTC();
-  // Vencida/A vencer só faz sentido pra quem ainda está em aberto — uma
-  // conta já paga não filtra por isso (sempre aparece, se "status" estiver
-  // marcado ou não).
   const contasComStatus = contas
-    .map((c) => ({ ...c, status: c.paga ? null : statusDaConta(c.dataVencimento, hoje) }))
-    .filter((c) => !status || c.paga || c.status === status);
+    .map((c) => ({ ...c, status: statusDaConta(c.dataVencimento, hoje) }))
+    .filter((c) => !status || c.status === status);
 
   const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoId || status || pagamento || de || ate || busca);
+  const temFiltro = Boolean(postoId || status || de || ate || busca);
 
   return (
     <div className="space-y-4">
@@ -157,10 +148,13 @@ export default async function CombustiveisAPagarPage({
 
       <p className="text-sm text-foreground/60">
         Baixa automática: assim que o débito correspondente aparecer conciliado no extrato bancário
-        (mesmo posto, mesmo valor, categoria &quot;Combustíveis&quot;), a conta sai dessa lista sozinha.
-        Ambíguo (mais de uma conta com o mesmo valor no mesmo posto) fica pendente pra conferência manual
-        em Conciliação de Extratos. O que já foi baixado não some — use o filtro &quot;Situação de
-        pagamento&quot; abaixo pra ver o que já foi pago.
+        (mesmo posto, mesmo valor, categoria &quot;Combustíveis&quot;), a conta sai dessa lista sozinha e
+        vai pra{" "}
+        <Link href="/combustiveis-pagos" className="underline">
+          Combustíveis Pagos
+        </Link>
+        . Ambíguo (mais de uma conta com o mesmo valor no mesmo posto) fica pendente pra conferência
+        manual em Conciliação de Extratos.
       </p>
 
       {semConta.length > 0 && (
@@ -216,21 +210,6 @@ export default async function CombustiveisAPagarPage({
                 {p.nome}
               </option>
             ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="pagamento" className="text-foreground/60">
-            Situação de pagamento
-          </label>
-          <select
-            id="pagamento"
-            name="pagamento"
-            defaultValue={pagamento ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">A pagar</option>
-            <option value="pago">Pagas</option>
-            <option value="todos">Todas</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -315,37 +294,26 @@ export default async function CombustiveisAPagarPage({
                 <td className="px-4 py-2 text-foreground/70">{c.descricao ?? "—"}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}</td>
                 <td className="px-4 py-2">
-                  {c.paga ? (
-                    <span
-                      className="rounded-full bg-green-100 px-2 py-0.5 text-xs whitespace-nowrap text-green-800 dark:bg-green-900/40 dark:text-green-400"
-                      title={c.bancoPagamento ? `Baixado no ${c.bancoPagamento.nome}` : undefined}
-                    >
-                      Paga{c.dataPagamento ? ` em ${formatarData(c.dataPagamento)}` : ""}
-                    </span>
-                  ) : (
-                    <BadgeStatus status={c.status!} />
-                  )}
+                  <BadgeStatus status={c.status} />
                 </td>
                 {podeEditar && (
                   <td className="px-4 py-2">
-                    {!c.paga && (
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/combustiveis-a-pagar/${c.id}/editar`}
-                          className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={`/combustiveis-a-pagar/${c.id}/editar`}
+                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        Editar
+                      </Link>
+                      <form action={excluirCombustivelAPagar}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <ConfirmSubmitButton
+                          confirmMessage={`Excluir esse combustível a pagar (${c.fornecedor.nome}, ${formatarMoeda(c.valor.toString())})? Essa ação não pode ser desfeita.`}
                         >
-                          Editar
-                        </Link>
-                        <form action={excluirCombustivelAPagar}>
-                          <input type="hidden" name="id" value={c.id} />
-                          <ConfirmSubmitButton
-                            confirmMessage={`Excluir esse combustível a pagar (${c.fornecedor.nome}, ${formatarMoeda(c.valor.toString())})? Essa ação não pode ser desfeita.`}
-                          >
-                            Excluir
-                          </ConfirmSubmitButton>
-                        </form>
-                      </div>
-                    )}
+                          Excluir
+                        </ConfirmSubmitButton>
+                      </form>
+                    </div>
                   </td>
                 )}
               </tr>

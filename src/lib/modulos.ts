@@ -7,6 +7,7 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   { valor: "CADASTROS", label: "Cadastros", disponivel: true },
   { valor: "CONTAS_A_PAGAR", label: "Contas a Pagar", disponivel: true },
   { valor: "COMBUSTIVEIS_A_PAGAR", label: "Combustíveis a Pagar", disponivel: true },
+  { valor: "COMBUSTIVEIS_PAGOS", label: "Combustíveis Pagos", disponivel: true },
   { valor: "CONFERENCIA_DIARIA", label: "Conferência Diária", disponivel: true },
   { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", disponivel: true },
   { valor: "EXTRATOS", label: "Conciliação de Extratos", disponivel: true },

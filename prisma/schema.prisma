@@ -384,6 +384,10 @@ enum Modulo {
   EXTRATOS
   USUARIOS
   COMBUSTIVEIS_A_PAGAR
+  // Tela própria pra combustível já pago (ver /combustiveis-pagos) — antes
+  // era um filtro dentro de Combustíveis a Pagar, virou tela separada a
+  // pedido da usuária, mesmo padrão de Contas a Pagar/Despesas Pagas.
+  COMBUSTIVEIS_PAGOS
 }
 
 model Usuario {
