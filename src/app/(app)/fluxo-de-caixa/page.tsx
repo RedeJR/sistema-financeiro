@@ -4,6 +4,8 @@ import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarFluxoCaixa } from "./consulta";
 import { salvarFluxoCaixa } from "./actions";
+import { SeletorPostos } from "./seletor-postos";
+import { BotaoImprimir } from "./botao-imprimir";
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -87,50 +89,51 @@ export default async function FluxoDeCaixaPage({
                 <tr key={chave} className="border-t border-black/5 dark:border-white/10">
                   <td className="px-3 py-1.5">{linha.posto}</td>
                   <td className="px-3 py-1.5">
-                    {podeEditar ? (
-                      <>
-                        <input type="hidden" name="chave" value={chave} />
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          name={`saldoInicial__${chave}`}
-                          defaultValue={paraEdicao(linha.saldoInicial)}
-                          placeholder="0,00"
-                          className={classeInput}
-                        />
-                      </>
-                    ) : (
-                      <p className="text-right">{formatarMoeda(linha.saldoInicial)}</p>
+                    {podeEditar && <input type="hidden" name="chave" value={chave} />}
+                    <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>
+                      {formatarMoeda(linha.saldoInicial)}
+                    </p>
+                    {podeEditar && (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        name={`saldoInicial__${chave}`}
+                        defaultValue={paraEdicao(linha.saldoInicial)}
+                        placeholder="0,00"
+                        className={`${classeInput} print:hidden`}
+                      />
                     )}
                   </td>
                   <td className="px-3 py-1.5">
-                    {podeEditar ? (
+                    <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>
+                      {formatarMoeda(linha.recebimentos)}
+                    </p>
+                    {podeEditar && (
                       <input
                         type="text"
                         inputMode="decimal"
                         name={`recebimentos__${chave}`}
                         defaultValue={paraEdicao(linha.recebimentos)}
                         placeholder="0,00"
-                        className={classeInput}
+                        className={`${classeInput} print:hidden`}
                       />
-                    ) : (
-                      <p className="text-right">{formatarMoeda(linha.recebimentos)}</p>
                     )}
                   </td>
                   <td className="px-3 py-1.5 text-right text-foreground/70">{formatarMoeda(linha.combustiveis)}</td>
                   <td className="px-3 py-1.5 text-right text-foreground/70">{formatarMoeda(linha.despesas)}</td>
                   <td className="px-3 py-1.5">
-                    {podeEditar ? (
+                    <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>
+                      {formatarMoeda(linha.despesasExtras)}
+                    </p>
+                    {podeEditar && (
                       <input
                         type="text"
                         inputMode="decimal"
                         name={`despesasExtras__${chave}`}
                         defaultValue={paraEdicao(linha.despesasExtras)}
                         placeholder="0,00"
-                        className={classeInput}
+                        className={`${classeInput} print:hidden`}
                       />
-                    ) : (
-                      <p className="text-right">{formatarMoeda(linha.despesasExtras)}</p>
                     )}
                   </td>
                   <td className="px-3 py-1.5 text-right font-medium">{formatarMoeda(linha.saldoFinal)}</td>
@@ -162,8 +165,11 @@ export default async function FluxoDeCaixaPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Fluxo de Caixa</h1>
-      <p className="text-sm text-foreground/60">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Fluxo de Caixa</h1>
+        <BotaoImprimir />
+      </div>
+      <p className="text-sm text-foreground/60 print:hidden">
         Saldo Inicial, Recebimentos e Despesas Extras são preenchidos manual. Combustíveis vem de{" "}
         <Link href="/combustiveis-a-pagar" className="underline">
           Combustíveis a Pagar
@@ -176,61 +182,48 @@ export default async function FluxoDeCaixaPage({
         Despesas − Despesas Extras.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className="flex flex-col gap-3 text-sm print:hidden">
         <div className="flex flex-col gap-1">
-          <label htmlFor="postoId" className="text-foreground/60">
-            Posto <span className="text-xs">(Ctrl/Cmd+clique pra mais de um)</span>
-          </label>
-          <select
-            id="postoId"
-            name="postoId"
-            multiple
-            size={5}
-            defaultValue={postoIds}
-            className="min-w-[11rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
+          <label className="text-foreground/60">Postos</label>
+          <SeletorPostos postos={postosTodos} selecionados={postoIds} />
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="de" className="text-foreground/60">
+              De
+            </label>
+            <input
+              id="de"
+              type="date"
+              name="de"
+              defaultValue={de}
+              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ate" className="text-foreground/60">
+              até
+            </label>
+            <input
+              id="ate"
+              type="date"
+              name="ate"
+              defaultValue={ate}
+              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
-            {postosTodos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+            Filtrar
+          </button>
+          {temFiltro && (
+            <Link href="/fluxo-de-caixa" className="text-foreground/60 underline">
+              Limpar filtros
+            </Link>
+          )}
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="de" className="text-foreground/60">
-            De
-          </label>
-          <input
-            id="de"
-            type="date"
-            name="de"
-            defaultValue={de}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="ate" className="text-foreground/60">
-            até
-          </label>
-          <input
-            id="ate"
-            type="date"
-            name="ate"
-            defaultValue={ate}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-        >
-          Filtrar
-        </button>
-        {temFiltro && (
-          <Link href="/fluxo-de-caixa" className="text-foreground/60 underline">
-            Limpar filtros
-          </Link>
-        )}
       </form>
 
       {podeEditar ? (
@@ -240,7 +233,7 @@ export default async function FluxoDeCaixaPage({
             <Tabela key={dia.data} dia={dia} />
           ))}
           {dias.length > 0 && (
-            <div className="flex justify-end">
+            <div className="flex justify-end print:hidden">
               <button
                 type="submit"
                 className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
