@@ -5,7 +5,7 @@ import { buscarFluxoCaixa } from "./consulta";
 import { salvarFluxoCaixa } from "./actions";
 import { SeletorPostos } from "./seletor-postos";
 import { BotaoImprimir } from "./botao-imprimir";
-import { TabelaDia } from "./tabela-dia";
+import { TabelaFluxoCaixa } from "./tabela-fluxo-caixa";
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -106,9 +106,7 @@ export default async function FluxoDeCaixaPage({
       {podeEditar ? (
         <form action={salvarFluxoCaixa} className="space-y-4">
           <input type="hidden" name="voltarPara" value={voltarPara} />
-          {dias.map((dia) => (
-            <TabelaDia key={dia.data} dia={dia} podeEditar={podeEditar} />
-          ))}
+          <TabelaFluxoCaixa dias={dias} podeEditar={podeEditar} />
           {dias.length > 0 && (
             <div className="flex justify-end print:hidden">
               <button
@@ -121,11 +119,7 @@ export default async function FluxoDeCaixaPage({
           )}
         </form>
       ) : (
-        <div className="space-y-4">
-          {dias.map((dia) => (
-            <TabelaDia key={dia.data} dia={dia} podeEditar={podeEditar} />
-          ))}
-        </div>
+        <TabelaFluxoCaixa dias={dias} podeEditar={podeEditar} />
       )}
 
       {dias.length === 0 && (
