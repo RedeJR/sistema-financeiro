@@ -7,9 +7,9 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   { valor: "CADASTROS", label: "Cadastros", disponivel: true },
   { valor: "CONTAS_A_PAGAR", label: "Contas a Pagar", disponivel: true },
   { valor: "CONFERENCIA_DIARIA", label: "Conferência Diária", disponivel: true },
-  // Novo módulo (mesma tela do botão Relatório/PDF de Contas a Pagar) — ainda
-  // não construído como tela própria, aparece desabilitado no menu.
-  { valor: "CONTAS_PAGAS", label: "Contas Pagas", disponivel: false },
+  // Mesma tela/consulta do botão Relatório (PDF) de Contas a Pagar, com
+  // situação sempre fixa em "paga" — ver src/app/(app)/contas-pagas.
+  { valor: "CONTAS_PAGAS", label: "Contas Pagas", disponivel: true },
   { valor: "COMBUSTIVEIS_A_PAGAR", label: "Combustíveis a Pagar", disponivel: true },
   { valor: "COMBUSTIVEIS_PAGOS", label: "Combustíveis Pagos", disponivel: true },
   { valor: "EXTRATOS", label: "Conciliação de Extratos", disponivel: true },
