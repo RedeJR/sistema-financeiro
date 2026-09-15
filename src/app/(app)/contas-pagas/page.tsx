@@ -90,7 +90,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
       </div>
 
-      <form className="space-y-3 text-sm print:hidden">
+      <form className="space-y-1.5 text-sm print:hidden">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-foreground/60">Posto</label>
@@ -100,14 +100,6 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
               selecionados={postoIdsSelecionados}
               itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
             />
-            {/* Padrão: filtra pelo posto DONO da despesa. Marcando essa
-                caixa, passa a filtrar por quem PAGOU (ex: escolher a
-                OLIVEIRA traz também o que ela pagou pra outros postos) —
-                pedido explícito da usuária, só nessa tela. */}
-            <label className="flex items-center gap-1.5 text-xs text-foreground/60">
-              <input type="checkbox" name="postoPagador" value="1" defaultChecked={filtros.postoPagador === "1"} />
-              Pagador
-            </label>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -159,6 +151,18 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
             />
           </div>
         </div>
+
+        {/* Padrão: filtra pelo posto DONO da despesa. Marcando essa caixa,
+            passa a filtrar por quem PAGOU (ex: escolher a OLIVEIRA traz
+            também o que ela pagou pra outros postos) — pedido explícito da
+            usuária, só nessa tela. Fica fora da linha de cima (em vez de
+            dentro da coluna do Posto) pra não desalinhar as caixas de
+            filtro — com `items-end`, uma coluna mais alta que as outras
+            empurrava só ela pra cima. */}
+        <label className="flex w-56 items-center gap-1.5 text-xs text-foreground/60">
+          <input type="checkbox" name="postoPagador" value="1" defaultChecked={filtros.postoPagador === "1"} />
+          Pagador
+        </label>
 
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
