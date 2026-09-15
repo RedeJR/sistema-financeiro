@@ -335,6 +335,35 @@ function particionarEmKGrupos(
   return buscar(itens, k);
 }
 
+// Mesma ideia de busca exaustiva, mas pro sentido contrário: acha TODOS os
+// subconjuntos de `itens` (com assinatura de valores distinta — duplicatas
+// de valor não contam como combinação diferente) cuja soma bate com `alvo`.
+// Usado na passada 3 pra achar que subconjunto de CONTAS pendentes de um
+// posto soma o valor total de um lançamento (ou grupo de lançamentos) —
+// o inverso de particionarEmKGrupos, que soma LANÇAMENTOS pro valor de 1
+// conta.
+function subconjuntosQueSomam(itens: { id: string; valor: number }[], alvo: number): string[][] {
+  if (itens.length === 0 || itens.length > 14) return [];
+  const porAssinatura = new Map<string, string[]>();
+  const n = itens.length;
+  for (let mascara = 1; mascara < 1 << n; mascara++) {
+    let soma = 0;
+    const ids: string[] = [];
+    const valoresUsados: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (mascara & (1 << i)) {
+        soma += itens[i].valor;
+        ids.push(itens[i].id);
+        valoresUsados.push(itens[i].valor);
+      }
+    }
+    if (Math.abs(soma - alvo) > 0.001) continue;
+    const assinatura = [...valoresUsados].sort((a, b) => a - b).map((v) => v.toFixed(2)).join(",");
+    if (!porAssinatura.has(assinatura)) porAssinatura.set(assinatura, ids);
+  }
+  return [...porAssinatura.values()];
+}
+
 export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasBaixas: number }> {
   const categoriaCombustiveis = await prisma.categoriaExtrato.findUnique({
     where: { nome: "COMBUSTÍVEIS" },
@@ -452,6 +481,77 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
       baixas.push({ contaId: conta.id, lancamentoIds: particao[i], data, bancoId });
       for (const id of particao[i]) lancamentoIdsUsados.add(id);
     });
+  }
+
+  // Passada 3: pra quem sobrou depois das duas primeiras (pedido da usuária:
+  // "conciliação do valor total no dia") — um posto às vezes cobre, numa
+  // ÚNICA linha do banco, o combustível dele MAIS o de outro posto que ele
+  // pagou por fora (ex: GOODBYE pagando também a parte do SINERGIA no mesmo
+  // boleto). Nesse caso não tem como dividir a linha do extrato — em vez
+  // disso, busca um subconjunto das contas pendentes daquele posto PAGADOR
+  // cuja soma bate com a soma de um dia inteiro de lançamentos.
+  //
+  // Um lançamento só aponta pra 1 conta por vez (ver
+  // LancamentoExtrato.contaAPagarId), então quando o subconjunto tem mais
+  // de 1 conta, só a de maior valor fica com os lançamentos vinculados — as
+  // outras só são marcadas como pagas (data e banco corretos), sem
+  // lançamento vinculado individualmente. Mesmo critério conservador das
+  // passadas anteriores: só baixa quando existe exatamente 1 combinação de
+  // contas que bate com aquele dia.
+  const pendentesFinais = pendentes.filter((p) => !contaIdsUsados.has(p.id));
+  const lancamentosFinais = lancamentos.filter((l) => !lancamentoIdsUsados.has(l.id));
+
+  const gruposDiaFinal = new Map<string, typeof lancamentosFinais>();
+  for (const l of lancamentosFinais) {
+    const k = chaveDiaCombustivel(l.postoId, l.bancoId, l.data.toISOString());
+    const lista = gruposDiaFinal.get(k) ?? [];
+    lista.push(l);
+    gruposDiaFinal.set(k, lista);
+  }
+
+  const pendentesPorPostoPagador = new Map<string, typeof pendentesFinais>();
+  for (const p of pendentesFinais) {
+    const posto = postoPagador(p);
+    const lista = pendentesPorPostoPagador.get(posto) ?? [];
+    lista.push(p);
+    pendentesPorPostoPagador.set(posto, lista);
+  }
+
+  for (const itensGrupo of gruposDiaFinal.values()) {
+    const postoDoGrupo = itensGrupo[0].postoId;
+    const pendentesDoPosto = (pendentesPorPostoPagador.get(postoDoGrupo) ?? []).filter(
+      (p) => !contaIdsUsados.has(p.id)
+    );
+    if (pendentesDoPosto.length === 0) continue;
+
+    const somaLancamentos = itensGrupo.reduce((s, l) => s + Math.abs(Number(l.valor)), 0);
+    const itensParaBusca = pendentesDoPosto.map((p) => ({ id: p.id, valor: Number(p.valor) }));
+    const subconjuntos = subconjuntosQueSomam(itensParaBusca, somaLancamentos);
+    if (subconjuntos.length !== 1) continue; // nenhuma combinação bate, ou mais de uma bate (ambíguo)
+
+    const contasDoSubconjunto = pendentesDoPosto.filter((p) => subconjuntos[0].includes(p.id));
+    const [contaPrincipal, ...outras] = [...contasDoSubconjunto].sort(
+      (a, b) => Number(b.valor) - Number(a.valor)
+    );
+
+    baixas.push({
+      contaId: contaPrincipal.id,
+      lancamentoIds: itensGrupo.map((l) => l.id),
+      data: itensGrupo[0].data,
+      bancoId: itensGrupo[0].bancoId,
+    });
+    contaIdsUsados.add(contaPrincipal.id);
+    for (const l of itensGrupo) lancamentoIdsUsados.add(l.id);
+
+    for (const conta of outras) {
+      baixas.push({
+        contaId: conta.id,
+        lancamentoIds: [],
+        data: itensGrupo[0].data,
+        bancoId: itensGrupo[0].bancoId,
+      });
+      contaIdsUsados.add(conta.id);
+    }
   }
 
   if (baixas.length === 0) return { novasBaixas: 0 };
