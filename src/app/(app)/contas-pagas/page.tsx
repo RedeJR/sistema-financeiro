@@ -27,6 +27,10 @@ function paraArray(v?: string | string[]): string[] {
 
 type Filtros = {
   postoId?: string | string[];
+  // "1" = filtra pelo posto PAGADOR (checkbox "Pagador" marcado); ausente
+  // (padrão) = filtra pelo posto DONO da despesa — pedido explícito da
+  // usuária, só nessa tela (ver postoPagador em relatorios/consulta.ts).
+  postoPagador?: string;
   fornecedorId?: string | string[];
   planoContaId?: string | string[];
   de?: string;
@@ -65,6 +69,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
 
   const temFiltro = Boolean(
     postoIdsSelecionados.length ||
+      filtros.postoPagador === "1" ||
       fornecedorIdsSelecionados.length ||
       planoContaIdsSelecionados.length ||
       filtros.de ||
@@ -89,15 +94,20 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-foreground/60">Posto</label>
-            {/* Filtra por quem PAGOU, não por dono da despesa — escolher a
-                OLIVEIRA traz também o que ela pagou pra outros postos. */}
             <SeletorDropdown
               nome="postoId"
               rotuloTodos="Todos os postos"
               selecionados={postoIdsSelecionados}
               itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
             />
-            <p className="max-w-[11rem] text-xs text-foreground/50">Filtra por quem pagou, não pelo dono da despesa.</p>
+            {/* Padrão: filtra pelo posto DONO da despesa. Marcando essa
+                caixa, passa a filtrar por quem PAGOU (ex: escolher a
+                OLIVEIRA traz também o que ela pagou pra outros postos) —
+                pedido explícito da usuária, só nessa tela. */}
+            <label className="flex items-center gap-1.5 text-xs text-foreground/60">
+              <input type="checkbox" name="postoPagador" value="1" defaultChecked={filtros.postoPagador === "1"} />
+              Pagador
+            </label>
           </div>
 
           <div className="flex flex-col gap-1">

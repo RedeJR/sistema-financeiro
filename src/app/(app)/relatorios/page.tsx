@@ -40,7 +40,9 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const statusAPagarMarcado = !filtros.statusEnviado || statusSelecionado.includes("A_PAGAR");
 
   const [linhas, postos, fornecedores, gruposPlanoConta] = await Promise.all([
-    buscarRelatorio(filtros),
+    // Sempre por posto pagador aqui — esse relatório nunca teve o toggle
+    // dono/pagador (só Contas Pagas ganhou, pedido explícito da usuária).
+    buscarRelatorio({ ...filtros, postoPagador: "1" }),
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.grupoPlanoConta.findMany({

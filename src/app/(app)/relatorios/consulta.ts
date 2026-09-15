@@ -21,6 +21,13 @@ export type FiltrosRelatorio = {
   status?: string | string[];
   statusEnviado?: string;
   postoId?: string | string[];
+  // "1" = filtra pelo posto PAGADOR (postoPagamentoId ?? postoId); ausente
+  // = filtra pelo posto DONO da despesa (postoId puro). Cada tela que chama
+  // buscarRelatorio decide seu próprio padrão passando esse campo explícito
+  // — Relatórios sempre manda "1" (mantém o comportamento de sempre); Contas
+  // Pagas manda o que vier do checkbox "Pagador" (padrão: dono da despesa,
+  // pedido explícito da usuária, só nessa tela).
+  postoPagador?: string;
   fornecedorId?: string | string[];
   planoContaId?: string | string[];
   de?: string;
@@ -52,13 +59,16 @@ export async function buscarRelatorio(filtros: FiltrosRelatorio) {
     // Pagas já excluem em toda a tela.
     combustivel: false,
     ...(filtroPaga !== undefined ? { paga: filtroPaga } : {}),
-    // Filtra pelo posto PAGADOR, não pelo dono da despesa (mesmo motivo do
-    // comentário no topo de src/lib/conciliacao.ts) — pedido da usuária:
-    // filtrar pela OLIVEIRA tem que trazer as despesas de outros postos que
-    // ela pagou, não só as que são dela mesma. postoPagamentoId null conta
-    // como "pago pelo próprio posto da conta".
+    // Pagador (postoPagador="1"): mesmo motivo do comentário no topo de
+    // src/lib/conciliacao.ts — filtrar pela OLIVEIRA tem que trazer as
+    // despesas de outros postos que ela pagou, não só as que são dela
+    // mesma. postoPagamentoId null conta como "pago pelo próprio posto da
+    // conta". Dono (padrão): filtra só pelo postoId puro, ignora quem
+    // pagou.
     ...(postoIds.length
-      ? { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] }
+      ? filtros.postoPagador === "1"
+        ? { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] }
+        : { postoId: { in: postoIds } }
       : {}),
     ...(fornecedorIds.length ? { fornecedorId: { in: fornecedorIds } } : {}),
     ...(planoContaIds.length ? { planoContaId: { in: planoContaIds } } : {}),
