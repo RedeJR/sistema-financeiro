@@ -28,6 +28,7 @@ model Posto {
   // outro posto — ver ContaAPagar.postoPagamentoId.
   contasPagasPorEste ContaAPagar[]       @relation("PostoPagamento")
   lancamentosExtrato LancamentoExtrato[]
+  fluxoCaixaDias     FluxoCaixaDia[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -366,6 +367,32 @@ model ContaAPagar {
   @@index([postoPagamentoId])
   @@index([grupoRecorrenciaId])
   @@map("contas_a_pagar")
+}
+
+// ---------------------------------------------------------------------------
+// Módulo: Fluxo de Caixa
+// ---------------------------------------------------------------------------
+// Um lançamento por posto+dia, só com os 3 campos preenchidos manualmente
+// (Saldo Inicial, Recebimentos, Despesas Extras — ver formulário em
+// src/app/(app)/fluxo-de-caixa). Combustíveis e Despesas NÃO ficam
+// guardados aqui: são somados na hora a partir de ContaAPagar (combustivel
+// true/false) pela mesma data, e Saldo Final também não é guardado — é
+// sempre saldoInicial + recebimentos - combustiveis - despesas -
+// despesasExtras, recalculado toda vez (ver consulta.ts).
+model FluxoCaixaDia {
+  id             String   @id @default(cuid())
+  postoId        String
+  posto          Posto    @relation(fields: [postoId], references: [id], onDelete: Cascade)
+  data           DateTime @db.Date
+  saldoInicial   Decimal  @default(0) @db.Decimal(12, 2)
+  recebimentos   Decimal  @default(0) @db.Decimal(12, 2)
+  despesasExtras Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([postoId, data])
+  @@index([data])
+  @@map("fluxo_caixa_dias")
 }
 
 // ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   // construídos numa fase futura.
   { valor: "CARTOES", label: "Cartões", disponivel: false },
   { valor: "VENDAS_A_PRAZO", label: "Vendas a Prazo", disponivel: false },
-  { valor: "FLUXO_DE_CAIXA", label: "Fluxo de Caixa", disponivel: false },
+  { valor: "FLUXO_DE_CAIXA", label: "Fluxo de Caixa", disponivel: true },
   { valor: "USUARIOS", label: "Usuários", disponivel: true },
 ];
 
