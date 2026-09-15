@@ -32,5 +32,9 @@ export const GRUPOS_NAV: { label: string; modulos: Modulo[] }[] = [
 ];
 
 // Fluxo de Caixa fica de fora da Conciliação, como botão avulso — pedido
-// explícito da usuária.
-export const MODULOS_AVULSOS: Modulo[] = ["FLUXO_DE_CAIXA", "CADASTROS", "USUARIOS"];
+// explícito da usuária. Fica junto dos grupos, sem linha separadora acima.
+export const MODULOS_AVULSOS: Modulo[] = ["FLUXO_DE_CAIXA"];
+
+// Cadastros/Usuários formam um bloco à parte no fim do menu, com uma linha
+// separadora acima só dele (não do Fluxo de Caixa).
+export const MODULOS_RODAPE: Modulo[] = ["CADASTROS", "USUARIOS"];
