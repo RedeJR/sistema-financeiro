@@ -258,13 +258,16 @@ export async function statusConciliacaoPorGrupo(
 // importa é achar exatamente TANTOS candidatos quanto contas naquele grupo,
 // não exatamente 1 candidato no sistema inteiro.
 //
-// 1) Mesmo posto + mesmo valor (em módulo) + lançamento categorizado
-//    "Combustíveis" no extrato (a usuária já revisa/categoriza os débitos do
-//    extrato normalmente — reaproveita esse trabalho em vez de pedir uma
-//    segunda categorização). SEM exigir data igual: a data de vencimento do
-//    combustível é só uma previsão, o débito real no banco pode cair em
-//    outro dia. Um grupo de k contas com esse valor só baixa quando sobram
-//    exatamente k lançamentos avulsos com esse valor pra esse posto.
+// 1) Mesmo posto PAGADOR (ContaAPagar.postoPagamentoId ?? postoId — pedido
+//    da usuária: "às vezes mandamos combustível de um posto para o outro",
+//    o lançamento só existe no extrato de quem realmente pagou) + mesmo
+//    valor (em módulo) + lançamento categorizado "Combustíveis" no extrato
+//    (a usuária já revisa/categoriza os débitos do extrato normalmente —
+//    reaproveita esse trabalho em vez de pedir uma segunda categorização).
+//    SEM exigir data igual: a data de vencimento do combustível é só uma
+//    previsão, o débito real no banco pode cair em outro dia. Um grupo de k
+//    contas com esse valor só baixa quando sobram exatamente k lançamentos
+//    avulsos com esse valor pra esse posto pagador.
 // 2) Pra quem sobrou sem par na passada 1 (pedido da usuária): ela às vezes
 //    lança em Combustível a Pagar o valor somado de vários boletos que
 //    vencem no mesmo dia — nesse caso o extrato tem VÁRIOS débitos
@@ -341,7 +344,7 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
   const [pendentes, lancamentos] = await Promise.all([
     prisma.contaAPagar.findMany({
       where: { combustivel: true, paga: false, lancamentosExtratoConciliados: { none: {} } },
-      select: { id: true, postoId: true, valor: true },
+      select: { id: true, postoId: true, postoPagamentoId: true, valor: true },
     }),
     prisma.lancamentoExtrato.findMany({
       where: { categoriaId: categoriaCombustiveis.id, contaAPagarId: null, valor: { lt: 0 } },
@@ -349,9 +352,20 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
     }),
   ]);
 
+  // Posto PAGADOR da conta (ver ContaAPagar.postoPagamentoId) — normalmente
+  // igual ao posto dono (`postoId`), mas às vezes é outro posto que cobriu a
+  // conta pelo próprio banco (pedido da usuária: "às vezes mandamos
+  // combustível de um posto para o outro"). O lançamento do extrato só
+  // existe do lado de quem realmente pagou, então é ISSO que precisa bater
+  // com o posto do lançamento — usar o dono nesse caso nunca acharia o
+  // lançamento certo (ele está no extrato de outro posto).
+  function postoPagador(p: { postoId: string; postoPagamentoId: string | null }): string {
+    return p.postoPagamentoId ?? p.postoId;
+  }
+
   const pendentesPorChave = new Map<string, typeof pendentes>();
   for (const p of pendentes) {
-    const k = chaveCombustivel(p.postoId, Number(p.valor).toFixed(2));
+    const k = chaveCombustivel(postoPagador(p), Number(p.valor).toFixed(2));
     const lista = pendentesPorChave.get(k) ?? [];
     lista.push(p);
     pendentesPorChave.set(k, lista);
@@ -392,7 +406,7 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
   const pendentesRestantesPorChave = new Map<string, typeof pendentes>();
   for (const p of pendentes) {
     if (contaIdsUsados.has(p.id)) continue;
-    const k = chaveCombustivel(p.postoId, Number(p.valor).toFixed(2));
+    const k = chaveCombustivel(postoPagador(p), Number(p.valor).toFixed(2));
     const lista = pendentesRestantesPorChave.get(k) ?? [];
     lista.push(p);
     pendentesRestantesPorChave.set(k, lista);
@@ -416,7 +430,7 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
   for (const [, listaPendentes] of pendentesRestantesPorChave) {
     const kNecessario = listaPendentes.length;
     const valorAlvo = Number(listaPendentes[0].valor);
-    const gruposDoPosto = gruposPorPosto.get(listaPendentes[0].postoId) ?? [];
+    const gruposDoPosto = gruposPorPosto.get(postoPagador(listaPendentes[0])) ?? [];
 
     const gruposQueResolvem: { bancoId: string; data: Date; particao: string[][] }[] = [];
     for (const grupo of gruposDoPosto) {

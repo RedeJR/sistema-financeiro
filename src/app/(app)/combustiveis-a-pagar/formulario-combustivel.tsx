@@ -20,6 +20,7 @@ type Props = {
     dataVencimento: string;
     valor: string;
     observacao: string | null;
+    postoPagamentoId: string | null;
   };
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
 };
@@ -41,8 +42,8 @@ export function FormularioCombustivel({ postos, fornecedores, valoresIniciais, a
       <p className="rounded-md bg-black/5 px-3 py-2 text-sm text-foreground/70 dark:bg-white/5">
         O plano de contas dessa despesa é sempre <strong>COMBUSTIVEIS</strong> — não precisa escolher. A
         baixa também é automática: assim que o débito correspondente aparecer conciliado no extrato
-        bancário (mesmo posto, mesmo valor, categoria &quot;Combustíveis&quot;), essa conta sai da lista de
-        pendentes sozinha.
+        bancário (mesmo posto pagador, mesmo valor, categoria &quot;Combustíveis&quot;), essa conta sai da
+        lista de pendentes sozinha.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -82,6 +83,28 @@ export function FormularioCombustivel({ postos, fornecedores, valoresIniciais, a
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="postoPagamentoId" className="text-sm font-medium text-foreground/80">
+          Pago pelo posto{" "}
+          <span className="font-normal text-foreground/50">
+            (só se for diferente do Posto acima — quando um posto manda combustível de/pra outro)
+          </span>
+        </label>
+        <select
+          id="postoPagamentoId"
+          name="postoPagamentoId"
+          defaultValue={v?.postoPagamentoId ?? ""}
+          className={campoSelect}
+        >
+          <option value="">Mesmo posto acima</option>
+          {postos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

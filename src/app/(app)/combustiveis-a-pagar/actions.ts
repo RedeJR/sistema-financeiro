@@ -38,6 +38,14 @@ const schema = z.object({
   fornecedorId: z.string().trim().min(1, "Escolha um fornecedor."),
   dataDescarga: z.string().trim().min(1, "Informe a data de descarga."),
   dataVencimento: z.string().trim().min(1, "Informe a data de vencimento."),
+  // Vazio = pago pelo próprio posto dono da conta (caso comum) — mesmo
+  // padrão de ContaAPagar.postoPagamentoId usado em Despesas Pagas e
+  // Conferência Diária, pra quando um posto manda combustível de/pra outro.
+  postoPagamentoId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v : null)),
   observacao: z
     .string()
     .trim()
@@ -68,6 +76,7 @@ export async function criarCombustivelAPagar(
     fornecedorId: formData.get("fornecedorId"),
     dataDescarga: formData.get("dataDescarga"),
     dataVencimento: formData.get("dataVencimento"),
+    postoPagamentoId: formData.get("postoPagamentoId"),
     observacao: formData.get("observacao"),
     valor: formData.get("valor"),
   });
@@ -91,6 +100,7 @@ export async function criarCombustivelAPagar(
         dataVencimento: dataUTC(parsed.data.dataVencimento),
         valor: parsed.data.valor,
         descricao: parsed.data.observacao,
+        postoPagamentoId: parsed.data.postoPagamentoId,
         combustivel: true,
         paga: false,
       },
@@ -121,6 +131,7 @@ export async function atualizarCombustivelAPagar(
     fornecedorId: formData.get("fornecedorId"),
     dataDescarga: formData.get("dataDescarga"),
     dataVencimento: formData.get("dataVencimento"),
+    postoPagamentoId: formData.get("postoPagamentoId"),
     observacao: formData.get("observacao"),
     valor: formData.get("valor"),
   });
@@ -154,6 +165,7 @@ export async function atualizarCombustivelAPagar(
         dataVencimento: dataUTC(parsed.data.dataVencimento),
         valor: parsed.data.valor,
         descricao: parsed.data.observacao,
+        postoPagamentoId: parsed.data.postoPagamentoId,
       },
     });
   } catch (e) {
