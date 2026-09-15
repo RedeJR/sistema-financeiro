@@ -56,24 +56,37 @@ export default async function Home({
     !!usuario?.permissoes.find((p) => p.modulo === "DESPESAS_PAGAS")?.podeVisualizar &&
     !!usuario?.permissoes.find((p) => p.modulo === "EXTRATOS")?.podeVisualizar;
 
-  let dadosGrafico: { label: string; valor: number }[] = [];
+  // Combustível é ContaAPagar com `combustivel: true` — só entra na série
+  // laranja do gráfico pra quem também pode ver Combustíveis a Pagar; sem
+  // essa permissão, nem entra na consulta (não só zera o valor).
+  const podeVerCombustiveis = !!usuario?.permissoes.find(
+    (p) => p.modulo === "COMBUSTIVEIS_A_PAGAR"
+  )?.podeVisualizar;
+
+  let dadosGrafico: { label: string; despesas: number; combustiveis: number }[] = [];
   let totalGeral = 0;
   let totalContas = 0;
 
   if (podeVerContasAPagar) {
     const contas = await prisma.contaAPagar.findMany({
-      where: { dataVencimento: dataUTC(dataSelecionada) },
-      select: { valor: true, posto: { select: { nome: true } } },
+      where: {
+        dataVencimento: dataUTC(dataSelecionada),
+        ...(podeVerCombustiveis ? {} : { combustivel: false }),
+      },
+      select: { valor: true, combustivel: true, posto: { select: { nome: true } } },
     });
     totalContas = contas.length;
-    const porPosto = new Map<string, number>();
+    const porPosto = new Map<string, { despesas: number; combustiveis: number }>();
     for (const c of contas) {
-      porPosto.set(c.posto.nome, (porPosto.get(c.posto.nome) ?? 0) + Number(c.valor));
+      const atual = porPosto.get(c.posto.nome) ?? { despesas: 0, combustiveis: 0 };
+      if (c.combustivel) atual.combustiveis += Number(c.valor);
+      else atual.despesas += Number(c.valor);
+      porPosto.set(c.posto.nome, atual);
     }
     dadosGrafico = [...porPosto.entries()]
-      .map(([label, valor]) => ({ label, valor }))
-      .sort((a, b) => b.valor - a.valor);
-    totalGeral = dadosGrafico.reduce((s, d) => s + d.valor, 0);
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => b.despesas + b.combustiveis - (a.despesas + a.combustiveis));
+    totalGeral = dadosGrafico.reduce((s, d) => s + d.despesas + d.combustiveis, 0);
   }
 
   // Painel de conciliação: uma linha por posto, uma faixa de dias do

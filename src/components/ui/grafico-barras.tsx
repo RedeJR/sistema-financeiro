@@ -1,76 +1,120 @@
 import { formatarMoeda } from "@/lib/dinheiro";
 
-// Gráfico de barras simples em SVG puro — sem biblioteca externa, pra não
-// adicionar dependência só por causa de um gráfico. Responsivo (viewBox +
-// width 100%), acompanha o tema claro/escuro via classes do Tailwind
-// (fill-current + text-foreground/indigo), e o <title> de cada barra dá
-// tooltip nativo do navegador ao passar o mouse, sem precisar de JS.
-export function GraficoBarras({
-  dados,
-}: {
-  dados: { label: string; valor: number }[];
-}) {
-  const largura = 640;
-  const altura = 260;
-  const margemBaixo = 36;
-  const margemTopo = 28;
-  const areaAltura = altura - margemBaixo - margemTopo;
-  const max = Math.max(...dados.map((d) => d.valor), 1);
+type LinhaGrafico = { label: string; despesas: number; combustiveis: number };
 
-  const gap = 16;
-  const larguraBarra = Math.min(72, (largura - gap * (dados.length + 1)) / dados.length);
-  const larguraUsada = larguraBarra * dados.length + gap * (dados.length + 1);
-  const offsetX = (largura - larguraUsada) / 2;
+// Gráfico de barras horizontais em SVG puro — sem biblioteca externa, pra
+// não adicionar dependência só por causa de um gráfico. Cada posto é uma
+// linha (em vez de coluna vertical): com muitos postos as colunas ficavam
+// espremidas e os rótulos se sobrepunham; na horizontal cabe quantos postos
+// precisar, só crescendo a altura (a página rola, não o gráfico). Duas
+// barras por linha — despesas em azul, combustíveis em laranja — na mesma
+// escala, pra dar pra comparar as duas de cara.
+export function GraficoBarras({ dados }: { dados: LinhaGrafico[] }) {
+  const largura = 640;
+  const rotuloLargura = 136;
+  const paddingDireita = 76;
+  const areaLargura = largura - rotuloLargura - paddingDireita;
+
+  const alturaBarra = 11;
+  const espacoEntreBarras = 3;
+  const alturaLinha = alturaBarra * 2 + espacoEntreBarras + 14;
+  const margemTopo = 28;
+  const margemBaixo = 8;
+  const altura = margemTopo + dados.length * alturaLinha + margemBaixo;
+
+  const max = Math.max(...dados.flatMap((d) => [d.despesas, d.combustiveis]), 1);
+  const escala = (v: number) => (v / max) * areaLargura;
 
   return (
     <svg
       viewBox={`0 0 ${largura} ${altura}`}
       className="h-auto w-full"
       role="img"
-      aria-label="Total de contas a pagar por posto"
+      aria-label="Total de despesas e combustíveis por posto"
     >
-      {/* Linha de base */}
-      <line
-        x1={0}
-        y1={altura - margemBaixo}
-        x2={largura}
-        y2={altura - margemBaixo}
-        className="stroke-current text-black/10 dark:text-white/15"
-        strokeWidth={1}
-      />
+      <g>
+        <rect
+          x={rotuloLargura}
+          y={4}
+          width={10}
+          height={10}
+          rx={2}
+          className="fill-current text-blue-600 dark:text-blue-400"
+        />
+        <text x={rotuloLargura + 14} y={13} fontSize="11" className="fill-current text-foreground/70">
+          Despesas
+        </text>
+        <rect
+          x={rotuloLargura + 78}
+          y={4}
+          width={10}
+          height={10}
+          rx={2}
+          className="fill-current text-orange-500 dark:text-orange-400"
+        />
+        <text x={rotuloLargura + 92} y={13} fontSize="11" className="fill-current text-foreground/70">
+          Combustíveis
+        </text>
+      </g>
+
       {dados.map((d, i) => {
-        const h = max > 0 ? (d.valor / max) * areaAltura : 0;
-        const x = offsetX + gap + i * (larguraBarra + gap);
-        const y = margemTopo + (areaAltura - h);
+        const y0 = margemTopo + i * alturaLinha;
+        const larguraDespesas = escala(d.despesas);
+        const larguraCombustiveis = escala(d.combustiveis);
+        const yDespesas = y0;
+        const yCombustiveis = y0 + alturaBarra + espacoEntreBarras;
+        const yLabel = y0 + alturaBarra + espacoEntreBarras / 2;
+
         return (
           <g key={d.label}>
-            <title>{`${d.label}: ${formatarMoeda(d.valor)}`}</title>
+            <title>{`${d.label} — Despesas: ${formatarMoeda(d.despesas)}, Combustíveis: ${formatarMoeda(d.combustiveis)}`}</title>
+            <text
+              x={rotuloLargura - 8}
+              y={yLabel + 4}
+              textAnchor="end"
+              fontSize="11"
+              className="fill-current text-foreground/70"
+            >
+              {d.label.length > 16 ? `${d.label.slice(0, 15)}…` : d.label}
+            </text>
+
             <rect
-              x={x}
-              y={y}
-              width={larguraBarra}
-              height={Math.max(h, 2)}
-              rx={6}
-              className="fill-current text-indigo-600 transition-opacity hover:opacity-80 dark:text-indigo-400"
+              x={rotuloLargura}
+              y={yDespesas}
+              width={d.despesas > 0 ? Math.max(larguraDespesas, 2) : 0}
+              height={alturaBarra}
+              rx={3}
+              className="fill-current text-blue-600 transition-opacity hover:opacity-80 dark:text-blue-400"
             />
-            <text
-              x={x + larguraBarra / 2}
-              y={y - 8}
-              textAnchor="middle"
-              fontSize="11"
-              className="fill-current text-foreground/80"
-            >
-              {formatarMoeda(d.valor)}
-            </text>
-            <text
-              x={x + larguraBarra / 2}
-              y={altura - margemBaixo + 16}
-              textAnchor="middle"
-              fontSize="11"
-              className="fill-current text-foreground/60"
-            >
-              {d.label.length > 12 ? `${d.label.slice(0, 11)}…` : d.label}
-            </text>
+            {d.despesas > 0 && (
+              <text
+                x={rotuloLargura + larguraDespesas + 4}
+                y={yDespesas + alturaBarra - 2}
+                fontSize="10"
+                className="fill-current text-foreground/60"
+              >
+                {formatarMoeda(d.despesas)}
+              </text>
+            )}
+
+            <rect
+              x={rotuloLargura}
+              y={yCombustiveis}
+              width={d.combustiveis > 0 ? Math.max(larguraCombustiveis, 2) : 0}
+              height={alturaBarra}
+              rx={3}
+              className="fill-current text-orange-500 transition-opacity hover:opacity-80 dark:text-orange-400"
+            />
+            {d.combustiveis > 0 && (
+              <text
+                x={rotuloLargura + larguraCombustiveis + 4}
+                y={yCombustiveis + alturaBarra - 2}
+                fontSize="10"
+                className="fill-current text-foreground/60"
+              >
+                {formatarMoeda(d.combustiveis)}
+              </text>
+            )}
           </g>
         );
       })}
