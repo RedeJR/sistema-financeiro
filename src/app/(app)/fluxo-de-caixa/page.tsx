@@ -1,44 +1,20 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
-import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarFluxoCaixa } from "./consulta";
 import { salvarFluxoCaixa } from "./actions";
 import { SeletorPostos } from "./seletor-postos";
 import { BotaoImprimir } from "./botao-imprimir";
+import { TabelaDia } from "./tabela-dia";
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function dataUTC(iso: string): Date {
-  return new Date(`${iso}T00:00:00.000Z`);
-}
-
-function formatarDataExibicao(iso: string): string {
-  return dataUTC(iso).toLocaleDateString("pt-BR", {
-    timeZone: "UTC",
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-// "" pra zero (célula parece vazia, mais fácil de digitar por cima) em vez
-// de raw toString() — evita o formato "1234.56" (ponto, sem vírgula) cair
-// direto num input que depois é lido de volta como texto BR.
-function paraEdicao(valor: number): string {
-  return valor === 0 ? "" : valor.toFixed(2).replace(".", ",");
 }
 
 function paraArray(v?: string | string[]): string[] {
   if (!v) return [];
   return Array.isArray(v) ? v : [v];
 }
-
-const classeInput =
-  "w-full rounded-md border border-black/15 bg-transparent px-2 py-1 text-right text-sm outline-none focus:border-foreground/40 dark:border-white/20";
 
 export default async function FluxoDeCaixaPage({
   searchParams,
@@ -65,103 +41,6 @@ export default async function FluxoDeCaixaPage({
   qsAtual.set("de", de);
   qsAtual.set("ate", ate);
   const voltarPara = `/fluxo-de-caixa?${qsAtual.toString()}`;
-
-  const Tabela = ({ dia }: { dia: (typeof dias)[number] }) => (
-    <section key={dia.data} className="space-y-2 rounded-xl border border-black/10 p-4 dark:border-white/15">
-      <h2 className="text-base font-medium capitalize">{formatarDataExibicao(dia.data)}</h2>
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
-        <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Posto</th>
-              <th className="px-3 py-2 text-right font-medium">Saldo Inicial</th>
-              <th className="px-3 py-2 text-right font-medium">Recebimentos</th>
-              <th className="px-3 py-2 text-right font-medium">Combustíveis</th>
-              <th className="px-3 py-2 text-right font-medium">Despesas</th>
-              <th className="px-3 py-2 text-right font-medium">Despesas Extras</th>
-              <th className="px-3 py-2 text-right font-medium">Saldo Final</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dia.linhas.map((linha) => {
-              const chave = `${linha.postoId}|${linha.data}`;
-              return (
-                <tr key={chave} className="border-t border-black/5 dark:border-white/10">
-                  <td className="px-3 py-1.5">{linha.posto}</td>
-                  <td className="px-3 py-1.5">
-                    {podeEditar && <input type="hidden" name="chave" value={chave} />}
-                    <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>
-                      {formatarMoeda(linha.saldoInicial)}
-                    </p>
-                    {podeEditar && (
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        name={`saldoInicial__${chave}`}
-                        defaultValue={paraEdicao(linha.saldoInicial)}
-                        placeholder="0,00"
-                        className={`${classeInput} print:hidden`}
-                      />
-                    )}
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>
-                      {formatarMoeda(linha.recebimentos)}
-                    </p>
-                    {podeEditar && (
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        name={`recebimentos__${chave}`}
-                        defaultValue={paraEdicao(linha.recebimentos)}
-                        placeholder="0,00"
-                        className={`${classeInput} print:hidden`}
-                      />
-                    )}
-                  </td>
-                  <td className="px-3 py-1.5 text-right text-foreground/70">{formatarMoeda(linha.combustiveis)}</td>
-                  <td className="px-3 py-1.5 text-right text-foreground/70">{formatarMoeda(linha.despesas)}</td>
-                  <td className="px-3 py-1.5">
-                    <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>
-                      {formatarMoeda(linha.despesasExtras)}
-                    </p>
-                    {podeEditar && (
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        name={`despesasExtras__${chave}`}
-                        defaultValue={paraEdicao(linha.despesasExtras)}
-                        placeholder="0,00"
-                        className={`${classeInput} print:hidden`}
-                      />
-                    )}
-                  </td>
-                  <td className="px-3 py-1.5 text-right font-medium">{formatarMoeda(linha.saldoFinal)}</td>
-                </tr>
-              );
-            })}
-            {dia.linhas.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-foreground/50">
-                  Nenhum posto pra mostrar nesse filtro.
-                </td>
-              </tr>
-            )}
-          </tbody>
-          {dia.linhas.length > 0 && (
-            <tfoot>
-              <tr className="border-t border-black/10 bg-black/5 font-medium dark:border-white/15 dark:bg-white/5">
-                <td className="px-3 py-2" colSpan={6}>
-                  Saldo Final Rede
-                </td>
-                <td className="px-3 py-2 text-right">{formatarMoeda(dia.saldoFinalRede)}</td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      </div>
-    </section>
-  );
 
   return (
     <div className="space-y-4">
@@ -228,7 +107,7 @@ export default async function FluxoDeCaixaPage({
         <form action={salvarFluxoCaixa} className="space-y-4">
           <input type="hidden" name="voltarPara" value={voltarPara} />
           {dias.map((dia) => (
-            <Tabela key={dia.data} dia={dia} />
+            <TabelaDia key={dia.data} dia={dia} podeEditar={podeEditar} />
           ))}
           {dias.length > 0 && (
             <div className="flex justify-end print:hidden">
@@ -244,7 +123,7 @@ export default async function FluxoDeCaixaPage({
       ) : (
         <div className="space-y-4">
           {dias.map((dia) => (
-            <Tabela key={dia.data} dia={dia} />
+            <TabelaDia key={dia.data} dia={dia} podeEditar={podeEditar} />
           ))}
         </div>
       )}
