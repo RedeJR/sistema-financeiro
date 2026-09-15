@@ -29,6 +29,7 @@ model Posto {
   contasPagasPorEste ContaAPagar[]       @relation("PostoPagamento")
   lancamentosExtrato LancamentoExtrato[]
   fluxoCaixaDias     FluxoCaixaDia[]
+  taxasCartao        TaxaCartao[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -61,10 +62,60 @@ model Banco {
   ativo         Boolean             @default(true)
   pagamentos    ContaAPagar[]
   lancamentos   LancamentoExtrato[]
+  // Domicílio bancário das taxas de cartão — em qual conta a adquirente
+  // deposita o repasse (ver TaxaCartao), usado futuramente pra conciliar
+  // contra o extrato dessa conta.
+  taxasCartao   TaxaCartao[]        @relation("DomicilioBancario")
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
   @@map("bancos")
+}
+
+// ---------------------------------------------------------------------------
+// Módulo: Cartões — cadastro de taxas por posto/adquirente (base pra
+// Conciliação de Cartões, ainda não construída). Espelha a planilha real que
+// a usuária já mantém (Cartões Rede.xlsx): por posto, cada adquirente tem até
+// 3 taxas — Débito 1 dia, Crédito à vista (1 dia) e Crédito parcelado (30
+// dias) — com prazo de recebimento próprio por linha, porque pode variar por
+// posto/adquirente (não é fixo pra rede toda).
+// ---------------------------------------------------------------------------
+
+model AdquirenteCartao {
+  id        String       @id @default(cuid())
+  nome      String       @unique
+  ativo     Boolean      @default(true)
+  taxas     TaxaCartao[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("adquirentes_cartao")
+}
+
+model TaxaCartao {
+  id           String           @id @default(cuid())
+  postoId      String
+  posto        Posto            @relation(fields: [postoId], references: [id])
+  adquirenteId String
+  adquirente   AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
+  // Percentual armazenado como o próprio número (ex: 0.76 = 0,76%), igual
+  // aparece na planilha de origem. Null = não contratado ("-" na planilha).
+  taxaDebito                Decimal? @db.Decimal(6, 4)
+  prazoDebitoDias           Int      @default(1)
+  taxaCreditoVista          Decimal? @db.Decimal(6, 4)
+  prazoCreditoVistaDias     Int      @default(1)
+  taxaCreditoParcelado      Decimal? @db.Decimal(6, 4)
+  prazoCreditoParceladoDias Int      @default(30)
+  domicilioBancoId          String?
+  domicilioBanco            Banco?   @relation("DomicilioBancario", fields: [domicilioBancoId], references: [id])
+  // Texto livre igual à planilha de origem (ex: "SEM USO", "CRÉDITO: TURNO 2")
+  observacao                String?
+  ativo                     Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@unique([postoId, adquirenteId])
+  @@map("taxas_cartao")
 }
 
 // ---------------------------------------------------------------------------

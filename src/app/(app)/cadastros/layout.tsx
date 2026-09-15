@@ -7,6 +7,8 @@ const SUBMENU = [
   { href: "/cadastros/bancos", label: "Bancos" },
   { href: "/cadastros/categorias-extrato", label: "Categorias de Extrato" },
   { href: "/cadastros/plano-de-contas", label: "Plano de Contas" },
+  { href: "/cadastros/adquirentes-cartao", label: "Adquirentes de Cartão" },
+  { href: "/cadastros/taxas-cartao", label: "Taxas de Cartão" },
 ];
 
 export default async function CadastrosLayout({ children }: { children: React.ReactNode }) {

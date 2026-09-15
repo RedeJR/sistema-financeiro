@@ -26,6 +26,16 @@ const CARDS = [
     titulo: "Plano de Contas",
     descricao: "Plano de contas contábil (Grupo → Conta) usado nas Contas a Pagar.",
   },
+  {
+    href: "/cadastros/adquirentes-cartao",
+    titulo: "Adquirentes de Cartão",
+    descricao: "Cielo, Stone, Rede... usadas nas taxas de cartão por posto.",
+  },
+  {
+    href: "/cadastros/taxas-cartao",
+    titulo: "Taxas de Cartão",
+    descricao: "Taxa e prazo de débito/crédito por posto e adquirente — base da futura Conciliação de Cartões.",
+  },
 ];
 
 export default function CadastrosHome() {
