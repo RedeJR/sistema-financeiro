@@ -3,8 +3,6 @@
 // data/hora no formato brasileiro e cálculo de próximo dia útil (usado
 // quando a adquirente não informa a data de pagamento explicitamente).
 
-import { paraDecimalString } from "@/lib/dinheiro";
-
 // A maioria dos arquivos de adquirente vem em UTF-8 (às vezes com BOM) ou
 // Windows-1252 (Cielo, Getnet) — nunca latin-1 puro na prática observada.
 // Estratégia: decodifica como UTF-8; se aparecer o caractere de substituição
@@ -69,14 +67,24 @@ export function paraHoraSimples(valor: unknown): string {
 }
 
 // Valor monetário (aceita número já pronto, vindo de célula de planilha, ou
-// texto no formato BR "1.234,56" / "R$ 1.234,56") → string decimal pronta
-// pro Prisma, ou null quando vazio/"-"/inválido.
+// texto) → string decimal pronta pro Prisma, ou null quando vazio/"-"/
+// inválido. Diferente do paraDecimalString de src/lib/dinheiro.ts (que
+// assume sempre formato BR digitado por usuária): aqui o texto vem de
+// arquivo de adquirente, e cada uma usa uma convenção — a maioria formato
+// BR ("1.234,56"), mas pelo menos a SAQPAY usa ponto decimal direto
+// ("50.00", sem separador de milhar). Só remove pontos como separador de
+// milhar quando aparece vírgula também (só aí um ponto pode ser milhar);
+// sem vírgula, o texto já está pronto (ponto decimal ou inteiro puro).
 export function paraValorDecimal(valor: unknown): string | null {
   if (valor === null || valor === undefined) return null;
   if (typeof valor === "number") return Number.isFinite(valor) ? valor.toFixed(2) : null;
-  const s = String(valor).trim();
+  let s = String(valor).trim();
   if (s === "" || s === "-" || s.toLowerCase() === "nan") return null;
-  return paraDecimalString(s);
+  s = s.replace(/[^\d,.-]/g, "");
+  if (s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  }
+  return Number.isNaN(Number(s)) ? null : s;
 }
 
 // Mesma coisa, mas sempre positivo — usado pra taxa, que costuma vir negativa

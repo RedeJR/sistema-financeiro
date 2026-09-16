@@ -1,14 +1,13 @@
 // Stone — relatório agrupado multi-posto ("Todos_stone.csv"): um arquivo só
 // com as vendas de TODOS os postos juntas, identificadas pela coluna
-// DOCUMENTO (CNPJ). Cada linha resolve seu próprio posto (ver
-// postoNomeSugerido) — não importa qual posto está selecionado na tela de
-// upload, a linha vai pro posto certo sozinha via CNPJ (postos.ts).
+// DOCUMENTO (CNPJ). Cada linha resolve seu próprio posto pelo CNPJ contra
+// o cadastro de Postos (ver postos.ts/importar.ts) — não importa qual
+// posto está selecionado na tela de upload.
 //
 // Não traz data de pagamento explícita — infere pelo produto: Pix D+0,
 // Débito D+1, Crédito/Voucher D+2 (mesma regra do protótipo em Python).
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
 import { calcularTaxaRs, decodificarTexto, dividirLinhasCsv, paraDataHora, paraValorDecimal, proximoDiaUtil } from "../normalizar";
-import { postoPorCnpjStone } from "../postos";
 
 function prazoPorProduto(produto: string): number {
   const p = produto.toLowerCase();
@@ -55,11 +54,11 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
     const taxaRs = calcularTaxaRs(valorBruto, valorLiquido, null);
 
     const produto = iProduto >= 0 ? linha[iProduto] || "—" : "—";
-    const postoNomeSugerido = iDocumento >= 0 ? (postoPorCnpjStone(linha[iDocumento]) ?? undefined) : undefined;
+    const postoCnpjSugerido = iDocumento >= 0 ? linha[iDocumento] || undefined : undefined;
     const autorizacao = iCodigoAutorizacao >= 0 ? linha[iCodigoAutorizacao] || "" : "";
 
     resultado.push({
-      postoNomeSugerido,
+      postoCnpjSugerido,
       dataVenda: dh.data,
       horaVenda: dh.hora,
       tipoVenda: produto,

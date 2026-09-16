@@ -59,8 +59,8 @@ export function FormularioUpload({ postos }: { postos: Opcao[] }) {
           <p className="text-xs text-foreground/50">
             Pode selecionar vários arquivos de uma vez, de adquirentes diferentes — o sistema reconhece
             qual é qual pelo nome do arquivo (precisa ter o nome da adquirente nele, ex: BARRAMARES_CIELO.csv).
-            Adquirentes cobertas por enquanto: Cielo, Stone, Rede, Getnet e Pagseguro — SAQPAY, Sem Parar,
-            Abastece Aí, Tecban, VR, Premmia e Shipay ainda não.
+            Adquirentes cobertas por enquanto: Cielo, Stone, Rede, Getnet, Pagseguro, SAQPAY, Sem Parar e
+            Abastece Aí — Tecban, VR, Premmia e Shipay ainda não.
           </p>
         </div>
 

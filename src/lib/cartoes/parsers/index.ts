@@ -4,22 +4,30 @@ import { parseStone } from "./stone";
 import { parseGetnet } from "./getnet";
 import { parsePagseguro } from "./pagseguro";
 import { parseRedecard } from "./redecard";
+import { parseSaqpay } from "./saqpay";
+import { parseSemParar } from "./semparar";
+import { parseAbasteceAi } from "./abasteceai";
 
 export type DefinicaoAdquirente = {
   nomeExibicao: string;
-  // true = o arquivo traz vendas de vários postos juntas (identificadas por
-  // CNPJ) — o posto escolhido na tela de upload é ignorado, cada linha
-  // resolve o seu próprio posto (ver LinhaTransacao.postoNomeSugerido).
-  multiPosto: boolean;
+  // O arquivo traz vendas de vários postos juntas — o posto escolhido na
+  // tela de upload é ignorado, cada linha resolve o seu próprio (ver
+  // postos.ts/importar.ts): "cnpj" quando a linha traz o CNPJ do posto,
+  // "nome" quando traz só um texto livre (razão social/apelido). false =
+  // arquivo de posto único, usa o posto escolhido na tela pra tudo.
+  multiPosto: false | "cnpj" | "nome";
   parse: (arq: ArquivoEntrada) => LinhaTransacao[] | Promise<LinhaTransacao[]>;
 };
 
 export const PARSERS: Record<string, DefinicaoAdquirente> = {
   CIELO: { nomeExibicao: "CIELO", multiPosto: false, parse: parseCielo },
-  STONE: { nomeExibicao: "STONE", multiPosto: true, parse: parseStone },
+  STONE: { nomeExibicao: "STONE", multiPosto: "cnpj", parse: parseStone },
   REDECARD: { nomeExibicao: "REDE", multiPosto: false, parse: parseRedecard },
   GETNET: { nomeExibicao: "GETNET", multiPosto: false, parse: parseGetnet },
   PAGSEGURO: { nomeExibicao: "PAGSEGURO", multiPosto: false, parse: parsePagseguro },
+  SAQPAY: { nomeExibicao: "SAQPAY", multiPosto: "nome", parse: parseSaqpay },
+  SEMPARAR: { nomeExibicao: "SEM PARAR", multiPosto: "nome", parse: parseSemParar },
+  ABASTECE_AI: { nomeExibicao: "ABASTECE AÍ", multiPosto: "cnpj", parse: parseAbasteceAi },
 };
 
 // Reconhece a adquirente pelo nome do arquivo — mesma convenção que já era
@@ -34,6 +42,12 @@ const DETECCAO: [string, keyof typeof PARSERS][] = [
   ["GETNET", "GETNET"],
   ["PAGSEGURO", "PAGSEGURO"],
   ["PAGS", "PAGSEGURO"],
+  ["SAQPAY", "SAQPAY"],
+  ["SEM PARAR", "SEMPARAR"],
+  ["SEM_PARAR", "SEMPARAR"],
+  ["SEM-PARAR", "SEMPARAR"],
+  ["SEMPARAR", "SEMPARAR"],
+  ["ABASTECE", "ABASTECE_AI"],
 ];
 
 export function detectarAdquirente(nomeArquivo: string): keyof typeof PARSERS | null {

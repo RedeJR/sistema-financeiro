@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { PARSERS, detectarAdquirente } from "./parsers";
-import { encontrarPostoPorNome } from "./postos";
+import { encontrarPostoPorCnpj, encontrarPostoPorFragmento } from "./postos";
 import type { ArquivoEntrada } from "./tipos";
 
 export type ResultadoArquivoCartao = {
@@ -24,7 +24,7 @@ export async function importarTransacoesCartao(params: {
     return arquivos.map((a) => ({ arquivo: a.nome, status: "erro" as const, mensagem: "Posto não encontrado." }));
   }
 
-  const todosPostos = await prisma.posto.findMany({ select: { id: true, nome: true } });
+  const todosPostos = await prisma.posto.findMany({ select: { id: true, nome: true, cnpj: true } });
 
   const resultados: ResultadoArquivoCartao[] = [];
 
@@ -79,8 +79,17 @@ export async function importarTransacoesCartao(params: {
 
       for (const l of linhas) {
         let postoIdLinha = postoId;
-        if (definicao.multiPosto) {
-          const encontrado = l.postoNomeSugerido ? encontrarPostoPorNome(todosPostos, l.postoNomeSugerido) : null;
+        if (definicao.multiPosto === "cnpj") {
+          const encontrado = l.postoCnpjSugerido ? encontrarPostoPorCnpj(todosPostos, l.postoCnpjSugerido) : null;
+          if (!encontrado) {
+            semPostoReconhecido++;
+            continue;
+          }
+          postoIdLinha = encontrado.id;
+        } else if (definicao.multiPosto === "nome") {
+          const encontrado = l.postoTextoLivreSugerido
+            ? encontrarPostoPorFragmento(todosPostos, l.postoTextoLivreSugerido)
+            : null;
           if (!encontrado) {
             semPostoReconhecido++;
             continue;
