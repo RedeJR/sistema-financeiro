@@ -25,6 +25,23 @@ export function dividirLinhasCsv(texto: string, separador = ";"): string[][] {
     .map((l) => l.split(separador).map((c) => c.trim()));
 }
 
+function normalizarCabecalho(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+// Localiza coluna por nome tolerando acento (ex: a Stone já mandou
+// "VALOR LIQUIDO" num export e "VALOR LÍQUIDO" noutro, mesmo relatório) —
+// sem isso, a coluna "some" silenciosamente e o dado correspondente vira
+// null/vazio pro arquivo inteiro sem nenhum erro visível.
+export function criarBuscadorDeColuna(cabecalho: unknown[]) {
+  const normalizado = cabecalho.map((c) => normalizarCabecalho(String(c ?? "")));
+  return (nome: string) => normalizado.indexOf(normalizarCabecalho(nome));
+}
+
 // "01/09/2026" ou "01/09/2026 05:18" (com T ou espaço entre data e hora) →
 // { data, hora }. `hora` fica "" quando o valor não traz horário.
 export function paraDataHora(valor: unknown): { data: Date; hora: string } | null {

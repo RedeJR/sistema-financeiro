@@ -9,6 +9,7 @@
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
 import {
   calcularTaxaRs,
+  criarBuscadorDeColuna,
   decodificarTexto,
   dividirLinhasCsv,
   identificadorComposto,
@@ -30,7 +31,11 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
   if (linhas.length === 0) return [];
 
   const cabecalho = linhas[0];
-  const idx = (nome: string) => cabecalho.indexOf(nome);
+  // Tolerante a acento: a Stone já mandou "VALOR LIQUIDO"/"ULTIMO STATUS"
+  // num export e "VALOR LÍQUIDO"/"ÚLTIMO STATUS" noutro, mesmo relatório —
+  // com indexOf exato, a coluna "some" e o filtro de status fica desativado
+  // sem erro nenhum (deixa passar venda não aprovada).
+  const idx = criarBuscadorDeColuna(cabecalho);
 
   const iDocumento = idx("DOCUMENTO");
   const iData = idx("DATA DA VENDA");
