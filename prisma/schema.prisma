@@ -30,6 +30,7 @@ model Posto {
   lancamentosExtrato LancamentoExtrato[]
   fluxoCaixaDias     FluxoCaixaDia[]
   taxasCartao        TaxaCartao[]
+  transacoesCartao   TransacaoCartao[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -82,12 +83,13 @@ model Banco {
 // ---------------------------------------------------------------------------
 
 model AdquirenteCartao {
-  id        String       @id @default(cuid())
-  nome      String       @unique
-  ativo     Boolean      @default(true)
-  taxas     TaxaCartao[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id          String            @id @default(cuid())
+  nome        String            @unique
+  ativo       Boolean           @default(true)
+  taxas       TaxaCartao[]
+  transacoes  TransacaoCartao[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@map("adquirentes_cartao")
 }
@@ -116,6 +118,51 @@ model TaxaCartao {
 
   @@unique([postoId, adquirenteId])
   @@map("taxas_cartao")
+}
+
+// Uma linha de venda importada de um arquivo de adquirente (upload em
+// /cartoes) — alimenta a Conferência de Caixa e a futura Conciliação.
+// Nomes de campo espelham o "COLUNAS_PADRAO" do protótipo em Python que
+// já lê esses arquivos há tempos, pra facilitar comparar os dois.
+model TransacaoCartao {
+  id           String           @id @default(cuid())
+  postoId      String
+  posto        Posto            @relation(fields: [postoId], references: [id])
+  adquirenteId String
+  adquirente   AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
+  dataVenda    DateTime         @db.Date
+  // "" quando a adquirente não informa hora (relatório diário agrupado) —
+  // participa da constraint de duplicidade abaixo, então não pode ser null
+  // (Postgres trata NULL como sempre distinto, o que quebraria a dedupe).
+  horaVenda    String           @default("")
+  // Texto original da adquirente (ex: "Débito à vista", "Crédito parcelado").
+  tipoVenda      String
+  valorBruto     Decimal   @db.Decimal(12, 2)
+  taxaRs         Decimal?  @db.Decimal(12, 2)
+  valorLiquido   Decimal?  @db.Decimal(12, 2)
+  dataPagamento  DateTime? @db.Date
+  // NSU/CV/Código da venda/Stone ID — identificador único que a adquirente
+  // dá pra cada transação, quando o arquivo traz um. É a chave de dedupe
+  // confiável (ver @@unique abaixo): sem ela, duas vendas de mesmo valor no
+  // mesmo minuto e modalidade pareceriam duplicadas uma da outra e uma
+  // ficaria de fora na hora de gravar.
+  identificadorExterno String?
+  // Nome do arquivo importado — rastreabilidade de onde a linha veio.
+  arquivoOrigem  String
+  importadoEm    DateTime  @default(now())
+
+  // Dedupe por identificador da adquirente quando disponível (não bate
+  // contra outras linhas com identificador nulo — NULL nunca é igual a NULL
+  // no Postgres). Pra linhas sem identificador, a dedupe por data+hora+valor+
+  // tipo é feita na aplicação (importar.ts), não aqui — como restrição do
+  // banco, duas vendas DIFERENTES (identificadores únicos) que coincidissem
+  // nesses quatro campos seriam bloqueadas uma pela outra, o que já
+  // aconteceu de verdade num teste (ver comentário em importar.ts).
+  @@unique([postoId, adquirenteId, identificadorExterno])
+  @@index([postoId, adquirenteId, dataVenda, horaVenda, valorBruto, tipoVenda])
+  @@index([postoId, dataVenda])
+  @@index([adquirenteId, dataPagamento])
+  @@map("transacoes_cartao")
 }
 
 // ---------------------------------------------------------------------------

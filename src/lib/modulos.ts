@@ -14,9 +14,9 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   { valor: "COMBUSTIVEIS_PAGOS", label: "Combustíveis Pagos", disponivel: true },
   { valor: "EXTRATOS", label: "Conciliação de Extratos", disponivel: true },
   { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", disponivel: true },
-  // Módulos novos pedidos no menu, ainda sem tela — desabilitados até serem
-  // construídos numa fase futura.
-  { valor: "CARTOES", label: "Cartões", disponivel: false },
+  { valor: "CARTOES", label: "Cartões", disponivel: true },
+  // Módulo novo pedido no menu, ainda sem tela — desabilitado até ser
+  // construído numa fase futura.
   { valor: "VENDAS_A_PRAZO", label: "Vendas a Prazo", disponivel: false },
   { valor: "FLUXO_DE_CAIXA", label: "Fluxo de Caixa", disponivel: true },
   { valor: "USUARIOS", label: "Usuários", disponivel: true },
