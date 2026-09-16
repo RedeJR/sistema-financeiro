@@ -41,15 +41,24 @@ export function parseGetnet(arq: ArquivoEntrada): LinhaTransacao[] {
     const valorLiquido = iLiquido >= 0 ? paraValorDecimal(linha[iLiquido]) : null;
     const taxaColuna = iTaxa >= 0 ? paraValorAbsoluto(linha[iTaxa]) : null;
 
+    const tipoVenda = (iForma >= 0 ? linha[iForma] : null) || "—";
+    const comprovante = iComprovante >= 0 ? linha[iComprovante] || "" : "";
+
     resultado.push({
       dataVenda: dh.data,
       horaVenda: dh.hora,
-      tipoVenda: (iForma >= 0 ? linha[iForma] : null) || "—",
+      tipoVenda,
       valorBruto,
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
       dataPagamento: iDataPagamento >= 0 ? paraData(linha[iDataPagamento]) : null,
-      identificadorExterno: iComprovante >= 0 ? linha[iComprovante] || null : null,
+      // O número do comprovante (CV) sozinho não é confiável: o terminal
+      // reinicia essa contagem periodicamente, então o mesmo número volta a
+      // aparecer em dias diferentes pra vendas totalmente diferentes — teve
+      // caso real de quase 30% das vendas de um arquivo sendo descartadas
+      // como "duplicata" por causa disso. Combina com data/hora/valor/forma
+      // de pagamento pra só colidir de verdade quando for a mesma venda.
+      identificadorExterno: `${comprovante}|${dh.data.toISOString()}|${dh.hora}|${valorBruto}|${tipoVenda}`,
     });
   }
   return resultado;
