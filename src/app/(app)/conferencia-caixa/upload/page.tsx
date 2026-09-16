@@ -2,6 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { FormularioUpload } from "./formulario-upload";
 
+// Arquivos multi-posto grandes (ex: Stone com todos os postos juntos, ~18 mil
+// linhas) passam de 10s pra processar — bem em cima do limite padrão de
+// função serverless. `maxDuration` na página estende o timeout de toda
+// Server Action chamada a partir dela (ver importarTransacoesCartaoAction).
+export const maxDuration = 60;
+
 export default async function UploadCartoesPage() {
   const podeEditar = await podeEditarModulo("CONFERENCIA_CAIXA");
 
