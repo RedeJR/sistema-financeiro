@@ -29,13 +29,13 @@ export async function importarTransacoesCartao(params: {
   const resultados: ResultadoArquivoCartao[] = [];
 
   for (const arq of arquivos) {
-    const chave = detectarAdquirente(arq.nome);
+    const chave = await detectarAdquirente(arq);
     if (!chave) {
       resultados.push({
         arquivo: arq.nome,
         status: "erro",
         mensagem:
-          "Não reconheci a adquirente pelo nome do arquivo. Renomeie incluindo o nome dela (ex: BARRAMARES_CIELO.csv).",
+          "Não reconheci a adquirente — nem pelo nome do arquivo, nem pelas colunas dele. Renomeie incluindo o nome da adquirente (ex: BARRAMARES_CIELO.csv).",
       });
       continue;
     }

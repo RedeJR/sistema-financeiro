@@ -57,10 +57,11 @@ export function FormularioUpload({ postos }: { postos: Opcao[] }) {
             className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-background dark:border-white/20"
           />
           <p className="text-xs text-foreground/50">
-            Pode selecionar vários arquivos de uma vez, de adquirentes diferentes — o sistema reconhece
-            qual é qual pelo nome do arquivo (precisa ter o nome da adquirente nele, ex: BARRAMARES_CIELO.csv).
-            Adquirentes cobertas por enquanto: Cielo, Stone, Rede, Getnet, Pagseguro, SAQPAY, Sem Parar e
-            Abastece Aí — Tecban, VR, Premmia e Shipay ainda não.
+            Pode selecionar vários arquivos de uma vez, de adquirentes diferentes — o sistema tenta
+            reconhecer qual é qual pelo nome do arquivo (ajuda ter o nome da adquirente nele, ex:
+            BARRAMARES_CIELO.csv) e, se não achar nada, olha as colunas do próprio arquivo. Adquirentes
+            cobertas por enquanto: Cielo, Stone, Rede, Getnet, Pagseguro, SAQPAY, Sem Parar, Abastece Aí e
+            Premmia — Tecban, VR e Shipay ainda não.
           </p>
         </div>
 
