@@ -513,13 +513,24 @@ enum Modulo {
   // era um filtro dentro de Combustíveis a Pagar, virou tela separada a
   // pedido da usuária, mesmo padrão de Contas a Pagar/Despesas Pagas.
   COMBUSTIVEIS_PAGOS
-  // Os quatro módulos abaixo ainda não têm tela — existem só pra reservar o
-  // lugar no menu lateral (ver src/lib/modulos.ts, GRUPOS_NAV) com
-  // `disponivel: false`, até cada um ser construído numa fase futura.
   CONTAS_PAGAS
+  // Vai virar a tela de "vendas x entradas" (Conciliação > Cartões) — o
+  // upload e o relatório de vendas por adquirente moraram aqui antes, mas
+  // saíram pro módulo CONFERENCIA_CAIXA (ver comentário abaixo). Por isso
+  // volta pra `disponivel: false` até essa tela de conciliação em si ser
+  // construída.
   CARTOES
+  // VENDAS_A_PRAZO ainda não tem tela — existe só pra reservar o lugar no
+  // menu lateral (ver src/lib/modulos.ts, GRUPOS_NAV) com
+  // `disponivel: false`, até ser construído numa fase futura.
   VENDAS_A_PRAZO
   FLUXO_DE_CAIXA
+  // Upload dos arquivos de venda das adquirentes + relatório de vendas por
+  // posto/turno (abas dentro do mesmo módulo) — base pra Conciliação de
+  // Cartões (CARTOES acima), que compara essas vendas com o extrato
+  // bancário. Fica como item avulso no menu, logo abaixo do grupo
+  // Conciliação (ver MODULOS_AVULSOS em modulos.ts).
+  CONFERENCIA_CAIXA
 }
 
 model Usuario {

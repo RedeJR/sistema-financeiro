@@ -14,11 +14,15 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   { valor: "COMBUSTIVEIS_PAGOS", label: "Combustíveis Pagos", disponivel: true },
   { valor: "EXTRATOS", label: "Conciliação de Extratos", disponivel: true },
   { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", disponivel: true },
-  { valor: "CARTOES", label: "Cartões", disponivel: true },
+  // Vai virar a tela de "vendas x entradas" — volta pra `disponivel: false`
+  // até ela ser construída (o upload e o relatório por adquirente que
+  // moravam aqui antes saíram pro módulo CONFERENCIA_CAIXA, abaixo).
+  { valor: "CARTOES", label: "Cartões", disponivel: false },
   // Módulo novo pedido no menu, ainda sem tela — desabilitado até ser
   // construído numa fase futura.
   { valor: "VENDAS_A_PRAZO", label: "Vendas a Prazo", disponivel: false },
   { valor: "FLUXO_DE_CAIXA", label: "Fluxo de Caixa", disponivel: true },
+  { valor: "CONFERENCIA_CAIXA", label: "Conferência de Caixa", disponivel: true },
   { valor: "USUARIOS", label: "Usuários", disponivel: true },
 ];
 
@@ -31,9 +35,9 @@ export const GRUPOS_NAV: { label: string; modulos: Modulo[] }[] = [
   { label: "Conciliação", modulos: ["EXTRATOS", "DESPESAS_PAGAS", "CARTOES", "VENDAS_A_PRAZO"] },
 ];
 
-// Fluxo de Caixa fica de fora da Conciliação, como botão avulso — pedido
-// explícito da usuária. Fica junto dos grupos, sem linha separadora acima.
-export const MODULOS_AVULSOS: Modulo[] = ["FLUXO_DE_CAIXA"];
+// Fluxo de Caixa e Conferência de Caixa ficam de fora do grupo Conciliação,
+// como botões avulsos logo abaixo dele — pedido explícito da usuária.
+export const MODULOS_AVULSOS: Modulo[] = ["CONFERENCIA_CAIXA", "FLUXO_DE_CAIXA"];
 
 // Cadastros/Usuários formam um bloco à parte no fim do menu, com uma linha
 // separadora acima só dele (não do Fluxo de Caixa).

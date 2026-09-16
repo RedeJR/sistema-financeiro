@@ -10,7 +10,7 @@ export async function importarTransacoesCartaoAction(
   _prev: ImportarCartaoState,
   formData: FormData
 ): Promise<ImportarCartaoState> {
-  await exigirPermissao("CARTOES", "editar");
+  await exigirPermissao("CONFERENCIA_CAIXA", "editar");
 
   const postoId = formData.get("postoId");
   const arquivos = formData.getAll("arquivos").filter((f): f is File => f instanceof File && f.size > 0);
@@ -24,7 +24,8 @@ export async function importarTransacoesCartaoAction(
 
   const resultados = await importarTransacoesCartao({ postoId, arquivos: arquivosBuffer });
 
-  revalidatePath("/cartoes");
+  revalidatePath("/conferencia-caixa/upload");
+  revalidatePath("/conferencia-caixa/relatorio");
 
   return { resultados };
 }

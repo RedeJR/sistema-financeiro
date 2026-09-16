@@ -17,6 +17,7 @@ const ROTA_POR_MODULO: Record<Modulo, string> = {
   CARTOES: "/cartoes",
   VENDAS_A_PRAZO: "/vendas-a-prazo",
   FLUXO_DE_CAIXA: "/fluxo-de-caixa",
+  CONFERENCIA_CAIXA: "/conferencia-caixa",
   USUARIOS: "/usuarios",
 };
 

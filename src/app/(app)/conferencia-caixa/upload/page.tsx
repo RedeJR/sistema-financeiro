@@ -1,10 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
+import { podeEditarModulo } from "@/lib/auth";
 import { FormularioUpload } from "./formulario-upload";
 
-export default async function CartoesPage() {
-  await exigirPermissao("CARTOES", "visualizar");
-  const podeEditar = await podeEditarModulo("CARTOES");
+export default async function UploadCartoesPage() {
+  const podeEditar = await podeEditarModulo("CONFERENCIA_CAIXA");
 
   const postos = await prisma.posto.findMany({
     where: { ativo: true },
@@ -14,13 +13,10 @@ export default async function CartoesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Cartões</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Upload dos arquivos de venda das adquirentes — base pra Conferência de Caixa e Conciliação de
-          Cartões (ainda em construção).
-        </p>
-      </div>
+      <p className="text-sm text-foreground/60">
+        Upload dos arquivos de venda das adquirentes — alimenta o Relatório de Caixa e, mais pra frente, a
+        Conciliação de Cartões.
+      </p>
 
       {podeEditar ? (
         <FormularioUpload postos={postos} />
