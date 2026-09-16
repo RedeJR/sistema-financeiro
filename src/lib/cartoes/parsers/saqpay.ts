@@ -33,8 +33,13 @@ export async function parseSaqpay(arq: ArquivoEntrada): Promise<LinhaTransacao[]
     const valores = planilha.getRow(r).values as unknown[];
     if (!valores || valores.length < 2) continue;
 
+    // "Aprovado" = transação recém-feita, ainda não repassada; "Transferido"
+    // = já repassada pra conta do posto. As duas são vendas válidas — só
+    // status de erro/cancelamento fica de fora. Sem esse segundo valor, só
+    // as vendas do dia (ainda em "Aprovado") apareciam — o resto do mês já
+    // tinha virado "Transferido" e sumia inteiro do relatório.
     const status = iStatus >= 0 ? String(valores[iStatus] ?? "").trim().toLowerCase() : "";
-    if (iStatus >= 0 && !status.startsWith("aprova")) continue;
+    if (iStatus >= 0 && status !== "aprovado" && status !== "transferido") continue;
 
     const dh = iData >= 0 ? paraDataHora(valores[iData]) : null;
     const valorVenda = Number(paraValorDecimal(iValorVenda >= 0 ? valores[iValorVenda] : null) ?? 0);
