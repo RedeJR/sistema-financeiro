@@ -16,7 +16,17 @@ const CNPJ_STONE_POSTO: Record<string, string> = {
 
 export function postoPorCnpjStone(cnpj: unknown): string | null {
   if (!cnpj) return null;
-  const limpo = String(cnpj).replace(/\D/g, "").padStart(14, "0");
+  const bruto = String(cnpj).trim();
+  // Alguns exports da Stone passam pelo Excel antes de virar CSV, que troca
+  // o CNPJ (14 dígitos) por notação científica com vírgula decimal — ex:
+  // "6,28783E+13" em vez de "62878254000164". Isso perde precisão nos
+  // últimos dígitos, mas não nos primeiros 5 (o prefixo que a gente usa pra
+  // identificar o posto), então ainda dá pra casar certo.
+  const normalizado = bruto.toUpperCase().includes("E+") ? bruto.replace(",", ".") : bruto;
+  const n = Number(normalizado);
+  const limpo = Number.isFinite(n)
+    ? String(Math.trunc(n)).padStart(14, "0")
+    : bruto.replace(/\D/g, "").padStart(14, "0");
   for (const [prefixo, nome] of Object.entries(CNPJ_STONE_POSTO)) {
     if (limpo.startsWith(prefixo)) return nome;
   }

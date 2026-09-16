@@ -31,7 +31,16 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
   const iBruto = idx("VALOR BRUTO");
   const iLiquido = idx("VALOR LIQUIDO");
   const iStatus = idx("ULTIMO STATUS");
-  const iStoneId = idx("STONE ID");
+  // Não usa "STONE ID" pra dedupe: em exports que passaram pelo Excel, essa
+  // coluna também vem em notação científica igual o CNPJ (ver postos.ts) —
+  // duas vendas diferentes viram o mesmo texto truncado e pareceriam
+  // "duplicatas" uma da outra. "CÓDIGO DE AUTORIZAÇÃO" não tem esse
+  // problema (sempre alfanumérico curto), mas sozinho também não é 100%
+  // único — em ~17,6 mil linhas reais, 112 se repetiram sem serem a mesma
+  // venda. Por isso o identificador final combina o código com data+hora+
+  // valor+modalidade: só colide de verdade se TODOS baterem, o que aí sim é
+  // a mesma venda de fato.
+  const iCodigoAutorizacao = idx("CÓDIGO DE AUTORIZAÇÃO");
 
   const resultado: LinhaTransacao[] = [];
   for (const linha of linhas.slice(1)) {
@@ -47,6 +56,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
 
     const produto = iProduto >= 0 ? linha[iProduto] || "—" : "—";
     const postoNomeSugerido = iDocumento >= 0 ? (postoPorCnpjStone(linha[iDocumento]) ?? undefined) : undefined;
+    const autorizacao = iCodigoAutorizacao >= 0 ? linha[iCodigoAutorizacao] || "" : "";
 
     resultado.push({
       postoNomeSugerido,
@@ -57,7 +67,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
       taxaRs,
       valorLiquido,
       dataPagamento: proximoDiaUtil(dh.data, prazoPorProduto(produto)),
-      identificadorExterno: iStoneId >= 0 ? linha[iStoneId] || null : null,
+      identificadorExterno: `${autorizacao}|${dh.data.toISOString()}|${dh.hora}|${valorBruto}|${produto}`,
     });
   }
   return resultado;
