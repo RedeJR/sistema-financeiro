@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
 import {
   calcularTaxaRs,
+  identificadorComposto,
   paraData,
   paraHoraSimples,
   paraValorDecimal,
@@ -72,15 +73,18 @@ export async function parseRedecard(arq: ArquivoEntrada): Promise<LinhaTransacao
     const valorLiquido = iLiquido >= 0 ? paraValorDecimal(valores[iLiquido]) : null;
     const taxaColuna = iTaxaTotal >= 0 ? paraValorDecimal(valores[iTaxaTotal]) : null;
 
+    const horaVenda = iHora >= 0 ? paraHoraSimples(valores[iHora]) : "";
+    const nsu = iNsu >= 0 ? String(valores[iNsu] ?? "").trim() : "";
+
     resultado.push({
       dataVenda,
-      horaVenda: iHora >= 0 ? paraHoraSimples(valores[iHora]) : "",
+      horaVenda,
       tipoVenda,
       valorBruto,
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
       dataPagamento: prazoDias !== null ? proximoDiaUtil(dataVenda, prazoDias) : null,
-      identificadorExterno: iNsu >= 0 ? String(valores[iNsu] ?? "").trim() || null : null,
+      identificadorExterno: identificadorComposto(nsu, dataVenda, horaVenda, valorBruto, tipoVenda),
     });
   }
   return resultado;

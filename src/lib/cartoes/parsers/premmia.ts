@@ -5,7 +5,7 @@
 // Vale-Premmia, Desconto.
 import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
-import { paraDataHora, paraValorDecimal } from "../normalizar";
+import { identificadorComposto, paraDataHora, paraValorDecimal } from "../normalizar";
 
 export async function parsePremmia(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
   const workbook = new ExcelJS.Workbook();
@@ -34,15 +34,18 @@ export async function parsePremmia(arq: ArquivoEntrada): Promise<LinhaTransacao[
     const valorBruto = iValor >= 0 ? paraValorDecimal(valores[iValor]) : null;
     if (!dh || valorBruto === null) continue;
 
+    const tipoVenda = (iForma >= 0 ? String(valores[iForma] ?? "").trim() : "") || "—";
+    const codigo = iCodigo >= 0 ? String(valores[iCodigo] ?? "").trim() : "";
+
     resultado.push({
       dataVenda: dh.data,
       horaVenda: dh.hora,
-      tipoVenda: (iForma >= 0 ? String(valores[iForma] ?? "").trim() : "") || "—",
+      tipoVenda,
       valorBruto,
       taxaRs: null,
       valorLiquido: valorBruto,
       dataPagamento: null,
-      identificadorExterno: iCodigo >= 0 ? String(valores[iCodigo] ?? "").trim() || null : null,
+      identificadorExterno: identificadorComposto(codigo, dh.data, dh.hora, valorBruto, tipoVenda),
     });
   }
   return resultado;

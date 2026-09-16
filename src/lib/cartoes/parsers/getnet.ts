@@ -6,6 +6,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  identificadorComposto,
   paraData,
   paraDataHora,
   paraValorAbsoluto,
@@ -56,9 +57,8 @@ export function parseGetnet(arq: ArquivoEntrada): LinhaTransacao[] {
       // reinicia essa contagem periodicamente, então o mesmo número volta a
       // aparecer em dias diferentes pra vendas totalmente diferentes — teve
       // caso real de quase 30% das vendas de um arquivo sendo descartadas
-      // como "duplicata" por causa disso. Combina com data/hora/valor/forma
-      // de pagamento pra só colidir de verdade quando for a mesma venda.
-      identificadorExterno: `${comprovante}|${dh.data.toISOString()}|${dh.hora}|${valorBruto}|${tipoVenda}`,
+      // como "duplicata" por causa disso (ver identificadorComposto).
+      identificadorExterno: identificadorComposto(comprovante, dh.data, dh.hora, valorBruto, tipoVenda),
     });
   }
   return resultado;

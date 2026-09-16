@@ -6,7 +6,7 @@
 // soma os dois pra ter o valor bruto de qualquer um dos dois tipos.
 import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
-import { paraData, paraDataHora, paraValorDecimal } from "../normalizar";
+import { identificadorComposto, paraData, paraDataHora, paraValorDecimal } from "../normalizar";
 
 export async function parseSaqpay(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
   const workbook = new ExcelJS.Workbook();
@@ -47,16 +47,19 @@ export async function parseSaqpay(arq: ArquivoEntrada): Promise<LinhaTransacao[]
     const valorBruto = (valorVenda + valorSaque).toFixed(2);
     if (!dh || Number(valorBruto) <= 0) continue;
 
+    const tipoVenda = (iTipo >= 0 ? String(valores[iTipo] ?? "").trim() : "") || "—";
+    const codigo = iCodigo >= 0 ? String(valores[iCodigo] ?? "").trim() : "";
+
     resultado.push({
       postoTextoLivreSugerido: iLojista >= 0 ? String(valores[iLojista] ?? "").trim() || undefined : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
-      tipoVenda: (iTipo >= 0 ? String(valores[iTipo] ?? "").trim() : "") || "—",
+      tipoVenda,
       valorBruto,
       taxaRs: iTaxa >= 0 ? paraValorDecimal(valores[iTaxa]) : null,
       valorLiquido: iTotalReceber >= 0 ? paraValorDecimal(valores[iTotalReceber]) : null,
       dataPagamento: iDataPagamento >= 0 ? paraData(valores[iDataPagamento]) : null,
-      identificadorExterno: iCodigo >= 0 ? String(valores[iCodigo] ?? "").trim() || null : null,
+      identificadorExterno: identificadorComposto(codigo, dh.data, dh.hora, valorBruto, tipoVenda),
     });
   }
   return resultado;

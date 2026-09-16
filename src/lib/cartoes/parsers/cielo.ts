@@ -13,6 +13,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  identificadorComposto,
   paraData,
   paraHoraSimples,
   paraValorAbsoluto,
@@ -70,15 +71,19 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
       (iTaxaTarifa >= 0 ? paraValorAbsoluto(linha[iTaxaTarifa]) : null) ??
       (iTotalTaxas >= 0 ? paraValorAbsoluto(linha[iTotalTaxas]) : null);
 
+    const horaVenda = paraHoraSimples(linha[iHora]);
+    const tipoVenda = (iForma >= 0 ? linha[iForma] : linha[iTipoLancamento]) || "—";
+    const codigoVenda = iCodigoVenda >= 0 ? linha[iCodigoVenda] : null;
+
     resultado.push({
       dataVenda,
-      horaVenda: paraHoraSimples(linha[iHora]),
-      tipoVenda: (iForma >= 0 ? linha[iForma] : linha[iTipoLancamento]) || "—",
+      horaVenda,
+      tipoVenda,
       valorBruto,
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
       dataPagamento: iDataPagamento >= 0 ? paraData(linha[iDataPagamento]) : null,
-      identificadorExterno: iCodigoVenda >= 0 ? linha[iCodigoVenda] || null : null,
+      identificadorExterno: identificadorComposto(codigoVenda, dataVenda, horaVenda, valorBruto, tipoVenda),
     });
   }
   return resultado;

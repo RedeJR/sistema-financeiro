@@ -5,6 +5,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  identificadorComposto,
   paraData,
   paraDataHora,
   paraValorAbsoluto,
@@ -45,6 +46,8 @@ export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
     const valorLiquido = iLiquido >= 0 ? paraValorDecimal(linha[iLiquido]) : null;
     const taxaColuna = iTaxa >= 0 ? paraValorAbsoluto(linha[iTaxa]) : null;
 
+    const codigoTransacao = iCodigoTransacao >= 0 ? linha[iCodigoTransacao] : null;
+
     resultado.push({
       dataVenda: dh.data,
       horaVenda: dh.hora,
@@ -53,7 +56,7 @@ export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
       dataPagamento: iDataLiberacao >= 0 ? paraData(linha[iDataLiberacao]) : null,
-      identificadorExterno: iCodigoTransacao >= 0 ? linha[iCodigoTransacao] || null : null,
+      identificadorExterno: identificadorComposto(codigoTransacao, dh.data, dh.hora, valorBruto, tipoVenda),
     });
   }
   return resultado;

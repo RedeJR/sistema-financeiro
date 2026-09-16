@@ -5,7 +5,14 @@
 // selecionado na tela de upload. Valores vêm entre aspas com prefixo "R$"
 // (ex: "R$160,52") — paraValorDecimal já limpa isso sozinho.
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
-import { decodificarTexto, dividirLinhasCsv, paraData, paraDataHora, paraValorDecimal } from "../normalizar";
+import {
+  decodificarTexto,
+  dividirLinhasCsv,
+  identificadorComposto,
+  paraData,
+  paraDataHora,
+  paraValorDecimal,
+} from "../normalizar";
 
 export function parseAbasteceAi(arq: ArquivoEntrada): LinhaTransacao[] {
   const texto = decodificarTexto(arq.buffer);
@@ -36,16 +43,19 @@ export function parseAbasteceAi(arq: ArquivoEntrada): LinhaTransacao[] {
     const valorBruto = paraValorDecimal(linha[iBruto]);
     if (!dh || valorBruto === null) continue;
 
+    const tipoVenda = (iMeioPagamento >= 0 ? linha[iMeioPagamento] : iCanal >= 0 ? linha[iCanal] : null) || "—";
+    const codigo = iCodigo >= 0 ? linha[iCodigo] : null;
+
     resultado.push({
       postoCnpjSugerido: iCnpj >= 0 ? linha[iCnpj] || undefined : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
-      tipoVenda: (iMeioPagamento >= 0 ? linha[iMeioPagamento] : iCanal >= 0 ? linha[iCanal] : null) || "—",
+      tipoVenda,
       valorBruto,
       taxaRs: iTaxa >= 0 ? paraValorDecimal(linha[iTaxa]) : null,
       valorLiquido: iLiquido >= 0 ? paraValorDecimal(linha[iLiquido]) : null,
       dataPagamento: iDataPagamento >= 0 ? paraData(linha[iDataPagamento]) : null,
-      identificadorExterno: iCodigo >= 0 ? linha[iCodigo] || null : null,
+      identificadorExterno: identificadorComposto(codigo, dh.data, dh.hora, valorBruto, tipoVenda),
     });
   }
   return resultado;

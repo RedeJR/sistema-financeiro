@@ -10,6 +10,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  identificadorComposto,
   paraData,
   paraDataHora,
   paraValorAbsoluto,
@@ -55,16 +56,19 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
     const taxaColunaBruta = iValorTaxa >= 0 ? paraValorAbsoluto(linha[iValorTaxa]) : null;
     const taxaColuna = taxaColunaBruta && Number(taxaColunaBruta) > 0 ? taxaColunaBruta : null;
 
+    const tipoVenda = (iCombustivel >= 0 ? String(linha[iCombustivel] ?? "").trim() : "") || "—";
+    const nsu = iNsu >= 0 ? String(linha[iNsu] ?? "").trim() : "";
+
     resultado.push({
       postoTextoLivreSugerido: iCredenciado >= 0 ? String(linha[iCredenciado] ?? "").trim() || undefined : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
-      tipoVenda: (iCombustivel >= 0 ? String(linha[iCombustivel] ?? "").trim() : "") || "—",
+      tipoVenda,
       valorBruto,
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
       dataPagamento: iDataRepasse >= 0 ? paraData(linha[iDataRepasse]) : null,
-      identificadorExterno: iNsu >= 0 ? String(linha[iNsu] ?? "").trim() || null : null,
+      identificadorExterno: identificadorComposto(nsu, dh.data, dh.hora, valorBruto, tipoVenda),
     });
   }
   return resultado;

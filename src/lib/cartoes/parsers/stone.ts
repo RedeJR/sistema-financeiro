@@ -7,7 +7,15 @@
 // Não traz data de pagamento explícita — infere pelo produto: Pix D+0,
 // Débito D+1, Crédito/Voucher D+2 (mesma regra do protótipo em Python).
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
-import { calcularTaxaRs, decodificarTexto, dividirLinhasCsv, paraDataHora, paraValorDecimal, proximoDiaUtil } from "../normalizar";
+import {
+  calcularTaxaRs,
+  decodificarTexto,
+  dividirLinhasCsv,
+  identificadorComposto,
+  paraDataHora,
+  paraValorDecimal,
+  proximoDiaUtil,
+} from "../normalizar";
 
 function prazoPorProduto(produto: string): number {
   const p = produto.toLowerCase();
@@ -33,12 +41,9 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
   // Não usa "STONE ID" pra dedupe: em exports que passaram pelo Excel, essa
   // coluna também vem em notação científica igual o CNPJ (ver postos.ts) —
   // duas vendas diferentes viram o mesmo texto truncado e pareceriam
-  // "duplicatas" uma da outra. "CÓDIGO DE AUTORIZAÇÃO" não tem esse
-  // problema (sempre alfanumérico curto), mas sozinho também não é 100%
-  // único — em ~17,6 mil linhas reais, 112 se repetiram sem serem a mesma
-  // venda. Por isso o identificador final combina o código com data+hora+
-  // valor+modalidade: só colide de verdade se TODOS baterem, o que aí sim é
-  // a mesma venda de fato.
+  // "duplicatas" uma da outra. "CÓDIGO DE AUTORIZAÇÃO" sozinho também não é
+  // 100% único (identificadorComposto cobre isso combinando com data/hora/
+  // valor/modalidade).
   const iCodigoAutorizacao = idx("CÓDIGO DE AUTORIZAÇÃO");
 
   const resultado: LinhaTransacao[] = [];
@@ -66,7 +71,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
       taxaRs,
       valorLiquido,
       dataPagamento: proximoDiaUtil(dh.data, prazoPorProduto(produto)),
-      identificadorExterno: `${autorizacao}|${dh.data.toISOString()}|${dh.hora}|${valorBruto}|${produto}`,
+      identificadorExterno: identificadorComposto(autorizacao, dh.data, dh.hora, valorBruto, produto),
     });
   }
   return resultado;

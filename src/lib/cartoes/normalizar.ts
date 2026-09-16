@@ -95,6 +95,27 @@ export function paraValorAbsoluto(valor: unknown): string | null {
   return Math.abs(Number(decimal)).toFixed(2);
 }
 
+// Combina o identificador "cru" que a adquirente manda (NSU, código da
+// venda, comprovante...) com data/hora/valor/modalidade antes de usar como
+// chave de dedupe. Sozinho, esse identificador já se mostrou não-confiável
+// em três adquirentes diferentes (Stone, Getnet, Cielo): ou porque o
+// terminal reinicia a numeração de tempos em tempos (mesmo número =
+// vendas diferentes em dias diferentes), ou porque o arquivo passou pelo
+// Excel e um número grande virou notação científica truncada (várias
+// vendas reais colapsam no mesmo texto). Em ambos os casos, duas vendas
+// DIFERENTES pareciam "duplicata" uma da outra e uma sumia sem aviso. Com
+// data/hora/valor/modalidade no meio, só colide de verdade quando for
+// mesmo a mesma venda.
+export function identificadorComposto(
+  bruto: string | null | undefined,
+  dataVenda: Date,
+  horaVenda: string,
+  valorBruto: string,
+  tipoVenda: string
+): string {
+  return `${bruto ?? ""}|${dataVenda.toISOString()}|${horaVenda}|${valorBruto}|${tipoVenda}`;
+}
+
 // Taxa cobrada = bruto − líquido sempre que o líquido vier no arquivo — é o
 // valor que realmente bate com o totalizador do relatório (algumas
 // adquirentes têm coluna de taxa "pura" tipo MDR que não inclui antecipação/
