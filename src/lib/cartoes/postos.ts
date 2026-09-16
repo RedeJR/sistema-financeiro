@@ -46,6 +46,7 @@ export function encontrarPostoPorCnpj<T extends { cnpj: string | null }>(
 const APELIDOS_POSTO: Record<string, string> = {
   "PDV GNV": "OLIVEIRA",
   "JR TORINO": "JD TORINO",
+  "JARDIM TORINO": "JD TORINO",
   // Sem Parar trunca a razão social nesse ponto (falta "-DHABI" no fim).
   "COMBUSTIVEIS ABU": "ABU-DHABI",
 };

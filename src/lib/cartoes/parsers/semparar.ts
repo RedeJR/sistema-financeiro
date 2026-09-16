@@ -6,7 +6,15 @@
 // cabeçalho de verdade, nos dois formatos.
 import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
-import { decodificarTexto, dividirLinhasCsv, paraData, paraDataHora, paraValorDecimal } from "../normalizar";
+import {
+  calcularTaxaRs,
+  decodificarTexto,
+  dividirLinhasCsv,
+  paraData,
+  paraDataHora,
+  paraValorAbsoluto,
+  paraValorDecimal,
+} from "../normalizar";
 
 const MAX_LINHAS_PREAMBULO = 10;
 
@@ -33,14 +41,28 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
     const valorBruto = iValor >= 0 ? paraValorDecimal(linha[iValor]) : null;
     if (!dh || valorBruto === null) continue;
 
+    // VALOR_LIQUIDO/VALOR_TAXA só vêm preenchidos depois que a venda é
+    // repassada (semanas depois, ver DATA_REPASSE) — antes disso o arquivo
+    // mostra "0,00" nos dois, não um zero de verdade. Tratando "0,00" como
+    // zero real, calcularTaxaRs interpretaria bruto−0 como 100% de taxa.
+    // Em vendas ainda não repassadas, é melhor não afirmar nada (null).
+    const valorLiquidoBruto = iValorLiquido >= 0 ? paraValorDecimal(linha[iValorLiquido]) : null;
+    const valorLiquido = valorLiquidoBruto && Number(valorLiquidoBruto) > 0 ? valorLiquidoBruto : null;
+    // VALOR_TAXA vem negativo (ex: "-3,00", o desconto aplicado) — normaliza
+    // pra positivo, e passa pelo mesmo tratamento de "0,00 = ainda não
+    // repassado" acima (não é um valor real quando a venda ainda não
+    // liquidou, então também vira null em vez de zero).
+    const taxaColunaBruta = iValorTaxa >= 0 ? paraValorAbsoluto(linha[iValorTaxa]) : null;
+    const taxaColuna = taxaColunaBruta && Number(taxaColunaBruta) > 0 ? taxaColunaBruta : null;
+
     resultado.push({
       postoTextoLivreSugerido: iCredenciado >= 0 ? String(linha[iCredenciado] ?? "").trim() || undefined : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
       tipoVenda: (iCombustivel >= 0 ? String(linha[iCombustivel] ?? "").trim() : "") || "—",
       valorBruto,
-      taxaRs: iValorTaxa >= 0 ? paraValorDecimal(linha[iValorTaxa]) : null,
-      valorLiquido: iValorLiquido >= 0 ? paraValorDecimal(linha[iValorLiquido]) : null,
+      taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
+      valorLiquido,
       dataPagamento: iDataRepasse >= 0 ? paraData(linha[iDataRepasse]) : null,
       identificadorExterno: iNsu >= 0 ? String(linha[iNsu] ?? "").trim() || null : null,
     });
