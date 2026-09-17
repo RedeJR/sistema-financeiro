@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { exigirPermissao } from "@/lib/auth";
 
-const ABAS = [{ href: "/cartoes/conferencia-taxas", label: "Conferência de Taxas" }];
+const ABAS = [
+  { href: "/cartoes/conciliacao", label: "Conciliação" },
+  { href: "/cartoes/conferencia-taxas", label: "Conferência de Taxas" },
+];
 
 export default async function CartoesLayout({ children }: { children: React.ReactNode }) {
   await exigirPermissao("CARTOES", "visualizar");
