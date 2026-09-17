@@ -56,12 +56,12 @@ export default async function CategoriasExtratoPage() {
                 <td className="px-4 py-2">
                   <span
                     className={
-                      c.tipo === "ADQUIRENTE"
+                      c.tipo === "ADQUIRENTE" || c.tipo === "VOUCHER"
                         ? "rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-400"
                         : "rounded-full bg-black/10 px-2 py-0.5 text-xs text-foreground/60 dark:bg-white/10"
                     }
                   >
-                    {c.tipo === "ADQUIRENTE" ? "Adquirente" : "Padrão"}
+                    {c.tipo === "ADQUIRENTE" ? "Adquirente" : c.tipo === "VOUCHER" ? "Voucher" : "Padrão"}
                   </span>
                 </td>
                 <td className="px-4 py-2">

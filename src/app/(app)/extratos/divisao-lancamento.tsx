@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { formatarMoeda, paraDecimalString } from "@/lib/dinheiro";
 import { salvarDivisaoLancamento, removerDivisaoLancamento, type ItemDivisao } from "./divisao-actions";
 
-type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "PADRAO" };
+type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "VOUCHER" | "PADRAO" };
 type DivisaoAtual = {
   categoriaId: string | null;
   tipoAdquirente: "DEBITO" | "CREDITO" | null;

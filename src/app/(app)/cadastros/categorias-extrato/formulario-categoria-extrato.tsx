@@ -10,7 +10,7 @@ import type { ActionState } from "@/lib/form-state";
 
 type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
-  valoresIniciais?: { nome: string; tipo: "ADQUIRENTE" | "PADRAO"; ordem: number };
+  valoresIniciais?: { nome: string; tipo: "ADQUIRENTE" | "VOUCHER" | "PADRAO"; ordem: number };
 };
 
 export function FormularioCategoriaExtrato({ action, valoresIniciais }: Props) {
@@ -43,11 +43,14 @@ export function FormularioCategoriaExtrato({ action, valoresIniciais }: Props) {
         >
           <option value="PADRAO">Padrão</option>
           <option value="ADQUIRENTE">Adquirente</option>
+          <option value="VOUCHER">Adquirente (sem Débito/Crédito)</option>
         </select>
         <p className="text-xs text-foreground/50">
           Adquirente aparece com Débito/Crédito separado na revisão dos
           extratos, e soma numa coluna só no fechamento (ex: Cielo, Rede,
-          Stone).
+          Stone). Voucher entra na Conciliação de Cartões igual Adquirente,
+          mas sem o separador de Débito/Crédito na revisão — pra adquirentes
+          que só têm uma taxa/prazo (ex: SAQPAY, Sem Parar, Abastece Aí).
         </p>
       </div>
 

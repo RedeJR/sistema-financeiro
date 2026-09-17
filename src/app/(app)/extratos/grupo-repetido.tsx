@@ -7,7 +7,7 @@ import { DivisaoLancamento } from "./divisao-lancamento";
 import { atualizarCategoriaEmMassa } from "./actions";
 import { SelecionarGrupo } from "@/components/ui/selecionar-grupo";
 
-type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "PADRAO" };
+type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "VOUCHER" | "PADRAO" };
 
 export type ItemRepetido = {
   id: string;

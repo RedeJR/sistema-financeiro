@@ -173,6 +173,11 @@ model TransacaoCartao {
 
 enum TipoCategoriaExtrato {
   ADQUIRENTE // aparece com Débito/Crédito separado na revisão, soma numa coluna só no fechamento
+  // Adquirente sem distinção débito/crédito (ex: SAQPAY, Sem Parar, Abastece
+  // Aí — só têm uma taxa/prazo cadastrado) — revisão fica com um único
+  // valor por lançamento (igual PADRAO), mas ainda identifica a adquirente
+  // pra entrar na Conciliação de Cartões.
+  VOUCHER
   PADRAO
 }
 

@@ -4,7 +4,7 @@ import { useActionState, useRef } from "react";
 import { atualizarLancamento, type EstadoLinha } from "./actions";
 import { useFormKey } from "@/hooks/use-form-key";
 
-type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "PADRAO" };
+type CategoriaOpcao = { id: string; nome: string; tipo: "ADQUIRENTE" | "VOUCHER" | "PADRAO" };
 
 const campo =
   "rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:border-foreground/40 dark:border-white/20";

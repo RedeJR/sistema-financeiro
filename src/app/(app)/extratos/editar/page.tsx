@@ -30,7 +30,7 @@ function formatarData(d: Date): string {
 // "" sem categoria, "<id>" categoria padrão, "<id>:DEBITO"/"<id>:CREDITO" adquirente.
 function valorSelecaoCategoria(
   categoriaId: string | null,
-  tipo: "ADQUIRENTE" | "PADRAO" | undefined,
+  tipo: "ADQUIRENTE" | "VOUCHER" | "PADRAO" | undefined,
   tipoAdquirente: "DEBITO" | "CREDITO" | null
 ): string {
   if (!categoriaId) return "";

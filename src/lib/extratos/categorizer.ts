@@ -139,6 +139,9 @@ const REGRAS_POR_BANCO: Record<CodigoParser, Regra[]> = {
     { padrao: /REND PAGO APLIC/i, categoria: "REMUNERAÇÃO" },
     { padrao: /SEMPARAR|SEM PARAR/i, categoria: "SEM PARAR" },
     { padrao: /ABASTECE AI/i, categoria: "ABASTECE AÍ" },
+    // PIX recebido da AlphaCorp Tecnologia — é quem processa o SaqPay (ex:
+    // "PIX RECEBIDO ALPHACO14/09 ALPHACORP TECNOLOGIA E PAGAMENTOS S A...").
+    { padrao: /ALPHACORP TECNOLOGIA/i, categoria: "SAQPAY" },
     { padrao: /IPIRANGA/i, categoria: "COMBUSTÍVEIS" },
     { padrao: /PLUXEE/i, categoria: "PLUXEE" },
     { padrao: /\b99 TECNOLOGIA/i, categoria: "99" },
