@@ -2,8 +2,8 @@ import Link from "next/link";
 import { exigirPermissao } from "@/lib/auth";
 
 const ABAS = [
-  { href: "/cartoes/conciliacao", label: "Conciliação" },
-  { href: "/cartoes/conferencia-taxas", label: "Conferência de Taxas" },
+  { href: "/cartoes/conferencia-taxas", label: "Taxas" },
+  { href: "/cartoes/conciliacao", label: "Recebimentos" },
 ];
 
 export default async function CartoesLayout({ children }: { children: React.ReactNode }) {
