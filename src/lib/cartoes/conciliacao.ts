@@ -37,7 +37,7 @@ export async function buscarConciliacaoCartoes(params: {
   const { postoId, dataInicio, dataFim, adquirenteId, filtrarPor = "pagamento" } = params;
   const campoData = filtrarPor === "venda" ? "dataVenda" : "dataPagamento";
 
-  const [transacoes, categorias] = await Promise.all([
+  const [transacoes, categorias, taxas] = await Promise.all([
     prisma.transacaoCartao.findMany({
       where: {
         postoId,
@@ -47,9 +47,17 @@ export async function buscarConciliacaoCartoes(params: {
       include: { adquirente: true },
     }),
     prisma.categoriaExtrato.findMany({ where: { tipo: { in: ["ADQUIRENTE", "VOUCHER"] } } }),
+    prisma.taxaCartao.findMany({ where: { postoId }, select: { adquirenteId: true, domicilioBancoId: true } }),
   ]);
 
   const categoriaPorNomeAdquirente = new Map(categorias.map((c) => [c.nome, c]));
+  // PIX de Cielo/Pagseguro/Rede/Stone/Getnet às vezes cai na conta do banco
+  // categorizado como "PIX" genérico, não como a categoria da adquirente
+  // (ver categorizer.ts) — como cada uma cai num banco fixo (exceto a
+  // Cielo, que varia), usa o domicílio cadastrado em Taxas de Cartão pra
+  // saber de quem é. Sem isso, PIX de maquininha ficava fora da conciliação
+  // inteira, parecendo divergência todo santo dia.
+  const domicilioBancoPorAdquirente = new Map(taxas.filter((t) => t.domicilioBancoId).map((t) => [t.adquirenteId, t.domicilioBancoId!]));
 
   // Esperado: agrupa vendas por (adquirente, dataPagamento) — sempre pela
   // data de pagamento, independente do filtro ter sido por venda ou
@@ -103,6 +111,42 @@ export async function buscarConciliacaoCartoes(params: {
     if (l.tipoAdquirente === "DEBITO") atual.debito += Number(l.valor);
     else atual.credito += Number(l.valor); // CREDITO, ou sem tipo (categoria VOUCHER)
     nomeParaExtrato.set(chave, atual);
+  }
+
+  // PIX de maquininha (Cielo, Pagseguro, Rede, Stone, Getnet) fica na
+  // categoria genérica "PIX" quando o categorizador não reconhece de quem
+  // é — busca por domicílio bancário (cada uma cai num banco fixo, exceto
+  // a Cielo, que varia e por isso fica de fora — precisa revisar essa "a
+  // olho", como a própria usuária já validou).
+  const bancoIdParaAdquirenteNome = new Map<string, string>();
+  for (const adqId of adquirentesEnvolvidos) {
+    const bancoId = domicilioBancoPorAdquirente.get(adqId);
+    const nome = transacoes.find((t) => t.adquirenteId === adqId)?.adquirente.nome;
+    if (bancoId && nome && nome !== "CIELO" && nome !== "CIELO TEF" && nome !== "CIELO ALUGUEL") {
+      bancoIdParaAdquirenteNome.set(bancoId, nome);
+    }
+  }
+  if (bancoIdParaAdquirenteNome.size > 0) {
+    const categoriaPix = await prisma.categoriaExtrato.findFirst({ where: { nome: "PIX" } });
+    if (categoriaPix) {
+      const lancamentosPix = await prisma.lancamentoExtrato.findMany({
+        where: {
+          postoId,
+          categoriaId: categoriaPix.id,
+          bancoId: { in: [...bancoIdParaAdquirenteNome.keys()] },
+          data: { gte: dataMinExtrato, lte: dataMaxExtrato },
+        },
+      });
+      for (const l of lancamentosPix) {
+        const nomeAdquirente = bancoIdParaAdquirenteNome.get(l.bancoId);
+        if (!nomeAdquirente) continue;
+        const data = l.data.toISOString().slice(0, 10);
+        const chave = `${nomeAdquirente}|${data}`;
+        const atual = nomeParaExtrato.get(chave) ?? { debito: 0, credito: 0 };
+        atual.credito += Number(l.valor);
+        nomeParaExtrato.set(chave, atual);
+      }
+    }
   }
 
   const resultado: LinhaConciliacao[] = [];

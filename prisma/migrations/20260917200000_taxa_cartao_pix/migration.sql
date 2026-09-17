@@ -1,0 +1,2 @@
+ALTER TABLE "taxas_cartao" ADD COLUMN "taxaPix" DECIMAL(6,4);
+ALTER TABLE "taxas_cartao" ADD COLUMN "prazoPixDias" INTEGER NOT NULL DEFAULT 1;

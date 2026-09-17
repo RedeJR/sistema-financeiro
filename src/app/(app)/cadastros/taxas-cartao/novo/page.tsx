@@ -40,6 +40,8 @@ export default async function NovaTaxaCartaoPage({
                 prazoCreditoVistaDias: 1,
                 taxaCreditoParcelado: null,
                 prazoCreditoParceladoDias: 30,
+                taxaPix: null,
+                prazoPixDias: 1,
                 domicilioBancoId: null,
                 observacao: null,
               }

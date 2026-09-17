@@ -23,6 +23,8 @@ type Props = {
     prazoCreditoVistaDias: number;
     taxaCreditoParcelado: string | null;
     prazoCreditoParceladoDias: number;
+    taxaPix: string | null;
+    prazoPixDias: number;
     domicilioBancoId: string | null;
     observacao: string | null;
   };
@@ -167,6 +169,25 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
             min={0}
             defaultValue={v?.prazoCreditoParceladoDias ?? 30}
           />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-black/10 p-3 dark:border-white/15">
+        <p className="mb-3 text-sm font-medium text-foreground/80">
+          PIX{" "}
+          <span className="font-normal text-foreground/50">
+            (deixe a taxa em branco se não usa — só se aplica em Cielo, Pagseguro, Rede, Stone e Getnet)
+          </span>
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo
+            label="Taxa (%)"
+            name="taxaPix"
+            defaultValue={paraTextoEditavel(v?.taxaPix ?? null)}
+            placeholder="0,00"
+            inputMode="decimal"
+          />
+          <Campo label="Prazo (dias)" name="prazoPixDias" type="number" min={0} defaultValue={v?.prazoPixDias ?? 1} />
         </div>
       </div>
 

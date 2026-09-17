@@ -108,6 +108,13 @@ model TaxaCartao {
   prazoCreditoVistaDias     Int      @default(1)
   taxaCreditoParcelado      Decimal? @db.Decimal(6, 4)
   prazoCreditoParceladoDias Int      @default(30)
+  // Só as adquirentes com maquininha de verdade (Cielo, Pagseguro, Rede,
+  // Stone, Getnet) cobram PIX como modalidade própria — as "voucher"
+  // (SAQPAY, Sem Parar, Abastece Aí, Premmia) usam só taxaDebito pra tudo,
+  // mesmo quando o texto da venda menciona "PIX" (ex: "Saque PIX" da
+  // SAQPAY não é a mesma coisa).
+  taxaPix                   Decimal? @db.Decimal(6, 4)
+  prazoPixDias              Int      @default(1)
   domicilioBancoId          String?
   domicilioBanco            Banco?   @relation("DomicilioBancario", fields: [domicilioBancoId], references: [id])
   // Texto livre igual à planilha de origem (ex: "SEM USO", "CRÉDITO: TURNO 2")

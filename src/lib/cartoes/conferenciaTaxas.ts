@@ -17,11 +17,15 @@ export type LinhaConferenciaTaxas = {
 
 const CAMPO_POR_MODALIDADE: Record<
   ModalidadeCartao,
-  { taxa: "taxaDebito" | "taxaCreditoVista" | "taxaCreditoParcelado"; prazo: "prazoDebitoDias" | "prazoCreditoVistaDias" | "prazoCreditoParceladoDias" }
+  {
+    taxa: "taxaDebito" | "taxaCreditoVista" | "taxaCreditoParcelado" | "taxaPix";
+    prazo: "prazoDebitoDias" | "prazoCreditoVistaDias" | "prazoCreditoParceladoDias" | "prazoPixDias";
+  }
 > = {
   DEBITO: { taxa: "taxaDebito", prazo: "prazoDebitoDias" },
   CREDITO_VISTA: { taxa: "taxaCreditoVista", prazo: "prazoCreditoVistaDias" },
   CREDITO_PARCELADO: { taxa: "taxaCreditoParcelado", prazo: "prazoCreditoParceladoDias" },
+  PIX: { taxa: "taxaPix", prazo: "prazoPixDias" },
 };
 
 export async function buscarConferenciaTaxas(params: {
@@ -77,7 +81,7 @@ export async function buscarConferenciaTaxas(params: {
 
   const resultado: LinhaConferenciaTaxas[] = [];
   for (const g of grupos.values()) {
-    const modalidade = classificarModalidade(g.tipoVenda);
+    const modalidade = classificarModalidade(g.tipoVenda, g.adquirente);
     const campos = CAMPO_POR_MODALIDADE[modalidade];
     const taxaCartao = taxaPorAdquirente.get(g.adquirenteId);
 

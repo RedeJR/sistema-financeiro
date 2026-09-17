@@ -158,10 +158,18 @@ export function identificadorComposto(
 // aparece no arquivo delas é o tipo de combustível/canal, não forma de
 // pagamento — e caem em DEBITO por convenção, já que é o único campo usado
 // pra essas adquirentes no cadastro.
-export type ModalidadeCartao = "DEBITO" | "CREDITO_VISTA" | "CREDITO_PARCELADO";
+export type ModalidadeCartao = "DEBITO" | "CREDITO_VISTA" | "CREDITO_PARCELADO" | "PIX";
 
-export function classificarModalidade(tipoVenda: string): ModalidadeCartao {
+// Só essas adquirentes (maquininha de verdade) cobram PIX como modalidade
+// própria, com taxa/prazo cadastrados em separado — as "voucher" (SAQPAY,
+// Sem Parar, Abastece Aí, Premmia) não, mesmo quando o texto da venda
+// menciona "PIX" (ex: "Saque PIX" da SAQPAY é outra coisa, não uma venda
+// PIX de maquininha — por isso o parâmetro adquirenteNome abaixo).
+const ADQUIRENTES_COM_PIX_MODALIDADE = new Set(["CIELO", "CIELO TEF", "CIELO ALUGUEL", "PAGSEGURO", "REDE", "STONE", "GETNET"]);
+
+export function classificarModalidade(tipoVenda: string, adquirenteNome: string): ModalidadeCartao {
   const t = tipoVenda.toLowerCase();
+  if (t.includes("pix") && ADQUIRENTES_COM_PIX_MODALIDADE.has(adquirenteNome)) return "PIX";
   if (t.includes("parcel") || /\b[2-9]\d?\s*x\b/.test(t)) return "CREDITO_PARCELADO";
   if (t.includes("débito") || t.includes("debito")) return "DEBITO";
   if (t.includes("crédito") || t.includes("credito") || t.includes("credit")) return "CREDITO_VISTA";

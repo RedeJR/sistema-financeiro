@@ -59,6 +59,8 @@ const schema = z.object({
   prazoCreditoVistaDias: prazoDias("Prazo de crédito à vista", 1),
   taxaCreditoParcelado: taxaOpcional("Taxa de crédito parcelado"),
   prazoCreditoParceladoDias: prazoDias("Prazo de crédito parcelado", 30),
+  taxaPix: taxaOpcional("Taxa de PIX"),
+  prazoPixDias: prazoDias("Prazo de PIX", 1),
   domicilioBancoId: z
     .string()
     .trim()
@@ -81,6 +83,8 @@ function lerFormulario(formData: FormData) {
     prazoCreditoVistaDias: formData.get("prazoCreditoVistaDias"),
     taxaCreditoParcelado: formData.get("taxaCreditoParcelado"),
     prazoCreditoParceladoDias: formData.get("prazoCreditoParceladoDias"),
+    taxaPix: formData.get("taxaPix"),
+    prazoPixDias: formData.get("prazoPixDias"),
     domicilioBancoId: formData.get("domicilioBancoId"),
     observacao: formData.get("observacao"),
   });
