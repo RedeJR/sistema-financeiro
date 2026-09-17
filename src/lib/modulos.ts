@@ -14,10 +14,11 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   { valor: "COMBUSTIVEIS_PAGOS", label: "Combustíveis Pagos", disponivel: true },
   { valor: "EXTRATOS", label: "Conciliação de Extratos", disponivel: true },
   { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", disponivel: true },
-  // Vai virar a tela de "vendas x entradas" — volta pra `disponivel: false`
-  // até ela ser construída (o upload e o relatório por adquirente que
-  // moravam aqui antes saíram pro módulo CONFERENCIA_CAIXA, abaixo).
-  { valor: "CARTOES", label: "Cartões", disponivel: false },
+  // Primeira aba (Conferência de Taxas) construída — o upload e o
+  // relatório por adquirente que moravam aqui antes saíram pro módulo
+  // CONFERENCIA_CAIXA, abaixo. Mais abas (conciliação venda x extrato)
+  // ainda vêm.
+  { valor: "CARTOES", label: "Cartões", disponivel: true },
   // Módulo novo pedido no menu, ainda sem tela — desabilitado até ser
   // construído numa fase futura.
   { valor: "VENDAS_A_PRAZO", label: "Vendas a Prazo", disponivel: false },

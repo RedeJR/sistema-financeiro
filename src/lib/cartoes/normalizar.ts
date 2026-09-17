@@ -133,6 +133,25 @@ export function identificadorComposto(
   return `${bruto ?? ""}|${dataVenda.toISOString()}|${horaVenda}|${valorBruto}|${tipoVenda}`;
 }
 
+// Classifica o texto livre de modalidade (ex: "Crédito À Vista", "Débito",
+// "Crédito Parcelado 3x", "Debito Pre-pago", "Etanol Comum", "Online") no
+// campo de TaxaCartao correspondente — usado pra saber qual taxa/prazo
+// cadastrado comparar contra o que o arquivo trouxe (ver
+// src/lib/cartoes/conferenciaTaxas.ts). Adquirentes "voucher" (SAQPAY, Sem
+// Parar, Abastece Aí, Premmia) não têm essa distinção — a modalidade que
+// aparece no arquivo delas é o tipo de combustível/canal, não forma de
+// pagamento — e caem em DEBITO por convenção, já que é o único campo usado
+// pra essas adquirentes no cadastro.
+export type ModalidadeCartao = "DEBITO" | "CREDITO_VISTA" | "CREDITO_PARCELADO";
+
+export function classificarModalidade(tipoVenda: string): ModalidadeCartao {
+  const t = tipoVenda.toLowerCase();
+  if (t.includes("parcel") || /\b[2-9]\d?\s*x\b/.test(t)) return "CREDITO_PARCELADO";
+  if (t.includes("débito") || t.includes("debito")) return "DEBITO";
+  if (t.includes("crédito") || t.includes("credito") || t.includes("credit")) return "CREDITO_VISTA";
+  return "DEBITO";
+}
+
 // Taxa cobrada = bruto − líquido sempre que o líquido vier no arquivo — é o
 // valor que realmente bate com o totalizador do relatório (algumas
 // adquirentes têm coluna de taxa "pura" tipo MDR que não inclui antecipação/
