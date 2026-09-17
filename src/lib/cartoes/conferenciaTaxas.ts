@@ -28,12 +28,13 @@ export async function buscarConferenciaTaxas(params: {
   postoId: string;
   dataInicio: Date;
   dataFim: Date;
+  adquirenteId?: string;
 }): Promise<LinhaConferenciaTaxas[]> {
-  const { postoId, dataInicio, dataFim } = params;
+  const { postoId, dataInicio, dataFim, adquirenteId } = params;
 
   const [transacoes, taxas] = await Promise.all([
     prisma.transacaoCartao.findMany({
-      where: { postoId, dataVenda: { gte: dataInicio, lte: dataFim } },
+      where: { postoId, dataVenda: { gte: dataInicio, lte: dataFim }, ...(adquirenteId ? { adquirenteId } : {}) },
       include: { adquirente: true },
     }),
     prisma.taxaCartao.findMany({ where: { postoId }, include: { adquirente: true } }),
