@@ -6,19 +6,20 @@
 // soma os dois pra ter o valor bruto de qualquer um dos dois tipos.
 import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
-import { identificadorComposto, paraData, paraDataHora, paraValorDecimal } from "../normalizar";
+import { identificadorComposto, paraData, paraDataHora, paraProximoDiaUtilSeNecessario, paraValorDecimal } from "../normalizar";
 
 // "DATA PAGAMENTO TRANSAÇÃO" do arquivo é a data em que a SAQPAY INICIA o
 // repasse, não a data em que o dinheiro cai de fato na conta — confirmado
 // comparando contra o extrato real em dois postos: o valor esperado de um
 // dia batia certinho com o que caía no extrato no dia seguinte, sempre.
-// Soma 1 dia corrido (não dia útil) pra refletir a data real de entrada.
+// Soma 1 dia corrido (não dia útil) e, se cair em fim de semana ou feriado
+// nacional, empurra pro próximo dia útil (banco não processa nesses dias).
 function paraDataPagamentoReal(valor: unknown): Date | null {
   const data = paraData(valor);
   if (!data) return null;
   const resultado = new Date(data);
   resultado.setUTCDate(resultado.getUTCDate() + 1);
-  return resultado;
+  return paraProximoDiaUtilSeNecessario(resultado);
 }
 
 export async function parseSaqpay(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {

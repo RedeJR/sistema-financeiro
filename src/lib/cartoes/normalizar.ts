@@ -188,16 +188,98 @@ export function calcularTaxaRs(valorBruto: string, valorLiquido: string | null, 
   return taxaColuna;
 }
 
-// Avança `dias` dias ÚTEIS a partir de `data` (pula sábado/domingo) — usado
-// quando a data de pagamento não vem explícita no arquivo e precisa ser
-// inferida a partir da modalidade (Pix D+0, Débito D+1, Crédito D+2 etc.).
+function ehFimDeSemana(data: Date): boolean {
+  const dia = data.getUTCDay();
+  return dia === 0 || dia === 6;
+}
+
+// Data da Páscoa (algoritmo de Meeus/Jones/Butcher) — base pra calcular os
+// feriados móveis (Carnaval, Sexta-feira Santa, Corpus Christi).
+function calcularPascoa(ano: number): Date {
+  const a = ano % 19;
+  const b = Math.floor(ano / 100);
+  const c = ano % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31);
+  const dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(ano, mes - 1, dia));
+}
+
+function somarDias(data: Date, dias: number): Date {
+  const resultado = new Date(data);
+  resultado.setUTCDate(resultado.getUTCDate() + dias);
+  return resultado;
+}
+
+// Feriados NACIONAIS bancários — fixos + móveis. Não inclui feriado
+// estadual/municipal nem ponto facultativo (só o que fecha banco no país
+// inteiro), já que é isso que decide se o repasse cai ou não.
+function feriadosNacionais(ano: number): Set<string> {
+  const chave = (d: Date) => d.toISOString().slice(0, 10);
+  const pascoa = calcularPascoa(ano);
+  const datas = [
+    new Date(Date.UTC(ano, 0, 1)), // Confraternização Universal
+    somarDias(pascoa, -47), // Carnaval (segunda)
+    somarDias(pascoa, -46), // Carnaval (terça)
+    somarDias(pascoa, -2), // Sexta-feira Santa
+    somarDias(pascoa, 60), // Corpus Christi
+    new Date(Date.UTC(ano, 3, 21)), // Tiradentes
+    new Date(Date.UTC(ano, 4, 1)), // Dia do Trabalho
+    new Date(Date.UTC(ano, 8, 7)), // Independência
+    new Date(Date.UTC(ano, 9, 12)), // Nossa Senhora Aparecida
+    new Date(Date.UTC(ano, 10, 2)), // Finados
+    new Date(Date.UTC(ano, 10, 15)), // Proclamação da República
+    new Date(Date.UTC(ano, 10, 20)), // Consciência Negra (feriado nacional a partir de 2024)
+    new Date(Date.UTC(ano, 11, 25)), // Natal
+  ];
+  return new Set(datas.map(chave));
+}
+
+const cacheFeriados = new Map<number, Set<string>>();
+function ehFeriado(data: Date): boolean {
+  const ano = data.getUTCFullYear();
+  let feriados = cacheFeriados.get(ano);
+  if (!feriados) {
+    feriados = feriadosNacionais(ano);
+    cacheFeriados.set(ano, feriados);
+  }
+  return feriados.has(data.toISOString().slice(0, 10));
+}
+
+export function ehDiaUtil(data: Date): boolean {
+  return !ehFimDeSemana(data) && !ehFeriado(data);
+}
+
+// Avança `dias` dias ÚTEIS a partir de `data` (pula sábado/domingo/feriado
+// nacional) — usado quando a data de pagamento não vem explícita no
+// arquivo e precisa ser inferida a partir da modalidade (Pix D+0, Débito
+// D+1, Crédito D+2 etc.).
 export function proximoDiaUtil(data: Date, dias: number): Date {
   const resultado = new Date(data);
   let restantes = dias;
   while (restantes > 0) {
     resultado.setUTCDate(resultado.getUTCDate() + 1);
-    const diaSemana = resultado.getUTCDay();
-    if (diaSemana !== 0 && diaSemana !== 6) restantes--;
+    if (ehDiaUtil(resultado)) restantes--;
+  }
+  return resultado;
+}
+
+// Se `data` já é dia útil, devolve ela mesma; senão empurra pro próximo dia
+// útil — usado quando uma data (não uma contagem de dias) precisa recair
+// num dia em que o banco processa (ex: repasse previsto pro sábado cai de
+// fato na segunda).
+export function paraProximoDiaUtilSeNecessario(data: Date): Date {
+  let resultado = new Date(data);
+  while (!ehDiaUtil(resultado)) {
+    resultado = somarDias(resultado, 1);
   }
   return resultado;
 }
