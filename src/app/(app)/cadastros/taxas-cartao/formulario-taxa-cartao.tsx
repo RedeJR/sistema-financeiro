@@ -25,6 +25,8 @@ type Props = {
     prazoCreditoParceladoDias: number;
     taxaPix: string | null;
     prazoPixDias: number;
+    taxaCreditoPrePago: string | null;
+    prazoCreditoPrePagoDias: number;
     domicilioBancoId: string | null;
     observacao: string | null;
   };
@@ -188,6 +190,31 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
             inputMode="decimal"
           />
           <Campo label="Prazo (dias)" name="prazoPixDias" type="number" min={0} defaultValue={v?.prazoPixDias ?? 1} />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-black/10 p-3 dark:border-white/15">
+        <p className="mb-3 text-sm font-medium text-foreground/80">
+          Crédito pré-pago{" "}
+          <span className="font-normal text-foreground/50">
+            (deixe a taxa em branco se não usa — cartão de crédito recarregável, ex: Pagseguro)
+          </span>
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo
+            label="Taxa (%)"
+            name="taxaCreditoPrePago"
+            defaultValue={paraTextoEditavel(v?.taxaCreditoPrePago ?? null)}
+            placeholder="0,00"
+            inputMode="decimal"
+          />
+          <Campo
+            label="Prazo (dias)"
+            name="prazoCreditoPrePagoDias"
+            type="number"
+            min={0}
+            defaultValue={v?.prazoCreditoPrePagoDias ?? 1}
+          />
         </div>
       </div>
 

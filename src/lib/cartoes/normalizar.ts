@@ -158,7 +158,7 @@ export function identificadorComposto(
 // aparece no arquivo delas é o tipo de combustível/canal, não forma de
 // pagamento — e caem em DEBITO por convenção, já que é o único campo usado
 // pra essas adquirentes no cadastro.
-export type ModalidadeCartao = "DEBITO" | "CREDITO_VISTA" | "CREDITO_PARCELADO" | "PIX";
+export type ModalidadeCartao = "DEBITO" | "CREDITO_VISTA" | "CREDITO_PARCELADO" | "CREDITO_PRE_PAGO" | "PIX";
 
 // Só essas adquirentes (maquininha de verdade) cobram PIX como modalidade
 // própria, com taxa/prazo cadastrados em separado — as "voucher" (SAQPAY,
@@ -171,7 +171,17 @@ export function classificarModalidade(tipoVenda: string, adquirenteNome: string)
   const t = tipoVenda.toLowerCase();
   if (t.includes("pix") && ADQUIRENTES_COM_PIX_MODALIDADE.has(adquirenteNome)) return "PIX";
   if (t.includes("parcel") || /\b[2-9]\d?\s*x\b/.test(t)) return "CREDITO_PARCELADO";
+  // Checa débito ANTES de pré-pago: "Débito Pré-pago" (Stone, cartão
+  // benefício usado como débito) precisa continuar caindo em DEBITO — só
+  // "Crédito pré-pago" (Pagseguro, cartão de crédito recarregável) é uma
+  // modalidade própria.
   if (t.includes("débito") || t.includes("debito")) return "DEBITO";
+  if (
+    (t.includes("crédito") || t.includes("credito")) &&
+    (t.includes("pré pago") || t.includes("pré-pago") || t.includes("pre pago") || t.includes("pre-pago"))
+  ) {
+    return "CREDITO_PRE_PAGO";
+  }
   if (t.includes("crédito") || t.includes("credito") || t.includes("credit")) return "CREDITO_VISTA";
   return "DEBITO";
 }

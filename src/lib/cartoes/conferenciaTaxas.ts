@@ -18,14 +18,15 @@ export type LinhaConferenciaTaxas = {
 const CAMPO_POR_MODALIDADE: Record<
   ModalidadeCartao,
   {
-    taxa: "taxaDebito" | "taxaCreditoVista" | "taxaCreditoParcelado" | "taxaPix";
-    prazo: "prazoDebitoDias" | "prazoCreditoVistaDias" | "prazoCreditoParceladoDias" | "prazoPixDias";
+    taxa: "taxaDebito" | "taxaCreditoVista" | "taxaCreditoParcelado" | "taxaPix" | "taxaCreditoPrePago";
+    prazo: "prazoDebitoDias" | "prazoCreditoVistaDias" | "prazoCreditoParceladoDias" | "prazoPixDias" | "prazoCreditoPrePagoDias";
   }
 > = {
   DEBITO: { taxa: "taxaDebito", prazo: "prazoDebitoDias" },
   CREDITO_VISTA: { taxa: "taxaCreditoVista", prazo: "prazoCreditoVistaDias" },
   CREDITO_PARCELADO: { taxa: "taxaCreditoParcelado", prazo: "prazoCreditoParceladoDias" },
   PIX: { taxa: "taxaPix", prazo: "prazoPixDias" },
+  CREDITO_PRE_PAGO: { taxa: "taxaCreditoPrePago", prazo: "prazoCreditoPrePagoDias" },
 };
 
 export async function buscarConferenciaTaxas(params: {

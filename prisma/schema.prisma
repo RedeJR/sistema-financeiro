@@ -115,6 +115,11 @@ model TaxaCartao {
   // SAQPAY não é a mesma coisa).
   taxaPix                   Decimal? @db.Decimal(6, 4)
   prazoPixDias              Int      @default(1)
+  // "Crédito pré-pago" (Pagseguro) — cartão de crédito recarregável, taxa
+  // e prazo próprios, diferente do "Débito Pré-pago" (Stone, esse já cai
+  // em taxaDebito — nomes parecidos, produtos diferentes).
+  taxaCreditoPrePago        Decimal? @db.Decimal(6, 4)
+  prazoCreditoPrePagoDias   Int      @default(1)
   domicilioBancoId          String?
   domicilioBanco            Banco?   @relation("DomicilioBancario", fields: [domicilioBancoId], references: [id])
   // Texto livre igual à planilha de origem (ex: "SEM USO", "CRÉDITO: TURNO 2")

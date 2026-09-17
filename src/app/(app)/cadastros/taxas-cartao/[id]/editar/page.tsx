@@ -41,6 +41,8 @@ export default async function EditarTaxaCartaoPage({ params }: { params: Promise
           prazoCreditoParceladoDias: taxa.prazoCreditoParceladoDias,
           taxaPix: taxa.taxaPix?.toString() ?? null,
           prazoPixDias: taxa.prazoPixDias,
+          taxaCreditoPrePago: taxa.taxaCreditoPrePago?.toString() ?? null,
+          prazoCreditoPrePagoDias: taxa.prazoCreditoPrePagoDias,
           domicilioBancoId: taxa.domicilioBancoId,
           observacao: taxa.observacao,
         }}

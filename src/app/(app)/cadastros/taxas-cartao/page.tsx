@@ -57,6 +57,7 @@ export default async function TaxasCartaoPage() {
                     <th className="px-4 py-1.5 text-right font-medium">Crédito à vista</th>
                     <th className="px-4 py-1.5 text-right font-medium">Crédito parcelado</th>
                     <th className="px-4 py-1.5 text-right font-medium">PIX</th>
+                    <th className="px-4 py-1.5 text-right font-medium">Crédito pré-pago</th>
                     <th className="px-4 py-1.5 text-left font-medium">Domicílio</th>
                     <th className="px-4 py-1.5 text-left font-medium">Observação</th>
                     <th className="px-4 py-1.5 text-left font-medium">Status</th>
@@ -88,6 +89,12 @@ export default async function TaxasCartaoPage() {
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaPix)}
                         {t.taxaPix !== null && <span className="text-foreground/50"> (D+{t.prazoPixDias})</span>}
+                      </td>
+                      <td className="px-4 py-1.5 text-right whitespace-nowrap">
+                        {fmtPct(t.taxaCreditoPrePago)}
+                        {t.taxaCreditoPrePago !== null && (
+                          <span className="text-foreground/50"> (D+{t.prazoCreditoPrePagoDias})</span>
+                        )}
                       </td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.domicilioBanco?.nome ?? "—"}</td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.observacao ?? "—"}</td>
