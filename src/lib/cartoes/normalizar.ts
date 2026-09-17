@@ -115,14 +115,28 @@ export function paraValorAbsoluto(valor: unknown): string | null {
 // Combina o identificador "cru" que a adquirente manda (NSU, código da
 // venda, comprovante...) com data/hora/valor/modalidade antes de usar como
 // chave de dedupe. Sozinho, esse identificador já se mostrou não-confiável
-// em três adquirentes diferentes (Stone, Getnet, Cielo): ou porque o
-// terminal reinicia a numeração de tempos em tempos (mesmo número =
-// vendas diferentes em dias diferentes), ou porque o arquivo passou pelo
-// Excel e um número grande virou notação científica truncada (várias
-// vendas reais colapsam no mesmo texto). Em ambos os casos, duas vendas
-// DIFERENTES pareciam "duplicata" uma da outra e uma sumia sem aviso. Com
+// em várias adquirentes (Stone, Getnet, Cielo): ou porque o terminal
+// reinicia a numeração de tempos em tempos (mesmo número = vendas
+// diferentes em dias diferentes), ou porque o arquivo passou pelo Excel e
+// um número grande virou notação científica truncada (várias vendas reais
+// colapsam no mesmo texto). Em ambos os casos, duas vendas DIFERENTES
+// pareciam "duplicata" uma da outra e uma sumia sem aviso. Com
 // data/hora/valor/modalidade no meio, só colide de verdade quando for
 // mesmo a mesma venda.
+//
+// Normaliza bruto/valor ANTES de montar a string — sem isso, o mesmo
+// relatório baixado em dias diferentes pode formatar o mesmo dado de jeito
+// diferente (ex: comprovante "000020623" vs "20623", valor "100.00" vs
+// "100") e o reenvio do mesmo arquivo duplica tudo por engano, mesmo sem
+// nenhuma venda nova de verdade (já aconteceu 2x: migração de formato e
+// comprovante da Getnet). Normalizar aqui dentro, e não em cada parser,
+// garante que qualquer chamador (parser novo, script de migração) sempre
+// produza o mesmo identificador pro mesmo dado, não importa como a string
+// de entrada veio formatada.
+function normalizarBruto(bruto: string): string {
+  return /^\d+$/.test(bruto) ? String(Number(bruto)) : bruto;
+}
+
 export function identificadorComposto(
   bruto: string | null | undefined,
   dataVenda: Date,
@@ -130,7 +144,9 @@ export function identificadorComposto(
   valorBruto: string,
   tipoVenda: string
 ): string {
-  return `${bruto ?? ""}|${dataVenda.toISOString()}|${horaVenda}|${valorBruto}|${tipoVenda}`;
+  const brutoNormalizado = bruto ? normalizarBruto(bruto) : "";
+  const valorNormalizado = Number(valorBruto).toFixed(2);
+  return `${brutoNormalizado}|${dataVenda.toISOString()}|${horaVenda}|${valorNormalizado}|${tipoVenda}`;
 }
 
 // Classifica o texto livre de modalidade (ex: "Crédito À Vista", "Débito",
