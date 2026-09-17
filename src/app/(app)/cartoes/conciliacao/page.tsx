@@ -33,9 +33,17 @@ const COR_LINHA: Record<StatusConciliacao, string> = {
 export default async function ConciliacaoCartoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; inicio?: string; fim?: string; adquirenteId?: string; status?: string }>;
+  searchParams: Promise<{
+    postoId?: string;
+    inicio?: string;
+    fim?: string;
+    adquirenteId?: string;
+    status?: string;
+    filtrarPor?: string;
+  }>;
 }) {
-  const { postoId, inicio, fim, adquirenteId, status } = await searchParams;
+  const { postoId, inicio, fim, adquirenteId, status, filtrarPor } = await searchParams;
+  const filtrarPorVenda = filtrarPor === "venda";
 
   const [postos, adquirentes] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -45,7 +53,13 @@ export default async function ConciliacaoCartoesPage({
   const temFiltro = Boolean(postoId && inicio && fim);
   const todasLinhas =
     temFiltro && postoId && inicio && fim
-      ? await buscarConciliacaoCartoes({ postoId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId: adquirenteId || undefined })
+      ? await buscarConciliacaoCartoes({
+          postoId,
+          dataInicio: dataUTC(inicio),
+          dataFim: dataUTC(fim, true),
+          adquirenteId: adquirenteId || undefined,
+          filtrarPor: filtrarPorVenda ? "venda" : "pagamento",
+        })
       : null;
 
   const linhas = todasLinhas && status ? todasLinhas.filter((l) => l.status === status) : todasLinhas;
@@ -54,6 +68,7 @@ export default async function ConciliacaoCartoesPage({
   const qsBase = new URLSearchParams({ postoId: postoId ?? "", inicio: inicio ?? "", fim: fim ?? "" });
   if (adquirenteId) qsBase.set("adquirenteId", adquirenteId);
   if (status) qsBase.set("status", status);
+  if (filtrarPorVenda) qsBase.set("filtrarPor", "venda");
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   const totais = linhas?.reduce(
@@ -137,8 +152,22 @@ export default async function ConciliacaoCartoesPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
+          <label htmlFor="filtrarPor" className="text-foreground/60">
+            Filtrar período por
+          </label>
+          <select
+            id="filtrarPor"
+            name="filtrarPor"
+            defaultValue={filtrarPorVenda ? "venda" : "pagamento"}
+            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+          >
+            <option value="pagamento">Data de pagamento</option>
+            <option value="venda">Data de venda</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
           <label htmlFor="inicio" className="text-foreground/60">
-            Data de pagamento — de
+            {filtrarPorVenda ? "Data de venda — de" : "Data de pagamento — de"}
           </label>
           <input
             id="inicio"

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
   const fim = params.get("fim");
   const adquirenteId = params.get("adquirenteId") || undefined;
   const statusFiltro = params.get("status") as StatusConciliacao | null;
+  const filtrarPor = params.get("filtrarPor") === "venda" ? "venda" : "pagamento";
 
   if (!postoId || !inicio || !fim) {
     return new Response("Escolha um posto e o período.", { status: 400 });
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const [posto, todasLinhas] = await Promise.all([
     prisma.posto.findUnique({ where: { id: postoId } }),
-    buscarConciliacaoCartoes({ postoId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId }),
+    buscarConciliacaoCartoes({ postoId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId, filtrarPor }),
   ]);
   if (!posto) {
     return new Response("Posto não encontrado.", { status: 404 });

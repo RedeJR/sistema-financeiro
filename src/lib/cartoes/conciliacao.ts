@@ -32,14 +32,16 @@ export async function buscarConciliacaoCartoes(params: {
   dataInicio: Date;
   dataFim: Date;
   adquirenteId?: string;
+  filtrarPor?: "pagamento" | "venda";
 }): Promise<LinhaConciliacao[]> {
-  const { postoId, dataInicio, dataFim, adquirenteId } = params;
+  const { postoId, dataInicio, dataFim, adquirenteId, filtrarPor = "pagamento" } = params;
+  const campoData = filtrarPor === "venda" ? "dataVenda" : "dataPagamento";
 
   const [transacoes, categorias] = await Promise.all([
     prisma.transacaoCartao.findMany({
       where: {
         postoId,
-        dataPagamento: { gte: dataInicio, lte: dataFim },
+        [campoData]: { gte: dataInicio, lte: dataFim },
         ...(adquirenteId ? { adquirenteId } : {}),
       },
       include: { adquirente: true },
@@ -49,7 +51,9 @@ export async function buscarConciliacaoCartoes(params: {
 
   const categoriaPorNomeAdquirente = new Map(categorias.map((c) => [c.nome, c]));
 
-  // Esperado: agrupa vendas por (adquirente, dataPagamento).
+  // Esperado: agrupa vendas por (adquirente, dataPagamento) — sempre pela
+  // data de pagamento, independente do filtro ter sido por venda ou
+  // pagamento (é o que o extrato precisa bater).
   const gruposEsperado = new Map<string, { adquirente: string; adquirenteId: string; data: string; qtd: number; soma: number }>();
   for (const t of transacoes) {
     if (!t.dataPagamento || t.valorLiquido === null) continue;
@@ -69,13 +73,21 @@ export async function buscarConciliacaoCartoes(params: {
     })
     .filter((id): id is string => Boolean(id));
 
+  // Quando o filtro é por data de venda, a data de pagamento esperada pode
+  // cair bem depois do período pedido (ex: Sem Parar D+30) — busca o
+  // extrato numa janela que cubra todas as datas de pagamento encontradas,
+  // não só o período original do filtro.
+  const datasEsperado = [...gruposEsperado.values()].map((g) => g.data);
+  const dataMinExtrato = datasEsperado.length > 0 ? new Date(`${datasEsperado.reduce((a, b) => (a < b ? a : b))}T00:00:00.000Z`) : dataInicio;
+  const dataMaxExtrato = datasEsperado.length > 0 ? new Date(`${datasEsperado.reduce((a, b) => (a > b ? a : b))}T23:59:59.999Z`) : dataFim;
+
   const lancamentos =
     categoriaIdsEnvolvidas.length > 0
       ? await prisma.lancamentoExtrato.findMany({
           where: {
             postoId,
             categoriaId: { in: categoriaIdsEnvolvidas },
-            data: { gte: dataInicio, lte: dataFim },
+            data: { gte: dataMinExtrato, lte: dataMaxExtrato },
           },
         })
       : [];
