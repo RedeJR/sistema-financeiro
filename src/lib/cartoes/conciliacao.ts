@@ -2,15 +2,19 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 
 export type StatusConciliacao = "CONCILIADO" | "DIVERGENTE" | "PENDENTE";
+export type AgrupamentoConciliacao = "recebimento" | "adquirente" | "venda";
 
 export type LinhaConciliacao = {
-  data: string; // YYYY-MM-DD
+  chave: string;
+  data: string | null; // YYYY-MM-DD — null quando agrupado só por adquirente (soma o período inteiro)
+  dataLinkDe: string; // intervalo usado no link "Ver lançamentos"
+  dataLinkAte: string;
   adquirente: string;
   adquirenteId: string;
   categoriaId: string | null;
   fontePrazo: "ARQUIVO" | "SISTEMA"; // Stone infere por regra fixa; as demais vêm do próprio arquivo
   qtdVendas: number;
-  esperado: number; // soma do valorLiquido das vendas com essa dataPagamento
+  esperado: number; // soma do valorLiquido das vendas
   extratoDebito: number;
   extratoCredito: number;
   extratoTotal: number;
@@ -27,14 +31,21 @@ function fontePrazoPorAdquirente(nome: string): "ARQUIVO" | "SISTEMA" {
   return nome === "STONE" ? "SISTEMA" : "ARQUIVO";
 }
 
+function calcularStatus(extratoTotal: number, diferenca: number): StatusConciliacao {
+  if (extratoTotal === 0) return "PENDENTE";
+  if (Math.abs(diferenca) <= TOLERANCIA) return "CONCILIADO";
+  return "DIVERGENTE";
+}
+
 export async function buscarConciliacaoCartoes(params: {
   postoId: string;
   dataInicio: Date;
   dataFim: Date;
-  adquirenteId?: string;
+  adquirenteIds?: string[];
   filtrarPor?: "pagamento" | "venda";
+  agruparPor?: AgrupamentoConciliacao;
 }): Promise<LinhaConciliacao[]> {
-  const { postoId, dataInicio, dataFim, adquirenteId, filtrarPor = "pagamento" } = params;
+  const { postoId, dataInicio, dataFim, adquirenteIds, filtrarPor = "pagamento", agruparPor = "recebimento" } = params;
   const campoData = filtrarPor === "venda" ? "dataVenda" : "dataPagamento";
 
   const [transacoes, categorias, taxas] = await Promise.all([
@@ -42,7 +53,7 @@ export async function buscarConciliacaoCartoes(params: {
       where: {
         postoId,
         [campoData]: { gte: dataInicio, lte: dataFim },
-        ...(adquirenteId ? { adquirenteId } : {}),
+        ...(adquirenteIds && adquirenteIds.length > 0 ? { adquirenteId: { in: adquirenteIds } } : {}),
       },
       include: { adquirente: true },
     }),
@@ -149,21 +160,18 @@ export async function buscarConciliacaoCartoes(params: {
     }
   }
 
-  const resultado: LinhaConciliacao[] = [];
-  const todasChaves = new Set([...gruposEsperado.keys()]);
-
-  // Chaves do extrato usam "nomeAdquirente|data" (não tem adquirenteId
-  // direto) — só vira linha se algum adquirenteId conhecido tiver esse
-  // nome (senão não dá pra classificar, mas também está fora de escopo:
-  // nenhuma venda dessa adquirente apareceu no período pedido).
+  // Linhas na granularidade máxima: uma por (adquirente, data de
+  // pagamento) — base pra qualquer um dos agrupamentos abaixo.
   const idPorNome = new Map(transacoes.map((t) => [t.adquirente.nome, t.adquirenteId]));
-  for (const [chave, extrato] of nomeParaExtrato) {
+  const todasChaves = new Set([...gruposEsperado.keys()]);
+  for (const chave of nomeParaExtrato.keys()) {
     const [nome, data] = chave.split("|");
     const adquirenteId = idPorNome.get(nome);
     if (!adquirenteId) continue; // categoria de extrato sem nenhuma venda desse adquirente no período — fora de escopo
     todasChaves.add(`${adquirenteId}|${data}`);
   }
 
+  const linhasDetalhadas: LinhaConciliacao[] = [];
   for (const chave of todasChaves) {
     const [adqId, data] = chave.split("|");
     const esperadoGrupo = gruposEsperado.get(chave);
@@ -173,13 +181,11 @@ export async function buscarConciliacaoCartoes(params: {
     const esperado = esperadoGrupo?.soma ?? 0;
     const diferenca = extratoTotal - esperado;
 
-    let status: StatusConciliacao;
-    if (extratoTotal === 0) status = "PENDENTE";
-    else if (Math.abs(diferenca) <= TOLERANCIA) status = "CONCILIADO";
-    else status = "DIVERGENTE";
-
-    resultado.push({
+    linhasDetalhadas.push({
+      chave,
       data,
+      dataLinkDe: data,
+      dataLinkAte: data,
       adquirente: nome,
       adquirenteId: adqId,
       categoriaId: categoriaPorNomeAdquirente.get(nome)?.id ?? null,
@@ -190,9 +196,117 @@ export async function buscarConciliacaoCartoes(params: {
       extratoCredito: extrato.credito,
       extratoTotal,
       diferenca,
-      status,
+      status: calcularStatus(extratoTotal, diferenca),
     });
   }
 
-  return resultado.sort((a, b) => a.data.localeCompare(b.data) || a.adquirente.localeCompare(b.adquirente));
+  if (agruparPor === "recebimento") {
+    return linhasDetalhadas.sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.adquirente.localeCompare(b.adquirente));
+  }
+
+  if (agruparPor === "adquirente") {
+    const periodoDe = dataInicio.toISOString().slice(0, 10);
+    const periodoAte = dataFim.toISOString().slice(0, 10);
+    const porAdquirente = new Map<string, LinhaConciliacao>();
+    for (const l of linhasDetalhadas) {
+      const grupo = porAdquirente.get(l.adquirenteId) ?? {
+        ...l,
+        chave: l.adquirenteId,
+        data: null,
+        dataLinkDe: periodoDe,
+        dataLinkAte: periodoAte,
+        qtdVendas: 0,
+        esperado: 0,
+        extratoDebito: 0,
+        extratoCredito: 0,
+        extratoTotal: 0,
+        diferenca: 0,
+      };
+      grupo.qtdVendas += l.qtdVendas;
+      grupo.esperado += l.esperado;
+      grupo.extratoDebito += l.extratoDebito;
+      grupo.extratoCredito += l.extratoCredito;
+      porAdquirente.set(l.adquirenteId, grupo);
+    }
+    return [...porAdquirente.values()]
+      .map((g) => {
+        const extratoTotal = g.extratoDebito + g.extratoCredito;
+        const diferenca = extratoTotal - g.esperado;
+        return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca) };
+      })
+      .sort((a, b) => a.adquirente.localeCompare(b.adquirente));
+  }
+
+  // agruparPor === "venda": reagrupa por (adquirente, data da venda). Cada
+  // venda já sabe seu próprio dia de pagamento (arquivo ou prazo
+  // cadastrado) — não é um chute por valor. Como o banco deposita tudo
+  // junto num dia só (sem dizer qual parcela é de qual data de venda),
+  // rateia o extrato daquele dia de pagamento proporcionalmente ao peso de
+  // cada data de venda que cai nele.
+  const esperadoPorPagamento = new Map(gruposEsperado.entries());
+  type GrupoVenda = {
+    adquirenteId: string;
+    adquirente: string;
+    dataVenda: string;
+    qtd: number;
+    esperado: number;
+    extratoDebito: number;
+    extratoCredito: number;
+    minPagamento: string;
+    maxPagamento: string;
+  };
+  const gruposVenda = new Map<string, GrupoVenda>();
+  for (const t of transacoes) {
+    if (!t.dataVenda || !t.dataPagamento || t.valorLiquido === null) continue;
+    const dataVenda = t.dataVenda.toISOString().slice(0, 10);
+    const dataPagamento = t.dataPagamento.toISOString().slice(0, 10);
+    const chavePagamento = `${t.adquirenteId}|${dataPagamento}`;
+    const esperadoPagamento = esperadoPorPagamento.get(chavePagamento)?.soma ?? 0;
+    const extratoPagamento = nomeParaExtrato.get(`${t.adquirente.nome}|${dataPagamento}`) ?? { debito: 0, credito: 0 };
+    const fracao = esperadoPagamento > 0 ? Number(t.valorLiquido) / esperadoPagamento : 0;
+
+    const chaveVenda = `${t.adquirenteId}|${dataVenda}`;
+    const grupo = gruposVenda.get(chaveVenda) ?? {
+      adquirenteId: t.adquirenteId,
+      adquirente: t.adquirente.nome,
+      dataVenda,
+      qtd: 0,
+      esperado: 0,
+      extratoDebito: 0,
+      extratoCredito: 0,
+      minPagamento: dataPagamento,
+      maxPagamento: dataPagamento,
+    };
+    grupo.qtd++;
+    grupo.esperado += Number(t.valorLiquido);
+    grupo.extratoDebito += extratoPagamento.debito * fracao;
+    grupo.extratoCredito += extratoPagamento.credito * fracao;
+    if (dataPagamento < grupo.minPagamento) grupo.minPagamento = dataPagamento;
+    if (dataPagamento > grupo.maxPagamento) grupo.maxPagamento = dataPagamento;
+    gruposVenda.set(chaveVenda, grupo);
+  }
+
+  return [...gruposVenda.values()]
+    .map((g): LinhaConciliacao => {
+      const extratoTotal = g.extratoDebito + g.extratoCredito;
+      const diferenca = extratoTotal - g.esperado;
+      return {
+        chave: `${g.adquirenteId}|${g.dataVenda}`,
+        data: g.dataVenda,
+        dataLinkDe: g.minPagamento,
+        dataLinkAte: g.maxPagamento,
+        adquirente: g.adquirente,
+        adquirenteId: g.adquirenteId,
+        categoriaId: categoriaPorNomeAdquirente.get(g.adquirente)?.id ?? null,
+        fontePrazo: fontePrazoPorAdquirente(g.adquirente),
+        qtdVendas: g.qtd,
+        esperado: g.esperado,
+        extratoDebito: g.extratoDebito,
+        extratoCredito: g.extratoCredito,
+        extratoTotal,
+        diferenca,
+        status: calcularStatus(extratoTotal, diferenca),
+      };
+    })
+    .sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.adquirente.localeCompare(b.adquirente));
 }

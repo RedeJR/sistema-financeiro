@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { buscarFechamentoCartoes, type LinhaFechamento } from "@/lib/cartoes/fechamento";
+import { buscarFechamentoCartoes, type LinhaFechamento, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
 }
+
+const ROTULO_MODALIDADE: Record<ModalidadeFechamento, string> = {
+  DEBITO: "Débito",
+  CREDITO: "Crédito",
+  PIX: "Pix",
+};
 
 export default async function FechamentoCartoesPage({
   searchParams,
@@ -173,6 +179,7 @@ export default async function FechamentoCartoesPage({
                   <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
                     <tr>
                       <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
+                      <th className="px-4 py-1.5 text-left font-medium">Modalidade</th>
                       <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
                       <th className="px-4 py-1.5 text-right font-medium">Total Bruto</th>
                       <th className="px-4 py-1.5 text-right font-medium">Total Líquido</th>
@@ -182,10 +189,11 @@ export default async function FechamentoCartoesPage({
                   <tbody>
                     {linhasPosto.map((l, i) => (
                       <tr
-                        key={l.adquirente}
+                        key={`${l.adquirente}|${l.modalidade}`}
                         className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}
                       >
                         <td className="px-4 py-1.5">{l.adquirente}</td>
+                        <td className="px-4 py-1.5 text-foreground/70">{ROTULO_MODALIDADE[l.modalidade]}</td>
                         <td className="px-4 py-1.5 text-right">{l.qtd}</td>
                         <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalBruto)}</td>
                         <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalLiquido)}</td>
@@ -195,7 +203,7 @@ export default async function FechamentoCartoesPage({
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                      <td className="px-4 py-1.5" colSpan={2}>
+                      <td className="px-4 py-1.5" colSpan={3}>
                         Total {posto}
                       </td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(subtotal.bruto)}</td>
@@ -213,7 +221,7 @@ export default async function FechamentoCartoesPage({
               <table className="w-full text-sm">
                 <tbody>
                   <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">
-                    <td className="px-4 py-1.5" colSpan={2}>
+                    <td className="px-4 py-1.5" colSpan={3}>
                       Total geral
                     </td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral.bruto)}</td>

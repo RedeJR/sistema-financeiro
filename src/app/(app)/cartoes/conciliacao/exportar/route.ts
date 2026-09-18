@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buscarConciliacaoCartoes, type StatusConciliacao } from "@/lib/cartoes/conciliacao";
+import { buscarConciliacaoCartoes, type AgrupamentoConciliacao, type StatusConciliacao } from "@/lib/cartoes/conciliacao";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
 const ROTULO_STATUS: Record<StatusConciliacao, string> = {
@@ -22,9 +22,12 @@ export async function GET(request: NextRequest) {
   const postoId = params.get("postoId");
   const inicio = params.get("inicio");
   const fim = params.get("fim");
-  const adquirenteId = params.get("adquirenteId") || undefined;
+  const adquirenteIds = params.getAll("adquirenteId");
   const statusFiltro = params.get("status") as StatusConciliacao | null;
   const filtrarPor = params.get("filtrarPor") === "venda" ? "venda" : "pagamento";
+  const agruparParam = params.get("agruparPor");
+  const agruparPor: AgrupamentoConciliacao =
+    agruparParam === "venda" || agruparParam === "adquirente" ? agruparParam : "recebimento";
 
   if (!postoId || !inicio || !fim) {
     return new Response("Escolha um posto e o período.", { status: 400 });
@@ -32,16 +35,29 @@ export async function GET(request: NextRequest) {
 
   const [posto, todasLinhas] = await Promise.all([
     prisma.posto.findUnique({ where: { id: postoId } }),
-    buscarConciliacaoCartoes({ postoId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId, filtrarPor }),
+    buscarConciliacaoCartoes({
+      postoId,
+      dataInicio: dataUTC(inicio),
+      dataFim: dataUTC(fim, true),
+      adquirenteIds,
+      filtrarPor,
+      agruparPor,
+    }),
   ]);
   if (!posto) {
     return new Response("Posto não encontrado.", { status: 404 });
   }
   const linhas = statusFiltro ? todasLinhas.filter((l) => l.status === statusFiltro) : todasLinhas;
 
+  const ROTULO_COLUNA_DATA: Record<AgrupamentoConciliacao, string> = {
+    recebimento: "Data pagamento",
+    venda: "Data venda",
+    adquirente: "Período",
+  };
+
   const titulo = `CONCILIAÇÃO DE CARTÕES - ${posto.nome} - ${inicio} a ${fim}`;
   const cabecalho = [
-    "Data pagamento",
+    ROTULO_COLUNA_DATA[agruparPor],
     "Adquirente",
     "Prazo",
     "Qtd vendas",
@@ -55,7 +71,9 @@ export async function GET(request: NextRequest) {
     [titulo],
     cabecalho,
     ...linhas.map((l) => [
-      l.data.split("-").reverse().join("/"),
+      l.data
+        ? l.data.split("-").reverse().join("/")
+        : `${l.dataLinkDe.split("-").reverse().join("/")} a ${l.dataLinkAte.split("-").reverse().join("/")}`,
       l.adquirente,
       l.fontePrazo === "ARQUIVO" ? "Arquivo" : "Sistema (regra fixa)",
       l.qtdVendas,

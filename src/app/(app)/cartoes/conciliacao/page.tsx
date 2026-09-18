@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { buscarConciliacaoCartoes, type LinhaConciliacao, type StatusConciliacao } from "@/lib/cartoes/conciliacao";
+import {
+  buscarConciliacaoCartoes,
+  type AgrupamentoConciliacao,
+  type LinhaConciliacao,
+  type StatusConciliacao,
+} from "@/lib/cartoes/conciliacao";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function dataUTC(iso: string, fim = false): Date {
@@ -30,6 +36,12 @@ const COR_LINHA: Record<StatusConciliacao, string> = {
   PENDENTE: "",
 };
 
+const ROTULO_AGRUPAMENTO: Record<AgrupamentoConciliacao, string> = {
+  recebimento: "Data do recebimento",
+  venda: "Data da venda",
+  adquirente: "Adquirente",
+};
+
 export default async function ConciliacaoCartoesPage({
   searchParams,
 }: {
@@ -37,13 +49,17 @@ export default async function ConciliacaoCartoesPage({
     postoId?: string;
     inicio?: string;
     fim?: string;
-    adquirenteId?: string;
+    adquirenteId?: string | string[];
     status?: string;
     filtrarPor?: string;
+    agruparPor?: string;
   }>;
 }) {
-  const { postoId, inicio, fim, adquirenteId, status, filtrarPor } = await searchParams;
+  const { postoId, inicio, fim, adquirenteId, status, filtrarPor, agruparPor } = await searchParams;
   const filtrarPorVenda = filtrarPor === "venda";
+  const adquirenteIds = adquirenteId ? (Array.isArray(adquirenteId) ? adquirenteId : [adquirenteId]) : [];
+  const agrupamento: AgrupamentoConciliacao =
+    agruparPor === "venda" || agruparPor === "adquirente" ? agruparPor : "recebimento";
 
   const [postos, adquirentes] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -57,8 +73,9 @@ export default async function ConciliacaoCartoesPage({
           postoId,
           dataInicio: dataUTC(inicio),
           dataFim: dataUTC(fim, true),
-          adquirenteId: adquirenteId || undefined,
+          adquirenteIds,
           filtrarPor: filtrarPorVenda ? "venda" : "pagamento",
+          agruparPor: agrupamento,
         })
       : null;
 
@@ -66,10 +83,12 @@ export default async function ConciliacaoCartoesPage({
 
   const postoNome = postos.find((p) => p.id === postoId)?.nome;
   const qsBase = new URLSearchParams({ postoId: postoId ?? "", inicio: inicio ?? "", fim: fim ?? "" });
-  if (adquirenteId) qsBase.set("adquirenteId", adquirenteId);
+  for (const id of adquirenteIds) qsBase.append("adquirenteId", id);
   if (status) qsBase.set("status", status);
   if (filtrarPorVenda) qsBase.set("filtrarPor", "venda");
+  if (agrupamento !== "recebimento") qsBase.set("agruparPor", agrupamento);
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
+  const colunaData = agrupamento === "adquirente" ? "Período" : ROTULO_AGRUPAMENTO[agrupamento];
 
   const totais = linhas?.reduce(
     (acc, l) => ({
@@ -93,6 +112,14 @@ export default async function ConciliacaoCartoesPage({
         Compara, por adquirente e dia de pagamento, o valor líquido esperado (vendas) contra o que caiu no
         extrato bancário. &quot;Pendente&quot; é dia sem lançamento no extrato ainda; &quot;Divergente&quot;
         é lançamento que não bate com o esperado.
+        {agrupamento === "venda" && (
+          <>
+            {" "}
+            Agrupado por data da venda: quando um dia de venda tem parcelas com prazos diferentes (ex: débito
+            D+1 e crédito parcelado D+30), o extrato de cada dia de pagamento é rateado proporcionalmente entre
+            as datas de venda que caem nele.
+          </>
+        )}
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
@@ -118,21 +145,22 @@ export default async function ConciliacaoCartoesPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="adquirenteId" className="text-foreground/60">
-            Adquirente
+          <span className="text-foreground/60">Adquirente</span>
+          <SeletorDropdown nome="adquirenteId" rotuloTodos="Todas" selecionados={adquirenteIds} itens={adquirentes} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="agruparPor" className="text-foreground/60">
+            Agrupar por
           </label>
           <select
-            id="adquirenteId"
-            name="adquirenteId"
-            defaultValue={adquirenteId ?? ""}
+            id="agruparPor"
+            name="agruparPor"
+            defaultValue={agrupamento}
             className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           >
-            <option value="">Todas</option>
-            {adquirentes.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nome}
-              </option>
-            ))}
+            <option value="recebimento">Data do recebimento</option>
+            <option value="venda">Data da venda</option>
+            <option value="adquirente">Adquirente</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -232,7 +260,7 @@ export default async function ConciliacaoCartoesPage({
           <table className="w-full text-sm">
             <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
               <tr>
-                <th className="px-4 py-1.5 text-left font-medium">Data pagamento</th>
+                <th className="px-4 py-1.5 text-left font-medium">{colunaData}</th>
                 <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
                 <th className="px-4 py-1.5 text-left font-medium">Prazo</th>
                 <th className="px-4 py-1.5 text-right font-medium">Qtd vendas</th>
@@ -249,15 +277,17 @@ export default async function ConciliacaoCartoesPage({
                 const qsLancamentos = new URLSearchParams({
                   postoId: postoId ?? "",
                   categoria: l.categoriaId ?? "",
-                  de: l.data,
-                  ate: l.data,
+                  de: l.dataLinkDe,
+                  ate: l.dataLinkAte,
                 });
                 return (
                   <tr
-                    key={`${l.adquirenteId}|${l.data}`}
+                    key={l.chave}
                     className={`border-t border-black/5 dark:border-white/10 ${COR_LINHA[l.status]}`}
                   >
-                    <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.data)}</td>
+                    <td className="px-4 py-1.5 whitespace-nowrap">
+                      {l.data ? formatarData(l.data) : `${formatarData(l.dataLinkDe)} a ${formatarData(l.dataLinkAte)}`}
+                    </td>
                     <td className="px-4 py-1.5">{l.adquirente}</td>
                     <td className="px-4 py-1.5 text-foreground/60">
                       {l.fontePrazo === "ARQUIVO" ? "Arquivo" : "Sistema (regra fixa)"}
