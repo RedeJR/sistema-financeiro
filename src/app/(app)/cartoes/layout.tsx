@@ -3,6 +3,7 @@ import { AbasNav } from "./abas-nav";
 
 const ABAS = [
   { href: "/cartoes/conferencia-taxas", label: "Taxas" },
+  { href: "/cartoes/vendas", label: "Vendas" },
   { href: "/cartoes/conciliacao", label: "Recebimentos" },
   { href: "/cartoes/fechamento", label: "Fechamento" },
 ];

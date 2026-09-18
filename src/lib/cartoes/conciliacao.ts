@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 
 export type StatusConciliacao = "CONCILIADO" | "DIVERGENTE" | "PENDENTE";
-export type AgrupamentoConciliacao = "recebimento" | "adquirente" | "venda";
+export type AgrupamentoConciliacao = "recebimento" | "adquirente";
 
 export type LinhaConciliacao = {
   chave: string;
@@ -204,109 +204,36 @@ export async function buscarConciliacaoCartoes(params: {
     return linhasDetalhadas.sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.adquirente.localeCompare(b.adquirente));
   }
 
-  if (agruparPor === "adquirente") {
-    const periodoDe = dataInicio.toISOString().slice(0, 10);
-    const periodoAte = dataFim.toISOString().slice(0, 10);
-    const porAdquirente = new Map<string, LinhaConciliacao>();
-    for (const l of linhasDetalhadas) {
-      const grupo = porAdquirente.get(l.adquirenteId) ?? {
-        ...l,
-        chave: l.adquirenteId,
-        data: null,
-        dataLinkDe: periodoDe,
-        dataLinkAte: periodoAte,
-        qtdVendas: 0,
-        esperado: 0,
-        extratoDebito: 0,
-        extratoCredito: 0,
-        extratoTotal: 0,
-        diferenca: 0,
-      };
-      grupo.qtdVendas += l.qtdVendas;
-      grupo.esperado += l.esperado;
-      grupo.extratoDebito += l.extratoDebito;
-      grupo.extratoCredito += l.extratoCredito;
-      porAdquirente.set(l.adquirenteId, grupo);
-    }
-    return [...porAdquirente.values()]
-      .map((g) => {
-        const extratoTotal = g.extratoDebito + g.extratoCredito;
-        const diferenca = extratoTotal - g.esperado;
-        return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca) };
-      })
-      .sort((a, b) => a.adquirente.localeCompare(b.adquirente));
-  }
-
-  // agruparPor === "venda": reagrupa por (adquirente, data da venda). Cada
-  // venda já sabe seu próprio dia de pagamento (arquivo ou prazo
-  // cadastrado) — não é um chute por valor. Como o banco deposita tudo
-  // junto num dia só (sem dizer qual parcela é de qual data de venda),
-  // rateia o extrato daquele dia de pagamento proporcionalmente ao peso de
-  // cada data de venda que cai nele.
-  const esperadoPorPagamento = new Map(gruposEsperado.entries());
-  type GrupoVenda = {
-    adquirenteId: string;
-    adquirente: string;
-    dataVenda: string;
-    qtd: number;
-    esperado: number;
-    extratoDebito: number;
-    extratoCredito: number;
-    minPagamento: string;
-    maxPagamento: string;
-  };
-  const gruposVenda = new Map<string, GrupoVenda>();
-  for (const t of transacoes) {
-    if (!t.dataVenda || !t.dataPagamento || t.valorLiquido === null) continue;
-    const dataVenda = t.dataVenda.toISOString().slice(0, 10);
-    const dataPagamento = t.dataPagamento.toISOString().slice(0, 10);
-    const chavePagamento = `${t.adquirenteId}|${dataPagamento}`;
-    const esperadoPagamento = esperadoPorPagamento.get(chavePagamento)?.soma ?? 0;
-    const extratoPagamento = nomeParaExtrato.get(`${t.adquirente.nome}|${dataPagamento}`) ?? { debito: 0, credito: 0 };
-    const fracao = esperadoPagamento > 0 ? Number(t.valorLiquido) / esperadoPagamento : 0;
-
-    const chaveVenda = `${t.adquirenteId}|${dataVenda}`;
-    const grupo = gruposVenda.get(chaveVenda) ?? {
-      adquirenteId: t.adquirenteId,
-      adquirente: t.adquirente.nome,
-      dataVenda,
-      qtd: 0,
+  // agruparPor === "adquirente": soma o período inteiro, uma linha por
+  // adquirente.
+  const periodoDe = dataInicio.toISOString().slice(0, 10);
+  const periodoAte = dataFim.toISOString().slice(0, 10);
+  const porAdquirente = new Map<string, LinhaConciliacao>();
+  for (const l of linhasDetalhadas) {
+    const grupo = porAdquirente.get(l.adquirenteId) ?? {
+      ...l,
+      chave: l.adquirenteId,
+      data: null,
+      dataLinkDe: periodoDe,
+      dataLinkAte: periodoAte,
+      qtdVendas: 0,
       esperado: 0,
       extratoDebito: 0,
       extratoCredito: 0,
-      minPagamento: dataPagamento,
-      maxPagamento: dataPagamento,
+      extratoTotal: 0,
+      diferenca: 0,
     };
-    grupo.qtd++;
-    grupo.esperado += Number(t.valorLiquido);
-    grupo.extratoDebito += extratoPagamento.debito * fracao;
-    grupo.extratoCredito += extratoPagamento.credito * fracao;
-    if (dataPagamento < grupo.minPagamento) grupo.minPagamento = dataPagamento;
-    if (dataPagamento > grupo.maxPagamento) grupo.maxPagamento = dataPagamento;
-    gruposVenda.set(chaveVenda, grupo);
+    grupo.qtdVendas += l.qtdVendas;
+    grupo.esperado += l.esperado;
+    grupo.extratoDebito += l.extratoDebito;
+    grupo.extratoCredito += l.extratoCredito;
+    porAdquirente.set(l.adquirenteId, grupo);
   }
-
-  return [...gruposVenda.values()]
-    .map((g): LinhaConciliacao => {
+  return [...porAdquirente.values()]
+    .map((g) => {
       const extratoTotal = g.extratoDebito + g.extratoCredito;
       const diferenca = extratoTotal - g.esperado;
-      return {
-        chave: `${g.adquirenteId}|${g.dataVenda}`,
-        data: g.dataVenda,
-        dataLinkDe: g.minPagamento,
-        dataLinkAte: g.maxPagamento,
-        adquirente: g.adquirente,
-        adquirenteId: g.adquirenteId,
-        categoriaId: categoriaPorNomeAdquirente.get(g.adquirente)?.id ?? null,
-        fontePrazo: fontePrazoPorAdquirente(g.adquirente),
-        qtdVendas: g.qtd,
-        esperado: g.esperado,
-        extratoDebito: g.extratoDebito,
-        extratoCredito: g.extratoCredito,
-        extratoTotal,
-        diferenca,
-        status: calcularStatus(extratoTotal, diferenca),
-      };
+      return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca) };
     })
-    .sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.adquirente.localeCompare(b.adquirente));
+    .sort((a, b) => a.adquirente.localeCompare(b.adquirente));
 }

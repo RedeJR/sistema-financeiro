@@ -31,6 +31,7 @@ model Posto {
   fluxoCaixaDias     FluxoCaixaDia[]
   taxasCartao        TaxaCartao[]
   transacoesCartao   TransacaoCartao[]
+  conferenciasCaixa  ConferenciaCaixa[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -175,6 +176,33 @@ model TransacaoCartao {
   @@index([postoId, dataVenda])
   @@index([adquirenteId, dataPagamento])
   @@map("transacoes_cartao")
+}
+
+enum StatusConferenciaCaixa {
+  PENDENTE
+  CONFERIDO
+  DIVERGENTE
+}
+
+// Registro de que um Relatório de Caixa (posto + turno) foi baixado, pra
+// "as meninas" conferirem depois se bateu com o caixa físico — a conferência
+// em si (Conferência de Caixa) não guardava nada até aqui, era só consulta
+// na hora. Criado/atualizado ao exportar o relatório em Excel (ver
+// conferencia-caixa/relatorio/exportar/route.ts); o status começa PENDENTE e
+// só muda pela aba Conferência.
+model ConferenciaCaixa {
+  id         String                 @id @default(cuid())
+  postoId    String
+  posto      Posto                  @relation(fields: [postoId], references: [id])
+  inicio     DateTime
+  fim        DateTime
+  valorTotal Decimal                @db.Decimal(12, 2)
+  status     StatusConferenciaCaixa @default(PENDENTE)
+  criadoEm   DateTime               @default(now())
+  atualizadoEm DateTime             @updatedAt
+
+  @@unique([postoId, inicio, fim])
+  @@map("conferencias_caixa")
 }
 
 // ---------------------------------------------------------------------------

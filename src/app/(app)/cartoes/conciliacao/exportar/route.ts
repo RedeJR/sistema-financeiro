@@ -26,8 +26,7 @@ export async function GET(request: NextRequest) {
   const statusFiltro = params.get("status") as StatusConciliacao | null;
   const filtrarPor = params.get("filtrarPor") === "venda" ? "venda" : "pagamento";
   const agruparParam = params.get("agruparPor");
-  const agruparPor: AgrupamentoConciliacao =
-    agruparParam === "venda" || agruparParam === "adquirente" ? agruparParam : "recebimento";
+  const agruparPor: AgrupamentoConciliacao = agruparParam === "adquirente" ? agruparParam : "recebimento";
 
   if (!postoId || !inicio || !fim) {
     return new Response("Escolha um posto e o período.", { status: 400 });
@@ -51,7 +50,6 @@ export async function GET(request: NextRequest) {
 
   const ROTULO_COLUNA_DATA: Record<AgrupamentoConciliacao, string> = {
     recebimento: "Data pagamento",
-    venda: "Data venda",
     adquirente: "Período",
   };
 

@@ -38,7 +38,6 @@ const COR_LINHA: Record<StatusConciliacao, string> = {
 
 const ROTULO_AGRUPAMENTO: Record<AgrupamentoConciliacao, string> = {
   recebimento: "Data do recebimento",
-  venda: "Data da venda",
   adquirente: "Adquirente",
 };
 
@@ -58,8 +57,7 @@ export default async function ConciliacaoCartoesPage({
   const { postoId, inicio, fim, adquirenteId, status, filtrarPor, agruparPor } = await searchParams;
   const filtrarPorVenda = filtrarPor === "venda";
   const adquirenteIds = adquirenteId ? (Array.isArray(adquirenteId) ? adquirenteId : [adquirenteId]) : [];
-  const agrupamento: AgrupamentoConciliacao =
-    agruparPor === "venda" || agruparPor === "adquirente" ? agruparPor : "recebimento";
+  const agrupamento: AgrupamentoConciliacao = agruparPor === "adquirente" ? agruparPor : "recebimento";
 
   const [postos, adquirentes] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -112,14 +110,6 @@ export default async function ConciliacaoCartoesPage({
         Compara, por adquirente e dia de pagamento, o valor líquido esperado (vendas) contra o que caiu no
         extrato bancário. &quot;Pendente&quot; é dia sem lançamento no extrato ainda; &quot;Divergente&quot;
         é lançamento que não bate com o esperado.
-        {agrupamento === "venda" && (
-          <>
-            {" "}
-            Agrupado por data da venda: quando um dia de venda tem parcelas com prazos diferentes (ex: débito
-            D+1 e crédito parcelado D+30), o extrato de cada dia de pagamento é rateado proporcionalmente entre
-            as datas de venda que caem nele.
-          </>
-        )}
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
@@ -159,7 +149,6 @@ export default async function ConciliacaoCartoesPage({
             className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           >
             <option value="recebimento">Data do recebimento</option>
-            <option value="venda">Data da venda</option>
             <option value="adquirente">Adquirente</option>
           </select>
         </div>

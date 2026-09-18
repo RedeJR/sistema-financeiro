@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarRelatorioCaixa } from "@/lib/cartoes/relatorio";
+import { BotaoImprimir } from "./botao-imprimir";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -36,8 +37,19 @@ export default async function RelatorioCaixaPage({
         })
       : null;
 
+  const postoNome = postos.find((p) => p.id === postoId)?.nome;
+  const qsBase = new URLSearchParams({ postoId: postoId ?? "", inicio: inicio ?? "", fim: fim ?? "" });
+  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
+
   return (
     <div className="space-y-4">
+      <div className="hidden print:block">
+        <h2 className="text-lg font-semibold">
+          Relatório de Caixa — {postoNome ?? ""} — {inicio} a {fim}
+        </h2>
+        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
+      </div>
+
       <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
@@ -96,6 +108,17 @@ export default async function RelatorioCaixaPage({
           <Link href="/conferencia-caixa/relatorio" className="text-foreground/60 underline">
             Limpar filtros
           </Link>
+        )}
+        {temFiltro && (
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href={`/conferencia-caixa/relatorio/exportar?${qsBase.toString()}`}
+              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              Baixar (Excel)
+            </Link>
+            <BotaoImprimir />
+          </div>
         )}
       </form>
       <p className="text-xs text-foreground/50">
