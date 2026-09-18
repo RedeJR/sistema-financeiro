@@ -39,16 +39,6 @@ export async function GET(request: NextRequest) {
     return new Response("Posto não encontrado.", { status: 404 });
   }
 
-  // Registra que esse relatório foi baixado, pra aparecer na aba
-  // Conferência pra "as meninas" marcarem se bateu com o caixa físico —
-  // baixar de novo o mesmo turno só atualiza o valor/data, sem mexer no
-  // status já marcado.
-  await prisma.conferenciaCaixa.upsert({
-    where: { postoId_inicio_fim: { postoId, inicio, fim } },
-    create: { postoId, inicio, fim, valorTotal: relatorio.totalBruto },
-    update: { valorTotal: relatorio.totalBruto },
-  });
-
   const titulo = `RELATÓRIO DE CAIXA - ${posto.nome} - ${formatarDataHora(inicio)} a ${formatarDataHora(fim)}`;
 
   const cabecalhoResumo = ["Adquirente", "Qtd", "Valor bruto", "Taxa", "Valor líquido"];

@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarConferenciasCaixa, type StatusConferenciaCaixa } from "@/lib/conferenciaCaixa";
-import { atualizarStatusConferenciaCaixa } from "./actions";
 
 function formatarDataHora(d: Date): string {
   return d.toLocaleString("pt-BR", { timeZone: "UTC" });
@@ -27,25 +25,24 @@ const COR_STATUS: Record<StatusConferenciaCaixa, string> = {
   DIVERGENTE: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400",
 };
 
-export default async function ConferenciaCaixaListaPage({
+export default async function HistoricoConferenciaCaixaPage({
   searchParams,
 }: {
   searchParams: Promise<{ postoId?: string; status?: string }>;
 }) {
   const { postoId, status } = await searchParams;
-  const statusFiltro = status === "PENDENTE" || status === "CONFERIDO" || status === "DIVERGENTE" ? status : undefined;
+  const statusFiltro = status === "CONFERIDO" || status === "DIVERGENTE" ? status : undefined;
 
-  const [postos, linhas, podeEditar] = await Promise.all([
+  const [postos, linhas] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     buscarConferenciasCaixa({ postoId: postoId || undefined, status: statusFiltro }),
-    podeEditarModulo("CONFERENCIA_CAIXA"),
   ]);
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-foreground/60">
-        Relatórios de caixa já baixados (aba Relatório de Caixa) — período, valor total encontrado e se já foi
-        conferido contra o caixa físico. Use &quot;Rever&quot; pra abrir a pesquisa daquele caixa de novo.
+        Caixas já marcados como conferido ou divergente na aba Relatório de Caixa. &quot;Rever&quot; volta
+        pro relatório com o posto e o período preenchidos, pra pesquisar aquele caixa de novo.
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm">
@@ -78,7 +75,6 @@ export default async function ConferenciaCaixaListaPage({
             className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           >
             <option value="">Todos</option>
-            <option value="PENDENTE">Pendente</option>
             <option value="CONFERIDO">Conferido</option>
             <option value="DIVERGENTE">Divergente</option>
           </select>
@@ -98,7 +94,7 @@ export default async function ConferenciaCaixaListaPage({
 
       {linhas.length === 0 && (
         <p className="py-10 text-center text-sm text-foreground/50">
-          Nenhum relatório de caixa baixado ainda (ou nenhum com esse filtro).
+          Nenhum caixa conferido ainda (ou nenhum com esse filtro).
         </p>
       )}
 
@@ -112,7 +108,7 @@ export default async function ConferenciaCaixaListaPage({
                 <th className="px-4 py-1.5 text-left font-medium">Fim</th>
                 <th className="px-4 py-1.5 text-right font-medium">Valor total</th>
                 <th className="px-4 py-1.5 text-left font-medium">Status</th>
-                <th className="px-4 py-1.5 text-left font-medium">Ações</th>
+                <th className="px-4 py-1.5 text-left font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -121,6 +117,7 @@ export default async function ConferenciaCaixaListaPage({
                   postoId: l.postoId,
                   inicio: paraDatetimeLocal(l.inicio),
                   fim: paraDatetimeLocal(l.fim),
+                  rever: "1",
                 });
                 return (
                   <tr key={l.id} className="border-t border-black/5 dark:border-white/10">
@@ -134,38 +131,12 @@ export default async function ConferenciaCaixaListaPage({
                       </span>
                     </td>
                     <td className="px-4 py-1.5">
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={`/conferencia-caixa/relatorio?${qsRever.toString()}`}
-                          className="rounded-md px-2 py-1 text-foreground/70 underline hover:bg-black/5 dark:hover:bg-white/10"
-                        >
-                          Rever
-                        </Link>
-                        {podeEditar && l.status !== "CONFERIDO" && (
-                          <form action={atualizarStatusConferenciaCaixa}>
-                            <input type="hidden" name="id" value={l.id} />
-                            <input type="hidden" name="status" value="CONFERIDO" />
-                            <button
-                              type="submit"
-                              className="rounded-md px-2 py-1 text-green-700 hover:bg-black/5 dark:text-green-400 dark:hover:bg-white/10"
-                            >
-                              Conferido
-                            </button>
-                          </form>
-                        )}
-                        {podeEditar && l.status !== "DIVERGENTE" && (
-                          <form action={atualizarStatusConferenciaCaixa}>
-                            <input type="hidden" name="id" value={l.id} />
-                            <input type="hidden" name="status" value="DIVERGENTE" />
-                            <button
-                              type="submit"
-                              className="rounded-md px-2 py-1 text-red-700 hover:bg-black/5 dark:text-red-400 dark:hover:bg-white/10"
-                            >
-                              Divergente
-                            </button>
-                          </form>
-                        )}
-                      </div>
+                      <Link
+                        href={`/conferencia-caixa/relatorio?${qsRever.toString()}`}
+                        className="text-foreground/70 underline"
+                      >
+                        Rever
+                      </Link>
                     </td>
                   </tr>
                 );

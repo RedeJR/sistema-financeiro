@@ -4,7 +4,7 @@ import { exigirPermissao } from "@/lib/auth";
 const ABAS = [
   { href: "/conferencia-caixa/upload", label: "Upload dos Arquivos" },
   { href: "/conferencia-caixa/relatorio", label: "Relatório de Caixa" },
-  { href: "/conferencia-caixa/conferencia", label: "Conferência" },
+  { href: "/conferencia-caixa/conferencia", label: "Histórico de Conferência" },
 ];
 
 export default async function ConferenciaCaixaLayout({ children }: { children: React.ReactNode }) {

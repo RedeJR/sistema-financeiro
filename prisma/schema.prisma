@@ -184,12 +184,11 @@ enum StatusConferenciaCaixa {
   DIVERGENTE
 }
 
-// Registro de que um Relatório de Caixa (posto + turno) foi baixado, pra
-// "as meninas" conferirem depois se bateu com o caixa físico — a conferência
-// em si (Conferência de Caixa) não guardava nada até aqui, era só consulta
-// na hora. Criado/atualizado ao exportar o relatório em Excel (ver
-// conferencia-caixa/relatorio/exportar/route.ts); o status começa PENDENTE e
-// só muda pela aba Conferência.
+// Registro de que um Relatório de Caixa (posto + turno) foi conferido contra
+// o caixa físico — "as meninas" marcam Conferido ou Divergente na própria
+// tela de Relatório de Caixa (ver conferencia-caixa/relatorio/actions.ts) e
+// o Histórico de Conferência lista o resultado. PENDENTE existe no enum mas
+// hoje nunca é gravado: o registro só nasce quando alguém marca um status.
 model ConferenciaCaixa {
   id         String                 @id @default(cuid())
   postoId    String

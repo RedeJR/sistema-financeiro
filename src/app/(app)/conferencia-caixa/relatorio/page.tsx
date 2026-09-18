@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarRelatorioCaixa } from "@/lib/cartoes/relatorio";
 import { BotaoImprimir } from "./botao-imprimir";
+import { registrarConferenciaCaixa } from "./actions";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -17,19 +19,26 @@ function paraDatetimeUTC(valor: string): Date {
 export default async function RelatorioCaixaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; inicio?: string; fim?: string }>;
+  searchParams: Promise<{ postoId?: string; inicio?: string; fim?: string; rever?: string }>;
 }) {
-  const { postoId, inicio, fim } = await searchParams;
+  const { postoId, inicio, fim, rever } = await searchParams;
 
-  const postos = await prisma.posto.findMany({
-    where: { ativo: true },
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
-  });
+  const [postos, podeEditar] = await Promise.all([
+    prisma.posto.findMany({
+      where: { ativo: true },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true },
+    }),
+    podeEditarModulo("CONFERENCIA_CAIXA"),
+  ]);
 
   const temFiltro = Boolean(postoId && inicio && fim);
+  // "Rever" (Histórico de Conferência) só preenche posto e período, sem
+  // rodar a pesquisa — quem está revendo baixa/confere o arquivo de novo e
+  // aí clica em Filtrar.
+  const executar = temFiltro && rever !== "1";
   const relatorio =
-    temFiltro && postoId && inicio && fim
+    executar && postoId && inicio && fim
       ? await buscarRelatorioCaixa({
           postoId,
           inicio: paraDatetimeUTC(inicio),
@@ -50,7 +59,8 @@ export default async function RelatorioCaixaPage({
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
       </div>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <div className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form key={`${postoId}|${inicio}|${fim}`} className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -109,8 +119,37 @@ export default async function RelatorioCaixaPage({
             Limpar filtros
           </Link>
         )}
-        {temFiltro && (
+      </form>
+        {relatorio && relatorio.linhas.length > 0 && (
           <div className="ml-auto flex items-center gap-2">
+            {podeEditar && (
+              <>
+                <form action={registrarConferenciaCaixa}>
+                  <input type="hidden" name="postoId" value={postoId} />
+                  <input type="hidden" name="inicio" value={inicio} />
+                  <input type="hidden" name="fim" value={fim} />
+                  <input type="hidden" name="status" value="CONFERIDO" />
+                  <button
+                    type="submit"
+                    className="rounded-md border border-green-700/40 px-3 py-1.5 text-green-700 hover:bg-green-50 dark:border-green-400/40 dark:text-green-400 dark:hover:bg-green-900/20"
+                  >
+                    Conferido
+                  </button>
+                </form>
+                <form action={registrarConferenciaCaixa}>
+                  <input type="hidden" name="postoId" value={postoId} />
+                  <input type="hidden" name="inicio" value={inicio} />
+                  <input type="hidden" name="fim" value={fim} />
+                  <input type="hidden" name="status" value="DIVERGENTE" />
+                  <button
+                    type="submit"
+                    className="rounded-md border border-red-700/40 px-3 py-1.5 text-red-700 hover:bg-red-50 dark:border-red-400/40 dark:text-red-400 dark:hover:bg-red-900/20"
+                  >
+                    Divergente
+                  </button>
+                </form>
+              </>
+            )}
             <Link
               href={`/conferencia-caixa/relatorio/exportar?${qsBase.toString()}`}
               className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -120,7 +159,7 @@ export default async function RelatorioCaixaPage({
             <BotaoImprimir />
           </div>
         )}
-      </form>
+      </div>
       <p className="text-xs text-foreground/50">
         O fim pode ser no dia seguinte ao início — útil pra turnos que viram a noite (ex: 06:00 de um dia
         até 06:00 do dia seguinte).
