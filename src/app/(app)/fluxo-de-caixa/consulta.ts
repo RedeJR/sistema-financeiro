@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { ehDiaUtil, paraProximoDiaUtilSeNecessario } from "@/lib/cartoes/normalizar";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -9,16 +10,29 @@ function isoDeData(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function diasAntes(iso: string, dias: number): Date {
+  const d = dataUTC(iso);
+  d.setUTCDate(d.getUTCDate() - dias);
+  return d;
+}
+
 // Lista de datas ISO entre de/ate (inclusive), um dia por posição — é o que
 // deixa a tela "organizada por dias separados" mesmo quando o período
-// filtrado tem vários dias (pedido explícito da usuária).
-function diasEntre(deISO: string, ateISO: string): string[] {
+// filtrado tem vários dias (pedido explícito da usuária). Só dias úteis
+// (sem sábado, domingo e feriado nacional): o fluxo de caixa é entregue sem
+// fim de semana, e o que vence nesses dias entra no próximo dia útil.
+function diasUteisEntre(deISO: string, ateISO: string): string[] {
   const dias: string[] = [];
   for (let d = dataUTC(deISO); d <= dataUTC(ateISO); d.setUTCDate(d.getUTCDate() + 1)) {
-    dias.push(isoDeData(d));
+    if (ehDiaUtil(d)) dias.push(isoDeData(d));
   }
   return dias;
 }
+
+// Um vencimento em dia não útil (ex: sábado) só chega ao fluxo no início do
+// período seguinte, então a consulta precisa olhar alguns dias antes de "de"
+// — cobre fim de semana + feriados emendados (ex: Carnaval).
+const FOLGA_DIAS_ANTES = 10;
 
 export type LinhaFluxoCaixa = {
   postoId: string;
@@ -62,7 +76,7 @@ export async function buscarFluxoCaixa(filtros: {
       ? prisma.contaAPagar.groupBy({
           by: ["postoId", "dataVencimento", "combustivel"],
           where: {
-            dataVencimento: { gte: dataUTC(de), lte: dataUTC(ate) },
+            dataVencimento: { gte: diasAntes(de, FOLGA_DIAS_ANTES), lte: dataUTC(ate) },
             postoId: { in: idsPostos },
           },
           _sum: { valor: true },
@@ -78,10 +92,14 @@ export async function buscarFluxoCaixa(filtros: {
       : Promise.resolve([]),
   ]);
 
+  // Cada vencimento cai no seu próprio dia se for útil; senão, no próximo dia
+  // útil. Vários vencimentos (sábado, domingo, segunda) podem cair no mesmo
+  // dia, por isso soma em vez de sobrescrever.
   const somaContas = new Map<string, number>();
   for (const c of contas) {
-    const chave = `${c.postoId}|${isoDeData(c.dataVencimento)}|${c.combustivel}`;
-    somaContas.set(chave, Number(c._sum.valor ?? 0));
+    const diaEfetivo = isoDeData(paraProximoDiaUtilSeNecessario(c.dataVencimento));
+    const chave = `${c.postoId}|${diaEfetivo}|${c.combustivel}`;
+    somaContas.set(chave, (somaContas.get(chave) ?? 0) + Number(c._sum.valor ?? 0));
   }
 
   const manuaisPorChave = new Map<string, (typeof manuais)[number]>();
@@ -89,7 +107,7 @@ export async function buscarFluxoCaixa(filtros: {
     manuaisPorChave.set(`${m.postoId}|${isoDeData(m.data)}`, m);
   }
 
-  return diasEntre(de, ate).map((dia) => {
+  return diasUteisEntre(de, ate).map((dia) => {
     const linhas: LinhaFluxoCaixa[] = postos.map((posto) => {
       const manual = manuaisPorChave.get(`${posto.id}|${dia}`);
       const saldoInicial = manual ? Number(manual.saldoInicial) : 0;

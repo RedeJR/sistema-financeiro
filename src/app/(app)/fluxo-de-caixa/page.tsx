@@ -57,7 +57,8 @@ export default async function FluxoDeCaixaPage({
         <Link href="/contas-a-pagar" className="underline">
           Contas a Pagar
         </Link>{" "}
-        — os dois somados pela data de vencimento. Saldo Final = Saldo Inicial + Recebimentos − Combustíveis −
+        — os dois somados pela data de vencimento. Só dias úteis: o que vence em sábado, domingo ou feriado
+        entra no próximo dia útil. Saldo Final = Saldo Inicial + Recebimentos − Combustíveis −
         Despesas − Despesas Extras.
       </p>
 
@@ -128,7 +129,7 @@ export default async function FluxoDeCaixaPage({
       )}
 
       {dias.length === 0 && (
-        <p className="py-10 text-center text-sm text-foreground/50">Escolha um período pra ver o fluxo de caixa.</p>
+        <p className="py-10 text-center text-sm text-foreground/50">Nenhum dia útil no período escolhido.</p>
       )}
     </div>
   );
