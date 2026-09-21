@@ -46,6 +46,7 @@ export default async function EditarTaxaCartaoPage({ params }: { params: Promise
           domicilioBancoId: taxa.domicilioBancoId,
           observacao: taxa.observacao,
           grupoConciliacao: taxa.grupoConciliacao,
+          antecipacaoAutomatica: taxa.antecipacaoAutomatica,
         }}
       />
     </div>

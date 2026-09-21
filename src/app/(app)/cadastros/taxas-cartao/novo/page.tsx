@@ -47,6 +47,7 @@ export default async function NovaTaxaCartaoPage({
                 domicilioBancoId: null,
                 observacao: null,
                 grupoConciliacao: null,
+                antecipacaoAutomatica: false,
               }
             : undefined
         }

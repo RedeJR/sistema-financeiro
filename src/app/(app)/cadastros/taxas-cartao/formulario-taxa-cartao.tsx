@@ -30,6 +30,7 @@ type Props = {
     domicilioBancoId: string | null;
     observacao: string | null;
     grupoConciliacao: string | null;
+    antecipacaoAutomatica: boolean;
   };
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
 };
@@ -225,6 +226,23 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
         defaultValue={v?.observacao ?? undefined}
         placeholder='Ex: "SEM USO", "CRÉDITO: TURNO 2"'
       />
+
+      <label className="flex items-start gap-2 text-sm text-foreground/80">
+        <input
+          type="checkbox"
+          name="antecipacaoAutomatica"
+          defaultChecked={v?.antecipacaoAutomatica ?? false}
+          className="mt-1"
+        />
+        <span>
+          Crédito com antecipação automática
+          <span className="block text-xs text-foreground/50">
+            Use a taxa total e o prazo de crédito cadastrados acima (não os do arquivo) no líquido e na data de
+            pagamento das vendas de crédito. Ex: Getnet — o arquivo traz 30 dias e só 1,33%, mas cai em 1 dia com
+            2,58% (1,33% + 1,25% de antecipação).
+          </span>
+        </span>
+      </label>
 
       <Campo
         label="Grupo de conciliação (opcional)"

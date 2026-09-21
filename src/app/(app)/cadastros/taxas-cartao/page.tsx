@@ -78,7 +78,11 @@ export default async function TaxasCartaoPage() {
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaCreditoVista)}
                         {t.taxaCreditoVista !== null && (
-                          <span className="text-foreground/50"> (D+{t.prazoCreditoVistaDias})</span>
+                          <span className="text-foreground/50">
+                            {" "}
+                            (D+{t.prazoCreditoVistaDias}
+                            {t.antecipacaoAutomatica ? ", antecip. auto." : ""})
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">

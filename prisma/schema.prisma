@@ -130,6 +130,13 @@ model TaxaCartao {
   // repasse de uma cai na conta de outra (ex: Getnet e Rede caindo na conta
   // Stone no Paineira), e o extrato de cada categoria sozinho nunca fecha.
   grupoConciliacao          String?
+  // Crédito antecipado automaticamente (ex: Getnet — o arquivo traz prazo de
+  // 30 dias e só a taxa do crédito, mas o dinheiro cai antes, com a taxa de
+  // antecipação somada). Quando marcado, as vendas de crédito dessa
+  // adquirente/posto são gravadas com o líquido e a data de pagamento
+  // calculados pela taxa e prazo de crédito cadastrados aqui, em vez dos do
+  // arquivo (ver src/lib/cartoes/antecipacao.ts).
+  antecipacaoAutomatica     Boolean  @default(false)
   ativo                     Boolean  @default(true)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

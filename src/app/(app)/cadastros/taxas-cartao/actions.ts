@@ -73,6 +73,7 @@ const schema = z.object({
     .trim()
     .optional()
     .transform((v) => (v ? v : null)),
+  antecipacaoAutomatica: z.boolean(),
   grupoConciliacao: z
     .string()
     .trim()
@@ -97,6 +98,7 @@ function lerFormulario(formData: FormData) {
     domicilioBancoId: formData.get("domicilioBancoId"),
     observacao: formData.get("observacao"),
     grupoConciliacao: formData.get("grupoConciliacao"),
+    antecipacaoAutomatica: formData.get("antecipacaoAutomatica") === "on",
   });
 }
 

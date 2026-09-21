@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PARSERS, detectarAdquirente } from "./parsers";
 import { encontrarPostoPorCnpj, encontrarPostoPorFragmento } from "./postos";
 import type { ArquivoEntrada } from "./tipos";
+import { calcularAjusteAntecipacao } from "./antecipacao";
 
 export type ResultadoArquivoCartao = {
   arquivo: string;
@@ -177,6 +178,32 @@ export async function importarTransacoesCartao(params: {
       }
 
       const dados = limite ? todosDados.slice(deslocamento, deslocamento + limite) : todosDados;
+
+      // Crédito com antecipação automática cadastrada: vale a taxa e o prazo
+      // do cadastro, não os do arquivo (ver antecipacao.ts).
+      const cadastros = await prisma.taxaCartao.findMany({
+        where: { adquirenteId: adquirente.id, antecipacaoAutomatica: true, postoId: { in: [...new Set(dados.map((d) => d.postoId))] } },
+      });
+      if (cadastros.length > 0) {
+        const porPosto = new Map(
+          cadastros.map((c) => [
+            c.postoId,
+            {
+              taxaCreditoVista: c.taxaCreditoVista === null ? null : Number(c.taxaCreditoVista),
+              prazoCreditoVistaDias: c.prazoCreditoVistaDias,
+              taxaCreditoParcelado: c.taxaCreditoParcelado === null ? null : Number(c.taxaCreditoParcelado),
+              prazoCreditoParceladoDias: c.prazoCreditoParceladoDias,
+              taxaCreditoPrePago: c.taxaCreditoPrePago === null ? null : Number(c.taxaCreditoPrePago),
+              prazoCreditoPrePagoDias: c.prazoCreditoPrePagoDias,
+            },
+          ])
+        );
+        for (const d of dados) {
+          const cadastro = porPosto.get(d.postoId);
+          const ajuste = cadastro && calcularAjusteAntecipacao(d, definicao.nomeExibicao, cadastro);
+          if (ajuste) Object.assign(d, ajuste);
+        }
+      }
       const proximoDeslocamento = limite ? (deslocamento + limite < todosDados.length ? deslocamento + limite : null) : undefined;
 
       // Linhas COM identificador: a constraint (posto,adquirente,identificador)
