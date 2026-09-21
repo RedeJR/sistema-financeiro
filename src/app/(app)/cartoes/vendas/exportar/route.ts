@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buscarVendasCartoes } from "@/lib/cartoes/vendas";
+import { ROTULO_MODALIDADE_VENDA } from "@/lib/cartoes/normalizar";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
 
@@ -32,29 +33,37 @@ export async function GET(request: NextRequest) {
   }
 
   const titulo = `VENDAS DE CARTÕES - ${posto.nome} - ${inicio} a ${fim}`;
-  const cabecalho = ["Data", "Adquirente", "Qtd", "Bruto", "Líquido", "Taxa"];
+  const cabecalho = ["Data", "Adquirente", "Modalidade", "Qtd", "Bruto", "Líquido", "Taxa"];
   const aoa: (string | number)[][] = [
     [titulo],
     cabecalho,
-    ...linhas.map((l) => [l.data.split("-").reverse().join("/"), l.adquirente, l.qtd, l.totalBruto, l.totalLiquido, l.taxa]),
+    ...linhas.map((l) => [
+      l.data.split("-").reverse().join("/"),
+      l.adquirente,
+      ROTULO_MODALIDADE_VENDA[l.modalidade],
+      l.qtd,
+      l.totalBruto,
+      l.totalLiquido,
+      l.taxa,
+    ]),
   ];
 
   const totalBruto = linhas.reduce((s, l) => s + l.totalBruto, 0);
   const totalLiquido = linhas.reduce((s, l) => s + l.totalLiquido, 0);
   const totalTaxa = linhas.reduce((s, l) => s + l.taxa, 0);
-  aoa.push(["", "Total", "", totalBruto, totalLiquido, totalTaxa]);
+  aoa.push(["", "Total", "", "", totalBruto, totalLiquido, totalTaxa]);
 
   const planilha = XLSX.utils.aoa_to_sheet(aoa);
   planilha["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: cabecalho.length - 1 } }];
 
   for (let r = 2; r < aoa.length; r++) {
-    for (const c of [3, 4, 5]) {
+    for (const c of [4, 5, 6]) {
       const celula = planilha[XLSX.utils.encode_cell({ r, c })];
       if (celula && celula.t === "n") celula.z = FORMATO_MOEDA;
     }
   }
 
-  planilha["!cols"] = [{ wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+  planilha["!cols"] = [{ wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, planilha, "Vendas de Cartões");

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarVendasCartoes, type LinhaVendas } from "@/lib/cartoes/vendas";
+import { ROTULO_MODALIDADE_VENDA } from "@/lib/cartoes/normalizar";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { BotaoImprimir } from "./botao-imprimir";
 
@@ -62,7 +63,7 @@ export default async function VendasCartoesPage({
       </div>
 
       <p className="text-sm text-foreground/60 print:hidden">
-        Relação crua das vendas por adquirente e data da venda (bruto, líquido e taxa) — sem comparar com o
+        Relação crua das vendas por data da venda, adquirente e modalidade (débito, crédito, pix) — bruto, líquido e taxa — sem comparar com o
         extrato. Serve pra conferir se o arquivo foi lido certo.
       </p>
 
@@ -161,6 +162,7 @@ export default async function VendasCartoesPage({
               <tr>
                 <th className="px-4 py-1.5 text-left font-medium">Data</th>
                 <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
+                <th className="px-4 py-1.5 text-left font-medium">Modalidade</th>
                 <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
                 <th className="px-4 py-1.5 text-right font-medium">Bruto</th>
                 <th className="px-4 py-1.5 text-right font-medium">Líquido</th>
@@ -169,9 +171,10 @@ export default async function VendasCartoesPage({
             </thead>
             <tbody>
               {linhas.map((l: LinhaVendas) => (
-                <tr key={`${l.adquirenteId}|${l.data}`} className="border-t border-black/5 dark:border-white/10">
+                <tr key={`${l.adquirenteId}|${l.data}|${l.modalidade}`} className="border-t border-black/5 dark:border-white/10">
                   <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.data)}</td>
                   <td className="px-4 py-1.5">{l.adquirente}</td>
+                  <td className="px-4 py-1.5 text-foreground/70">{ROTULO_MODALIDADE_VENDA[l.modalidade]}</td>
                   <td className="px-4 py-1.5 text-right">{l.qtd}</td>
                   <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalBruto)}</td>
                   <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalLiquido)}</td>
@@ -181,7 +184,7 @@ export default async function VendasCartoesPage({
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                <td className="px-4 py-1.5" colSpan={3}>
+                <td className="px-4 py-1.5" colSpan={4}>
                   Total
                 </td>
                 <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.bruto)}</td>

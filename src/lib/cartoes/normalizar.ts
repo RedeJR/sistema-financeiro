@@ -186,6 +186,28 @@ export function classificarModalidade(tipoVenda: string, adquirenteNome: string)
   return "DEBITO";
 }
 
+// As 3 modalidades vistas pela usuária nos relatórios de vendas (Vendas,
+// Fechamento, Resumo mensal): débito, crédito e pix. As variações de crédito
+// (à vista, parcelado, pré-pago) do cadastro de taxas caem todas em "Crédito"
+// aqui. Adquirentes "voucher" (SAQPAY, Sem Parar, Abastece Aí, Premmia) não
+// têm essa distinção e caem em Débito, mesma convenção de classificarModalidade.
+export type ModalidadeVenda = "DEBITO" | "CREDITO" | "PIX";
+
+export const ROTULO_MODALIDADE_VENDA: Record<ModalidadeVenda, string> = {
+  DEBITO: "Débito",
+  CREDITO: "Crédito",
+  PIX: "Pix",
+};
+
+export const ORDEM_MODALIDADE_VENDA: Record<ModalidadeVenda, number> = { DEBITO: 0, CREDITO: 1, PIX: 2 };
+
+export function classificarModalidadeVenda(tipoVenda: string, adquirenteNome: string): ModalidadeVenda {
+  const modalidade = classificarModalidade(tipoVenda, adquirenteNome);
+  if (modalidade === "PIX") return "PIX";
+  if (modalidade === "DEBITO") return "DEBITO";
+  return "CREDITO";
+}
+
 // Taxa cobrada = bruto − líquido sempre que o líquido vier no arquivo — é o
 // valor que realmente bate com o totalizador do relatório (algumas
 // adquirentes têm coluna de taxa "pura" tipo MDR que não inclui antecipação/

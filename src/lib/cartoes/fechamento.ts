@@ -1,8 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { classificarModalidade } from "./normalizar";
+import { classificarModalidadeVenda, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
 
-export type ModalidadeFechamento = "DEBITO" | "CREDITO" | "PIX";
+export type ModalidadeFechamento = ModalidadeVenda;
 
 export type LinhaFechamento = {
   posto: string;
@@ -14,19 +14,6 @@ export type LinhaFechamento = {
   totalLiquido: number;
   taxa: number; // totalBruto - totalLiquido
 };
-
-const ORDEM_MODALIDADE: Record<ModalidadeFechamento, number> = { DEBITO: 0, CREDITO: 1, PIX: 2 };
-
-// As 3 modalidades vistas pela usuária (débito, crédito, pix) — as
-// variações de crédito (à vista, parcelado, pré-pago) do cadastro de taxas
-// (ver normalizar.ts) caem todas juntas em "Crédito" aqui, granularidade
-// mais fina não interessa nesse fechamento.
-function paraModalidadeFechamento(tipoVenda: string, adquirenteNome: string): ModalidadeFechamento {
-  const modalidade = classificarModalidade(tipoVenda, adquirenteNome);
-  if (modalidade === "PIX") return "PIX";
-  if (modalidade === "DEBITO") return "DEBITO";
-  return "CREDITO";
-}
 
 // Fechamento de vendas por posto/adquirente/modalidade no período (data da
 // venda) — bruto, líquido e taxa (bruto − líquido), sem comparar com
@@ -51,7 +38,7 @@ export async function buscarFechamentoCartoes(params: {
 
   const grupos = new Map<string, LinhaFechamento>();
   for (const t of transacoes) {
-    const modalidade = paraModalidadeFechamento(t.tipoVenda, t.adquirente.nome);
+    const modalidade = classificarModalidadeVenda(t.tipoVenda, t.adquirente.nome);
     const chave = `${t.postoId}|${t.adquirenteId}|${modalidade}`;
     const grupo = grupos.get(chave) ?? {
       posto: t.posto.nome,
@@ -74,6 +61,6 @@ export async function buscarFechamentoCartoes(params: {
     (a, b) =>
       a.posto.localeCompare(b.posto) ||
       a.adquirente.localeCompare(b.adquirente) ||
-      ORDEM_MODALIDADE[a.modalidade] - ORDEM_MODALIDADE[b.modalidade]
+      ORDEM_MODALIDADE_VENDA[a.modalidade] - ORDEM_MODALIDADE_VENDA[b.modalidade]
   );
 }
