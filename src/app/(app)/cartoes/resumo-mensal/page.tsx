@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { buscarResumoMensal, type LinhaResumoMensal, type VendasPor } from "@/lib/cartoes/resumoMensal";
+import {
+  buscarResumoMensal,
+  formatarPeriodoReferencia,
+  type LinhaResumoMensal,
+  type VendasPor,
+} from "@/lib/cartoes/resumoMensal";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function rotuloMes(mes: string): string {
@@ -204,11 +209,15 @@ export default async function ResumoMensalCartoesPage({
                   </tfoot>
                 </table>
               </div>
-              {p.vendasSemLiquido > 0 && (
-                <p className="border-t border-black/5 px-4 py-1.5 text-xs text-foreground/50 dark:border-white/10">
-                  {p.vendasSemLiquido} venda(s) sem valor líquido no arquivo — não entram nas somas acima.
+              <div className="space-y-0.5 border-t border-black/5 px-4 py-1.5 text-xs text-foreground/50 dark:border-white/10">
+                <p>
+                  Vendas ref. {formatarPeriodoReferencia(p.vendasDe, p.vendasAte)} · Extratos ref.{" "}
+                  {formatarPeriodoReferencia(p.extratosDe, p.extratosAte)}
                 </p>
-              )}
+                {p.vendasSemLiquido > 0 && (
+                  <p>{p.vendasSemLiquido} venda(s) sem valor líquido no arquivo — não entram nas somas acima.</p>
+                )}
+              </div>
             </div>
           ))}
 

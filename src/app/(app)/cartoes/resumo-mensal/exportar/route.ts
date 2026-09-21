@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
-import { buscarResumoMensal } from "@/lib/cartoes/resumoMensal";
+import { buscarResumoMensal, formatarPeriodoReferencia } from "@/lib/cartoes/resumoMensal";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
 
@@ -38,6 +38,11 @@ export async function GET(request: NextRequest) {
         l.totalVendas === 0 ? "" : l.entradas / l.totalVendas,
       ]);
     }
+    aoa.push([
+      p.posto,
+      "Períodos",
+      `Vendas ref. ${formatarPeriodoReferencia(p.vendasDe, p.vendasAte)} · Extratos ref. ${formatarPeriodoReferencia(p.extratosDe, p.extratosAte)}`,
+    ]);
     totais.debito += p.total.debito;
     totais.credito += p.total.credito;
     totais.pix += p.total.pix;

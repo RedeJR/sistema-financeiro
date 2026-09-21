@@ -18,6 +18,14 @@ export type PostoResumoMensal = {
   linhas: LinhaResumoMensal[];
   total: LinhaResumoMensal;
   vendasSemLiquido: number; // vendas do arquivo sem valor líquido (não entram na soma)
+  // Período coberto pelo que está no sistema — pra saber se uma diferença é
+  // falta de venda ou de extrato. Vendas: datas de venda das vendas somadas
+  // (com "vendas por data do pagamento" pode começar antes do mês). Extratos:
+  // primeiro e último lançamento de qualquer banco do posto no mês.
+  vendasDe: string | null;
+  vendasAte: string | null;
+  extratosDe: string | null;
+  extratosAte: string | null;
 };
 
 export type VendasPor = "venda" | "pagamento";
@@ -27,6 +35,14 @@ export type VendasPor = "venda" | "pagamento";
 // Cartão (a Cielo varia de banco, então fica de fora; mesma regra de
 // conciliacao.ts).
 const ADQUIRENTES_PIX_POR_DOMICILIO = new Set(["PAGSEGURO", "REDE", "STONE", "GETNET"]);
+
+// "01 a 18/09" quando é o mesmo mês, "28/08 a 18/09" quando atravessa meses.
+export function formatarPeriodoReferencia(de: string | null, ate: string | null): string {
+  if (!de || !ate) return "sem dados no mês";
+  const [ad, am] = de.split("-").slice(1).reverse();
+  const [bd, bm] = ate.split("-").slice(1).reverse();
+  return am === bm ? `${ad} a ${bd}/${bm}` : `${ad}/${am} a ${bd}/${bm}`;
+}
 
 function grupoAdquirente(nome: string): string {
   return nome.startsWith("CIELO") ? "CIELO" : nome;
@@ -93,10 +109,18 @@ export async function buscarResumoMensal(params: {
     donoPixPorBanco.set(chave, donoPixPorBanco.has(chave) && donoPixPorBanco.get(chave) !== nome ? null : nome);
   }
 
-  const porPosto = new Map<string, { posto: string; linhas: Map<string, LinhaResumoMensal>; semLiquido: number }>();
+  const coberturaExtratos = await prisma.lancamentoExtrato.groupBy({
+    by: ["postoId"],
+    where: { data: { gte: dataInicio, lte: dataFim }, ...(postoId ? { postoId } : {}) },
+    _min: { data: true },
+    _max: { data: true },
+  });
+  const extratosPorPosto = new Map(coberturaExtratos.map((c) => [c.postoId, c]));
+
+  const porPosto = new Map<string, { posto: string; linhas: Map<string, LinhaResumoMensal>; semLiquido: number; vendasDe: string | null; vendasAte: string | null }>();
   function grupoPosto(id: string, nome: string) {
     let g = porPosto.get(id);
-    if (!g) porPosto.set(id, (g = { posto: nome, linhas: new Map(), semLiquido: 0 }));
+    if (!g) porPosto.set(id, (g = { posto: nome, linhas: new Map(), semLiquido: 0, vendasDe: null, vendasAte: null }));
     return g;
   }
   function linha(g: ReturnType<typeof grupoPosto>, adquirente: string) {
@@ -107,6 +131,9 @@ export async function buscarResumoMensal(params: {
 
   for (const t of transacoes) {
     const g = grupoPosto(t.postoId, t.posto.nome);
+    const dataVenda = t.dataVenda.toISOString().slice(0, 10);
+    if (!g.vendasDe || dataVenda < g.vendasDe) g.vendasDe = dataVenda;
+    if (!g.vendasAte || dataVenda > g.vendasAte) g.vendasAte = dataVenda;
     if (t.valorLiquido === null) {
       g.semLiquido++;
       continue;
@@ -153,7 +180,18 @@ export async function buscarResumoMensal(params: {
       return acc;
     }, linhaVazia("Total"));
     total.diferenca = total.entradas - total.totalVendas;
-    resultado.push({ postoId: id, posto: g.posto, linhas, total, vendasSemLiquido: g.semLiquido });
+    const extratos = extratosPorPosto.get(id);
+    resultado.push({
+      postoId: id,
+      posto: g.posto,
+      linhas,
+      total,
+      vendasSemLiquido: g.semLiquido,
+      vendasDe: g.vendasDe,
+      vendasAte: g.vendasAte,
+      extratosDe: extratos?._min.data?.toISOString().slice(0, 10) ?? null,
+      extratosAte: extratos?._max.data?.toISOString().slice(0, 10) ?? null,
+    });
   }
   return resultado.filter((p) => p.linhas.length > 0).sort((a, b) => a.posto.localeCompare(b.posto));
 }
