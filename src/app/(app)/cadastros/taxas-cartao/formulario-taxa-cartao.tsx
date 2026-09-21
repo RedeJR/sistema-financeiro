@@ -29,6 +29,7 @@ type Props = {
     prazoCreditoPrePagoDias: number;
     domicilioBancoId: string | null;
     observacao: string | null;
+    grupoConciliacao: string | null;
   };
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
 };
@@ -224,6 +225,18 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
         defaultValue={v?.observacao ?? undefined}
         placeholder='Ex: "SEM USO", "CRÉDITO: TURNO 2"'
       />
+
+      <Campo
+        label="Grupo de conciliação (opcional)"
+        name="grupoConciliacao"
+        defaultValue={v?.grupoConciliacao ?? undefined}
+        placeholder='Ex: "CONTA STONE"'
+      />
+      <p className="-mt-2 text-xs text-foreground/50">
+        Adquirentes do mesmo posto com o mesmo texto aqui são conciliadas juntas na aba Recebimentos (uma linha
+        só). Use quando o repasse de uma cai na conta de outra — ex: no Paineira, Stone, Getnet e Rede caem na
+        conta Stone.
+      </p>
 
       <ErroFormulario mensagem={state?.error} />
       <div className="flex gap-2">

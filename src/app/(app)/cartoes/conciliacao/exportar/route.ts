@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         ? l.data.split("-").reverse().join("/")
         : `${l.dataLinkDe.split("-").reverse().join("/")} a ${l.dataLinkAte.split("-").reverse().join("/")}`,
       l.adquirente,
-      l.fontePrazo === "ARQUIVO" ? "Arquivo" : "Sistema (regra fixa)",
+      l.fontePrazo === "ARQUIVO" ? "Arquivo" : l.fontePrazo === "MISTO" ? "Arquivo + regra fixa" : "Sistema (regra fixa)",
       l.qtdVendas,
       l.esperado,
       l.extratoDebito,

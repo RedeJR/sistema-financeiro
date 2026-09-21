@@ -279,7 +279,7 @@ export default async function ConciliacaoCartoesPage({
                     </td>
                     <td className="px-4 py-1.5">{l.adquirente}</td>
                     <td className="px-4 py-1.5 text-foreground/60">
-                      {l.fontePrazo === "ARQUIVO" ? "Arquivo" : "Sistema (regra fixa)"}
+                      {l.fontePrazo === "ARQUIVO" ? "Arquivo" : l.fontePrazo === "MISTO" ? "Arquivo + regra fixa" : "Sistema (regra fixa)"}
                     </td>
                     <td className="px-4 py-1.5 text-right">{l.qtdVendas}</td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.esperado)}</td>

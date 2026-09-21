@@ -12,7 +12,7 @@ export type LinhaConciliacao = {
   adquirente: string;
   adquirenteId: string;
   categoriaId: string | null;
-  fontePrazo: "ARQUIVO" | "SISTEMA"; // Stone infere por regra fixa; as demais vêm do próprio arquivo
+  fontePrazo: "ARQUIVO" | "SISTEMA" | "MISTO"; // Stone infere por regra fixa; as demais vêm do próprio arquivo; grupo com os dois = MISTO
   qtdVendas: number;
   esperado: number; // soma do valorLiquido das vendas
   extratoDebito: number;
@@ -48,17 +48,35 @@ export async function buscarConciliacaoCartoes(params: {
   const { postoId, dataInicio, dataFim, adquirenteIds, filtrarPor = "pagamento", agruparPor = "recebimento" } = params;
   const campoData = filtrarPor === "venda" ? "dataVenda" : "dataPagamento";
 
-  const [transacoes, categorias, taxas] = await Promise.all([
+  const taxas = await prisma.taxaCartao.findMany({
+    where: { postoId },
+    select: { adquirenteId: true, domicilioBancoId: true, grupoConciliacao: true },
+  });
+
+  // Grupo de conciliação (ver TaxaCartao.grupoConciliacao): adquirentes do
+  // posto com o mesmo grupo viram uma linha só. Ao filtrar por uma delas, o
+  // grupo inteiro entra — senão o extrato do grupo (que mistura as duas)
+  // ficaria comparado só com parte das vendas.
+  const grupoPorAdquirenteId = new Map<string, string>();
+  for (const t of taxas) if (t.grupoConciliacao) grupoPorAdquirenteId.set(t.adquirenteId, t.grupoConciliacao);
+  let adquirenteIdsEfetivos = adquirenteIds;
+  if (adquirenteIds && adquirenteIds.length > 0) {
+    const gruposPedidos = new Set(adquirenteIds.map((id) => grupoPorAdquirenteId.get(id)).filter(Boolean));
+    adquirenteIdsEfetivos = [
+      ...new Set([...adquirenteIds, ...[...grupoPorAdquirenteId].filter(([, g]) => gruposPedidos.has(g)).map(([id]) => id)]),
+    ];
+  }
+
+  const [transacoes, categorias] = await Promise.all([
     prisma.transacaoCartao.findMany({
       where: {
         postoId,
         [campoData]: { gte: dataInicio, lte: dataFim },
-        ...(adquirenteIds && adquirenteIds.length > 0 ? { adquirenteId: { in: adquirenteIds } } : {}),
+        ...(adquirenteIdsEfetivos && adquirenteIdsEfetivos.length > 0 ? { adquirenteId: { in: adquirenteIdsEfetivos } } : {}),
       },
       include: { adquirente: true },
     }),
     prisma.categoriaExtrato.findMany({ where: { tipo: { in: ["ADQUIRENTE", "VOUCHER"] } } }),
-    prisma.taxaCartao.findMany({ where: { postoId }, select: { adquirenteId: true, domicilioBancoId: true } }),
   ]);
 
   const categoriaPorNomeAdquirente = new Map(categorias.map((c) => [c.nome, c]));
@@ -171,7 +189,7 @@ export async function buscarConciliacaoCartoes(params: {
     todasChaves.add(`${adquirenteId}|${data}`);
   }
 
-  const linhasDetalhadas: LinhaConciliacao[] = [];
+  let linhasDetalhadas: LinhaConciliacao[] = [];
   for (const chave of todasChaves) {
     const [adqId, data] = chave.split("|");
     const esperadoGrupo = gruposEsperado.get(chave);
@@ -198,6 +216,36 @@ export async function buscarConciliacaoCartoes(params: {
       diferenca,
       status: calcularStatus(extratoTotal, diferenca),
     });
+  }
+
+  // Junta as linhas das adquirentes do mesmo grupo, dia a dia.
+  if (grupoPorAdquirenteId.size > 0) {
+    const semGrupo: LinhaConciliacao[] = [];
+    const porGrupoDia = new Map<string, LinhaConciliacao>();
+    for (const l of linhasDetalhadas) {
+      const grupo = grupoPorAdquirenteId.get(l.adquirenteId);
+      if (!grupo) {
+        semGrupo.push(l);
+        continue;
+      }
+      const chave = `${grupo}|${l.data}`;
+      const atual = porGrupoDia.get(chave);
+      if (!atual) {
+        porGrupoDia.set(chave, { ...l, chave: `grupo:${chave}`, adquirente: grupo, adquirenteId: `grupo:${grupo}`, categoriaId: null });
+        continue;
+      }
+      atual.qtdVendas += l.qtdVendas;
+      atual.esperado += l.esperado;
+      atual.extratoDebito += l.extratoDebito;
+      atual.extratoCredito += l.extratoCredito;
+      if (atual.fontePrazo !== l.fontePrazo) atual.fontePrazo = "MISTO";
+    }
+    const agrupadas = [...porGrupoDia.values()].map((g) => {
+      const extratoTotal = g.extratoDebito + g.extratoCredito;
+      const diferenca = extratoTotal - g.esperado;
+      return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca) };
+    });
+    linhasDetalhadas = [...semGrupo, ...agrupadas];
   }
 
   if (agruparPor === "recebimento") {

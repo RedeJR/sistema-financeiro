@@ -125,6 +125,11 @@ model TaxaCartao {
   domicilioBanco            Banco?   @relation("DomicilioBancario", fields: [domicilioBancoId], references: [id])
   // Texto livre igual à planilha de origem (ex: "SEM USO", "CRÉDITO: TURNO 2")
   observacao                String?
+  // Adquirentes do MESMO posto com o mesmo texto aqui são conciliadas juntas
+  // em Recebimentos (uma linha só, com o texto como nome) — pra quando o
+  // repasse de uma cai na conta de outra (ex: Getnet e Rede caindo na conta
+  // Stone no Paineira), e o extrato de cada categoria sozinho nunca fecha.
+  grupoConciliacao          String?
   ativo                     Boolean  @default(true)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

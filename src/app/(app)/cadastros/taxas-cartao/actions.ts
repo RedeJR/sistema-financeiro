@@ -73,6 +73,11 @@ const schema = z.object({
     .trim()
     .optional()
     .transform((v) => (v ? v : null)),
+  grupoConciliacao: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v.toUpperCase() : null)),
 });
 
 function lerFormulario(formData: FormData) {
@@ -91,6 +96,7 @@ function lerFormulario(formData: FormData) {
     prazoCreditoPrePagoDias: formData.get("prazoCreditoPrePagoDias"),
     domicilioBancoId: formData.get("domicilioBancoId"),
     observacao: formData.get("observacao"),
+    grupoConciliacao: formData.get("grupoConciliacao"),
   });
 }
 

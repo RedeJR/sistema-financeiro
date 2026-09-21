@@ -59,6 +59,7 @@ export default async function TaxasCartaoPage() {
                     <th className="px-4 py-1.5 text-right font-medium">PIX</th>
                     <th className="px-4 py-1.5 text-right font-medium">Crédito pré-pago</th>
                     <th className="px-4 py-1.5 text-left font-medium">Domicílio</th>
+                    <th className="px-4 py-1.5 text-left font-medium">Grupo</th>
                     <th className="px-4 py-1.5 text-left font-medium">Observação</th>
                     <th className="px-4 py-1.5 text-left font-medium">Status</th>
                     {podeEditar && <th className="px-4 py-1.5 text-right font-medium">Ações</th>}
@@ -97,6 +98,7 @@ export default async function TaxasCartaoPage() {
                         )}
                       </td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.domicilioBanco?.nome ?? "—"}</td>
+                      <td className="px-4 py-1.5 text-foreground/70">{t.grupoConciliacao ?? "—"}</td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.observacao ?? "—"}</td>
                       <td className="px-4 py-1.5">
                         <span
@@ -143,7 +145,7 @@ export default async function TaxasCartaoPage() {
                   {lista.length === 0 && (
                     <tr>
                       <td
-                        colSpan={podeEditar ? 8 : 7}
+                        colSpan={podeEditar ? 11 : 10}
                         className="px-4 py-4 text-center text-sm text-foreground/50"
                       >
                         Nenhuma taxa cadastrada pra esse posto.

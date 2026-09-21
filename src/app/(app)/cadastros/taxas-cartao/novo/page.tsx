@@ -46,6 +46,7 @@ export default async function NovaTaxaCartaoPage({
                 prazoCreditoPrePagoDias: 1,
                 domicilioBancoId: null,
                 observacao: null,
+                grupoConciliacao: null,
               }
             : undefined
         }
