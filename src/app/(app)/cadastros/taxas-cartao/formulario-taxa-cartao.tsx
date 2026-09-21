@@ -231,7 +231,7 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
         <input
           type="checkbox"
           name="antecipacaoAutomatica"
-          defaultChecked={v?.antecipacaoAutomatica ?? false}
+          defaultChecked={v?.antecipacaoAutomatica === true || v?.antecipacaoAutomatica === "on"}
           className="mt-1"
         />
         <span>
