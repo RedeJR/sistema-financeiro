@@ -54,7 +54,6 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
   const iLiquido = idx("Valor líquido");
   const iStatus = idx("Status da venda");
   const iDataPagamento = idx("Data prevista do pagamento");
-  const iCodigoVenda = idx("Código da venda");
 
   const resultado: LinhaTransacao[] = [];
   for (const linha of linhas.slice(1)) {
@@ -73,8 +72,6 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
 
     const horaVenda = paraHoraSimples(linha[iHora]);
     const tipoVenda = (iForma >= 0 ? linha[iForma] : linha[iTipoLancamento]) || "—";
-    const codigoVenda = iCodigoVenda >= 0 ? linha[iCodigoVenda] : null;
-
     resultado.push({
       dataVenda,
       horaVenda,
@@ -83,8 +80,24 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
       dataPagamento: iDataPagamento >= 0 ? paraData(linha[iDataPagamento]) : null,
-      identificadorExterno: identificadorComposto(codigoVenda, dataVenda, horaVenda, valorBruto, tipoVenda),
+      identificadorExterno: identificadorComposto(null, dataVenda, horaVenda, valorBruto, tipoVenda),
     });
+  }
+
+  // O "Código da venda" da Cielo tem 19 dígitos e vira notação científica
+  // ("2,6091E+18", sem os dígitos) quando o arquivo passa pelo Excel — o mesmo
+  // relatório sai com código completo numa exportação e truncado noutra, então
+  // ele NÃO serve de identificador: o reenvio duplicava tudo, e com o código
+  // truncado vendas diferentes no mesmo minuto/valor/tipo colapsavam numa só.
+  // Identificador = data+hora+valor+tipo + nº de ocorrência dessa combinação
+  // no arquivo (#1, #2...): duas vendas idênticas no mesmo minuto ficam com
+  // #1 e #2, e o mesmo arquivo reexportado gera os mesmos identificadores.
+  const ocorrencias = new Map<string, number>();
+  for (const r of resultado) {
+    const base = r.identificadorExterno!;
+    const n = (ocorrencias.get(base) ?? 0) + 1;
+    ocorrencias.set(base, n);
+    r.identificadorExterno = `${base}#${n}`;
   }
   return resultado;
 }
