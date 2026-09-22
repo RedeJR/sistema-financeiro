@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { calcularAjustesAntecipacao } from "./antecipacoes";
 
 export type StatusConciliacao = "CONCILIADO" | "DIVERGENTE" | "PENDENTE";
 export type AgrupamentoConciliacao = "recebimento" | "adquirente";
@@ -102,10 +103,27 @@ export async function buscarConciliacaoCartoes(params: {
     gruposEsperado.set(chave, grupo);
   }
 
-  const adquirentesEnvolvidos = [...new Set(transacoes.map((t) => t.adquirenteId))];
+  const nomePorAdquirenteId = new Map(transacoes.map((t) => [t.adquirenteId, t.adquirente.nome]));
+
+  // Antecipação de recebíveis (tela Antecipações): no dia em que caiu conta o
+  // líquido como esperado e, nos dias do período antecipado, tira o valor
+  // cheio — só faz sentido olhando por data de pagamento.
+  if (filtrarPor === "pagamento") {
+    const ajustes = await calcularAjustesAntecipacao({ postoId, dataInicio, dataFim });
+    for (const a of ajustes) {
+      if (adquirenteIdsEfetivos && adquirenteIdsEfetivos.length > 0 && !adquirenteIdsEfetivos.includes(a.adquirenteId)) continue;
+      nomePorAdquirenteId.set(a.adquirenteId, a.adquirenteNome);
+      const chave = `${a.adquirenteId}|${a.data}`;
+      const grupo = gruposEsperado.get(chave) ?? { adquirente: a.adquirenteNome, adquirenteId: a.adquirenteId, data: a.data, qtd: 0, soma: 0 };
+      grupo.soma += a.delta;
+      gruposEsperado.set(chave, grupo);
+    }
+  }
+
+  const adquirentesEnvolvidos = [...nomePorAdquirenteId.keys()];
   const categoriaIdsEnvolvidas = adquirentesEnvolvidos
     .map((id) => {
-      const nome = transacoes.find((t) => t.adquirenteId === id)?.adquirente.nome;
+      const nome = nomePorAdquirenteId.get(id);
       return nome ? categoriaPorNomeAdquirente.get(nome)?.id : undefined;
     })
     .filter((id): id is string => Boolean(id));
@@ -150,7 +168,7 @@ export async function buscarConciliacaoCartoes(params: {
   const bancoIdParaAdquirenteNome = new Map<string, string>();
   for (const adqId of adquirentesEnvolvidos) {
     const bancoId = domicilioBancoPorAdquirente.get(adqId);
-    const nome = transacoes.find((t) => t.adquirenteId === adqId)?.adquirente.nome;
+    const nome = nomePorAdquirenteId.get(adqId);
     if (bancoId && nome && nome !== "CIELO" && nome !== "CIELO TEF" && nome !== "CIELO ALUGUEL") {
       bancoIdParaAdquirenteNome.set(bancoId, nome);
     }
@@ -180,7 +198,7 @@ export async function buscarConciliacaoCartoes(params: {
 
   // Linhas na granularidade máxima: uma por (adquirente, data de
   // pagamento) — base pra qualquer um dos agrupamentos abaixo.
-  const idPorNome = new Map(transacoes.map((t) => [t.adquirente.nome, t.adquirenteId]));
+  const idPorNome = new Map([...nomePorAdquirenteId].map(([id, nome]) => [nome, id]));
   const todasChaves = new Set([...gruposEsperado.keys()]);
   for (const chave of nomeParaExtrato.keys()) {
     const [nome, data] = chave.split("|");
@@ -193,7 +211,7 @@ export async function buscarConciliacaoCartoes(params: {
   for (const chave of todasChaves) {
     const [adqId, data] = chave.split("|");
     const esperadoGrupo = gruposEsperado.get(chave);
-    const nome = esperadoGrupo?.adquirente ?? transacoes.find((t) => t.adquirenteId === adqId)?.adquirente.nome ?? "";
+    const nome = esperadoGrupo?.adquirente ?? nomePorAdquirenteId.get(adqId) ?? "";
     const extrato = nomeParaExtrato.get(`${nome}|${data}`) ?? { debito: 0, credito: 0 };
     const extratoTotal = extrato.debito + extrato.credito;
     const esperado = esperadoGrupo?.soma ?? 0;

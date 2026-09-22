@@ -32,6 +32,7 @@ model Posto {
   taxasCartao        TaxaCartao[]
   transacoesCartao   TransacaoCartao[]
   conferenciasCaixa  ConferenciaCaixa[]
+  antecipacoesCartao AntecipacaoCartao[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -89,6 +90,7 @@ model AdquirenteCartao {
   ativo       Boolean           @default(true)
   taxas       TaxaCartao[]
   transacoes  TransacaoCartao[]
+  antecipacoes AntecipacaoCartao[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -188,6 +190,31 @@ model TransacaoCartao {
   @@index([postoId, dataVenda])
   @@index([adquirenteId, dataPagamento])
   @@map("transacoes_cartao")
+}
+
+// Antecipação de recebíveis (ex: Cielo): a adquirente paga antes um valor
+// dentro de um período de recebíveis futuros, sem dizer quais vendas — por
+// isso o sistema não marca venda por venda: no dia em que o dinheiro caiu
+// (dataRecebimento) conta o líquido como esperado, e nos dias do período
+// tira o valor cheio proporcionalmente ao esperado de crédito de cada dia
+// (ver src/lib/cartoes/antecipacoes.ts). desconto = valorFace − valorLiquido.
+model AntecipacaoCartao {
+  id              String           @id @default(cuid())
+  postoId         String
+  posto           Posto            @relation(fields: [postoId], references: [id])
+  adquirenteId    String
+  adquirente      AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
+  dataRecebimento DateTime         @db.Date
+  periodoDe       DateTime         @db.Date
+  periodoAte      DateTime         @db.Date
+  valorFace       Decimal          @db.Decimal(12, 2)
+  valorLiquido    Decimal          @db.Decimal(12, 2)
+  observacao      String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([postoId, dataRecebimento])
+  @@map("antecipacoes_cartao")
 }
 
 enum StatusConferenciaCaixa {

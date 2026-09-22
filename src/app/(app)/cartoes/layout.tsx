@@ -6,6 +6,7 @@ const ABAS = [
   { href: "/cartoes/vendas", label: "Vendas" },
   { href: "/cartoes/conciliacao", label: "Recebimentos" },
   { href: "/cartoes/resumo-mensal", label: "Resumo mensal" },
+  { href: "/cartoes/antecipacoes", label: "Antecipações" },
   { href: "/cartoes/fechamento", label: "Fechamento" },
 ];
 

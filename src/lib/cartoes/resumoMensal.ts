@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda, type ModalidadeVenda } from "./normalizar";
+import { calcularAjustesAntecipacao } from "./antecipacoes";
 
 export type LinhaResumoMensal = {
   adquirente: string;
@@ -140,6 +141,17 @@ export async function buscarResumoMensal(params: {
     }
     const l = linha(g, grupoAdquirente(t.adquirente.nome));
     l[CAMPO_POR_MODALIDADE[classificarModalidadeVenda(t.tipoVenda, t.adquirente.nome)]] += Number(t.valorLiquido);
+  }
+
+  // Antecipação de recebíveis: só quando as vendas são contadas por data do
+  // pagamento — o valor recebido entra no dia em que caiu e sai dos dias do
+  // período antecipado, sempre na coluna Crédito.
+  if (vendasPor === "pagamento") {
+    const ajustes = await calcularAjustesAntecipacao({ postoId, dataInicio, dataFim });
+    for (const a of ajustes) {
+      const g = grupoPosto(a.postoId, a.postoNome);
+      linha(g, grupoAdquirente(a.adquirenteNome)).credito += a.delta;
+    }
   }
 
   const nomesPostos = new Map<string, string>();
