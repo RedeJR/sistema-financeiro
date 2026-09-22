@@ -133,8 +133,16 @@ export function paraValorAbsoluto(valor: unknown): string | null {
 // garante que qualquer chamador (parser novo, script de migração) sempre
 // produza o mesmo identificador pro mesmo dado, não importa como a string
 // de entrada veio formatada.
+// Tira zero à esquerda por manipulação de string, não por Number() — um
+// identificador puramente numérico pode ter mais de 15-16 dígitos (ex: o
+// "ID/Transação" de 29 dígitos do relatório de Pix da Getnet), acima da
+// precisão seguro de Number em JS. Convertido por Number(), viraria notação
+// científica arredondada ("1.0010000000000955e+27") — determinístico pro
+// mesmo texto de entrada, mas IDs longos diferentes que só diferem nos
+// dígitos menos significativos colapsariam no mesmo valor arredondado,
+// fazendo vendas diferentes parecerem duplicata uma da outra.
 function normalizarBruto(bruto: string): string {
-  return /^\d+$/.test(bruto) ? String(Number(bruto)) : bruto;
+  return /^\d+$/.test(bruto) ? bruto.replace(/^0+(?=\d)/, "") : bruto;
 }
 
 export function identificadorComposto(
