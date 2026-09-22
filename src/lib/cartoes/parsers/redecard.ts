@@ -1,46 +1,30 @@
-// Redecard (Rede) — "Extrato para simples conferência", xlsx com um
-// preâmbulo antes do cabeçalho de verdade (igual a Cielo, só que em xlsx em
-// vez de csv). Modalidade e Tipo vêm em colunas separadas ("débito" +
-// "à vista") — combinadas aqui pra formar o tipo_venda completo, igual as
-// outras adquirentes fazem numa coluna só.
+// Redecard (Rede) — dois formatos vistos, mesmas colunas: "Extrato para
+// simples conferência" em xlsx (com um preâmbulo antes do cabeçalho de
+// verdade, igual a Cielo) e "Rel_Vendas" em csv (cabeçalho na primeira
+// linha, sem preâmbulo — export mais completo, cobre qualquer período
+// pedido em vez de só "recente"). Detecta pela assinatura do arquivo (ZIP
+// "PK" = xlsx), não pela extensão. Modalidade e Tipo vêm em colunas
+// separadas ("débito" + "à vista") — combinadas aqui pra formar o
+// tipo_venda completo, igual as outras adquirentes fazem numa coluna só.
 import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
 import {
   calcularTaxaRs,
+  criarBuscadorDeColuna,
+  decodificarTexto,
+  dividirLinhasCsv,
   identificadorComposto,
   paraData,
   paraHoraSimples,
   paraValorDecimal,
+  prazoParaDataPagamento,
   prazoTextoParaDias,
-  proximoDiaUtil,
 } from "../normalizar";
 
 const MAX_LINHAS_PREAMBULO = 5;
 
-export async function parseRedecard(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
-  const workbook = new ExcelJS.Workbook();
-  // exceljs tipa o parâmetro com a assinatura antiga de Buffer do @types/node
-  // — incompatível com a genérica atual (Buffer<ArrayBufferLike>), mas o
-  // valor em si é aceito em runtime sem problema.
-  await workbook.xlsx.load(arq.buffer as unknown as ExcelJS.Buffer);
-  const planilha = workbook.worksheets[0];
-  if (!planilha) return [];
-
-  let linhaHeader = -1;
-  let cabecalho: string[] = [];
-  for (let r = 1; r <= Math.min(MAX_LINHAS_PREAMBULO, planilha.rowCount); r++) {
-    const valores = (planilha.getRow(r).values as unknown[]).map((v) => (v == null ? "" : String(v).trim()));
-    if (valores.some((v) => v.toLowerCase() === "data da venda")) {
-      linhaHeader = r;
-      cabecalho = valores.map((v) => v.toLowerCase());
-      break;
-    }
-  }
-  if (linhaHeader === -1) {
-    throw new Error('Cabeçalho não encontrado — esperava a coluna "data da venda".');
-  }
-
-  const idx = (nome: string) => cabecalho.indexOf(nome);
+function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransacao[] {
+  const idx = criarBuscadorDeColuna(cabecalho);
   const iData = idx("data da venda");
   const iHora = idx("hora da venda");
   const iStatus = idx("status da venda");
@@ -53,9 +37,7 @@ export async function parseRedecard(arq: ArquivoEntrada): Promise<LinhaTransacao
   const iNsu = idx("nsu/cv");
 
   const resultado: LinhaTransacao[] = [];
-  for (let r = linhaHeader + 1; r <= planilha.rowCount; r++) {
-    const row = planilha.getRow(r);
-    const valores = row.values as unknown[];
+  for (const valores of linhas) {
     if (!valores || valores.length < 2) continue;
 
     const status = iStatus >= 0 ? String(valores[iStatus] ?? "").trim().toLowerCase() : "";
@@ -83,9 +65,52 @@ export async function parseRedecard(arq: ArquivoEntrada): Promise<LinhaTransacao
       valorBruto,
       taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
       valorLiquido,
-      dataPagamento: prazoDias !== null ? proximoDiaUtil(dataVenda, prazoDias) : null,
+      dataPagamento: prazoDias !== null ? prazoParaDataPagamento(dataVenda, prazoDias) : null,
       identificadorExterno: identificadorComposto(nsu, dataVenda, horaVenda, valorBruto, tipoVenda),
     });
   }
   return resultado;
+}
+
+async function parseRedecardXlsx(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
+  const workbook = new ExcelJS.Workbook();
+  // exceljs tipa o parâmetro com a assinatura antiga de Buffer do @types/node
+  // — incompatível com a genérica atual (Buffer<ArrayBufferLike>), mas o
+  // valor em si é aceito em runtime sem problema.
+  await workbook.xlsx.load(arq.buffer as unknown as ExcelJS.Buffer);
+  const planilha = workbook.worksheets[0];
+  if (!planilha) return [];
+
+  let linhaHeader = -1;
+  let cabecalho: unknown[] = [];
+  for (let r = 1; r <= Math.min(MAX_LINHAS_PREAMBULO, planilha.rowCount); r++) {
+    const valores = (planilha.getRow(r).values as unknown[]).map((v) => (v == null ? "" : String(v).trim()));
+    if (valores.some((v) => v.toLowerCase() === "data da venda")) {
+      linhaHeader = r;
+      cabecalho = valores;
+      break;
+    }
+  }
+  if (linhaHeader === -1) {
+    throw new Error('Cabeçalho não encontrado — esperava a coluna "data da venda".');
+  }
+
+  const linhas: unknown[][] = [];
+  for (let r = linhaHeader + 1; r <= planilha.rowCount; r++) {
+    linhas.push(planilha.getRow(r).values as unknown[]);
+  }
+  return extrairLinhas(cabecalho, linhas);
+}
+
+function parseRedecardCsv(arq: ArquivoEntrada): LinhaTransacao[] {
+  const texto = decodificarTexto(arq.buffer);
+  const linhas = dividirLinhasCsv(texto);
+  if (linhas.length === 0) return [];
+  const [cabecalho, ...resto] = linhas;
+  return extrairLinhas(cabecalho, resto);
+}
+
+export async function parseRedecard(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
+  const ehXlsx = arq.buffer[0] === 0x50 && arq.buffer[1] === 0x4b; // assinatura ZIP ("PK")
+  return ehXlsx ? parseRedecardXlsx(arq) : parseRedecardCsv(arq);
 }

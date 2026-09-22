@@ -324,6 +324,19 @@ export function paraProximoDiaUtilSeNecessario(data: Date): Date {
   return resultado;
 }
 
+// Prazo curto (até 5 dias, ex: D+1) conta em dias úteis; prazo longo (ex:
+// "31 dias") é sempre dias CORRIDOS — o texto do relatório não distingue
+// os dois, então usa o mesmo corte que já vale pra Getnet: acima de 5 dias
+// é corrido, e se cair em fim de semana/feriado empurra pro próximo dia
+// útil. Sem isso, um prazo de 30+ dias contado em dias úteis some quase 2
+// semanas a mais (ex: 31 dias úteis = ~44 dias corridos).
+export function prazoParaDataPagamento(dataVenda: Date, prazoDias: number): Date {
+  if (prazoDias <= 5) return proximoDiaUtil(dataVenda, prazoDias);
+  const d = new Date(dataVenda);
+  d.setUTCDate(d.getUTCDate() + prazoDias);
+  return paraProximoDiaUtilSeNecessario(d);
+}
+
 // Extrai dias de um texto livre de prazo ("D+1", "disponível em D+1",
 // "31  dias", "recebimento pela bandeira") — null quando não reconhece.
 export function prazoTextoParaDias(texto: unknown): number | null {

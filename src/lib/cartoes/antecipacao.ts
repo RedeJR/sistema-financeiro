@@ -1,4 +1,4 @@
-import { classificarModalidade, paraProximoDiaUtilSeNecessario, proximoDiaUtil } from "./normalizar";
+import { classificarModalidade, prazoParaDataPagamento } from "./normalizar";
 
 // Crédito com antecipação automática (TaxaCartao.antecipacaoAutomatica): o
 // arquivo da adquirente (ex: Getnet) traz o prazo cheio do crédito (30 dias) e
@@ -20,16 +20,6 @@ export type AjusteAntecipacao = {
   taxaRs: string;
   dataPagamento: Date;
 };
-
-// Prazo curto (até 5 dias) conta em dias úteis (D+1, D+2); prazo longo é em
-// dias corridos (30 dias) e, se cair em fim de semana ou feriado, vai pro
-// próximo dia útil.
-function dataDePagamento(dataVenda: Date, prazo: number): Date {
-  if (prazo <= 5) return proximoDiaUtil(dataVenda, prazo);
-  const d = new Date(dataVenda);
-  d.setUTCDate(d.getUTCDate() + prazo);
-  return paraProximoDiaUtilSeNecessario(d);
-}
 
 function taxaEPrazoDoCredito(tipoVenda: string, adquirenteNome: string, c: TaxaCreditoCadastrada) {
   switch (classificarModalidade(tipoVenda, adquirenteNome)) {
@@ -58,6 +48,6 @@ export function calcularAjusteAntecipacao(
   return {
     valorLiquido: liquido.toFixed(2),
     taxaRs: (Math.round((bruto - liquido) * 100) / 100).toFixed(2),
-    dataPagamento: dataDePagamento(venda.dataVenda, regra.prazo),
+    dataPagamento: prazoParaDataPagamento(venda.dataVenda, regra.prazo),
   };
 }

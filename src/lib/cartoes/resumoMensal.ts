@@ -100,14 +100,20 @@ export async function buscarResumoMensal(params: {
     select: { postoId: true, bancoId: true, categoriaId: true, valor: true },
   });
 
-  // posto|banco -> adquirente dona do PIX genérico daquele banco (só quando
-  // for inequívoco: uma única adquirente de PIX com esse domicílio no posto).
+  // posto|banco -> adquirente dona do PIX genérico daquele banco. Quando
+  // duas adquirentes do posto compartilham o mesmo domicílio (ex: Rede
+  // liquidando na conta da Stone), o Pix de maquininha genérico é sempre
+  // da Stone (confirmado com a usuária) — as demais já capturam o próprio
+  // Pix pela modalidade "Pix" do arquivo de vendas delas. Só fica sem dono
+  // (null) quando o empate é entre duas adquirentes que não a Stone.
   const donoPixPorBanco = new Map<string, string | null>();
   for (const t of taxas) {
     const nome = grupoAdquirente(t.adquirente.nome);
     if (!ADQUIRENTES_PIX_POR_DOMICILIO.has(nome) || !t.domicilioBancoId) continue;
     const chave = `${t.postoId}|${t.domicilioBancoId}`;
-    donoPixPorBanco.set(chave, donoPixPorBanco.has(chave) && donoPixPorBanco.get(chave) !== nome ? null : nome);
+    const atual = donoPixPorBanco.get(chave);
+    if (!donoPixPorBanco.has(chave)) donoPixPorBanco.set(chave, nome);
+    else if (atual !== nome) donoPixPorBanco.set(chave, nome === "STONE" || atual === "STONE" ? "STONE" : null);
   }
 
   const coberturaExtratos = await prisma.lancamentoExtrato.groupBy({

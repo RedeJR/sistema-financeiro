@@ -165,14 +165,22 @@ export async function buscarConciliacaoCartoes(params: {
   // é — busca por domicílio bancário (cada uma cai num banco fixo, exceto
   // a Cielo, que varia e por isso fica de fora — precisa revisar essa "a
   // olho", como a própria usuária já validou).
-  const bancoIdParaAdquirenteNome = new Map<string, string>();
+  const nomesPorBancoId = new Map<string, string[]>();
   for (const adqId of adquirentesEnvolvidos) {
     const bancoId = domicilioBancoPorAdquirente.get(adqId);
     const nome = nomePorAdquirenteId.get(adqId);
     if (bancoId && nome && nome !== "CIELO" && nome !== "CIELO TEF" && nome !== "CIELO ALUGUEL") {
-      bancoIdParaAdquirenteNome.set(bancoId, nome);
+      nomesPorBancoId.set(bancoId, [...(nomesPorBancoId.get(bancoId) ?? []), nome]);
     }
   }
+  // Quando mais de uma adquirente do posto tem domicílio no mesmo banco
+  // (ex: Rede liquidando na conta da Stone), o Pix de maquininha genérico
+  // daquele banco é sempre da Stone (confirmado com a usuária) — a outra já
+  // tem o próprio Pix capturado pelo modalidade "Pix" do arquivo de vendas
+  // dela, não precisa (nem deve) puxar esse extrato também.
+  const bancoIdParaAdquirenteNome = new Map<string, string>(
+    [...nomesPorBancoId].map(([bancoId, nomes]) => [bancoId, nomes.includes("STONE") ? "STONE" : nomes[0]])
+  );
   if (bancoIdParaAdquirenteNome.size > 0) {
     const categoriaPix = await prisma.categoriaExtrato.findFirst({ where: { nome: "PIX" } });
     if (categoriaPix) {

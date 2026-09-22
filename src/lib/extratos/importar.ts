@@ -107,20 +107,28 @@ export async function importarExtratos(params: {
       // sempre transações diferentes, mesmo com data/descrição/valor iguais
       // (ex: três tarifas de mesmo valor no mesmo dia).
       //
-      // Linhas sem FITID (nenhum parser atual gera isso, mas o campo é
-      // opcional): sem identificador confiável, o fallback é comparar
+      // Exceção: o extrato PJ do Santander gera o FITID a partir da conta +
+      // hora do DOWNLOAD (ex: "0733130035544202609220958140"), não um id
+      // fixo da transação — dois exports do mesmo período saem com FITIDs
+      // diferentes pra tudo. Confiar nele criava duplicata toda vez que um
+      // período já importado era baixado de novo (visto na prática:
+      // 37 lançamentos duplicados, R$15.870,64 só de GETNET/PIX). Pra esse
+      // banco, cai no mesmo fallback de "sem FITID confiável" abaixo mesmo
+      // quando o campo vem preenchido.
+      //
+      // Linhas sem FITID confiável: o fallback é comparar
       // (posto,banco,data,descrição,valor) — só entre ELAS MESMAS, contra o
       // que já existe no banco E dentro do próprio lote sendo importado.
-      const semFitid = linhas.filter((l) => l.fitid === null);
+      const fitidNaoConfiavel = codigo === "SANTANDER";
+      const semFitidConfiavel = linhas.filter((l) => l.fitid === null || fitidNaoConfiavel);
       const chaveSemFitid = (l: { postoId: string; bancoId: string; data: Date; descricao: string; valor: string }) =>
         `${l.postoId}|${l.bancoId}|${l.data.toISOString()}|${l.descricao}|${l.valor}`;
 
       let linhasParaGravar = linhas;
-      if (semFitid.length > 0) {
+      if (semFitidConfiavel.length > 0) {
         const existentes = await prisma.lancamentoExtrato.findMany({
           where: {
-            fitid: null,
-            OR: semFitid.map((l) => ({
+            OR: semFitidConfiavel.map((l) => ({
               postoId: l.postoId,
               bancoId: l.bancoId,
               data: l.data,
@@ -132,15 +140,15 @@ export async function importarExtratos(params: {
         });
         const jaExistem = new Set(existentes.map((e) => chaveSemFitid({ ...e, valor: e.valor.toString() })));
         const vistosNoLote = new Set<string>();
-        const semFitidDuplicado = new Set(
-          semFitid.filter((l) => {
+        const duplicadas = new Set(
+          semFitidConfiavel.filter((l) => {
             const k = chaveSemFitid(l);
             if (jaExistem.has(k) || vistosNoLote.has(k)) return true;
             vistosNoLote.add(k);
             return false;
           })
         );
-        linhasParaGravar = linhas.filter((l) => l.fitid !== null || !semFitidDuplicado.has(l));
+        linhasParaGravar = linhas.filter((l) => (l.fitid !== null && !fitidNaoConfiavel) || !duplicadas.has(l));
       }
 
       const gravado = await prisma.lancamentoExtrato.createMany({
