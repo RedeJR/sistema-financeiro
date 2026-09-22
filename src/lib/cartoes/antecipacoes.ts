@@ -11,6 +11,17 @@ export type AjusteAntecipacao = {
   delta: number; // + no dia em que o dinheiro caiu, − nos dias do período antecipado
 };
 
+// Adquirentes de maquininha (débito, crédito, pix): a antecipação atinge só o
+// crédito — débito e pix já pagam em 1 dia. As demais (Abastece Aí, SAQPAY,
+// Sem Parar, Premmia...) não têm modalidade: qualquer venda com pagamento no
+// período pode ter sido antecipada.
+const ADQUIRENTES_DE_MAQUININHA = ["CIELO", "GETNET", "PAGSEGURO", "REDE", "STONE"];
+
+function podeSerAntecipada(tipoVenda: string, adquirenteNome: string): boolean {
+  if (!ADQUIRENTES_DE_MAQUININHA.some((n) => adquirenteNome.startsWith(n))) return true;
+  return classificarModalidadeVenda(tipoVenda, adquirenteNome) === "CREDITO";
+}
+
 function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -19,8 +30,8 @@ function iso(d: Date): string {
 // (ver AntecipacaoCartao no schema). A adquirente antecipa um valor dentro de
 // um período de recebíveis futuros sem dizer quais vendas, então:
 //  - no dia em que o dinheiro caiu, soma o líquido recebido;
-//  - nos dias do período, tira o valor cheio proporcionalmente ao esperado de
-//    CRÉDITO de cada dia (débito e pix já pagam em 1 dia, não são antecipados).
+//  - nos dias do período, tira o valor cheio proporcionalmente ao esperado
+//    antecipável de cada dia (crédito nas maquininhas; tudo nas demais).
 // Se o sistema tem menos crédito no período do que foi antecipado (ex: faltam
 // vendas importadas), tira no máximo o que existe. Só devolve os ajustes que
 // caem dentro de [dataInicio, dataFim], mas calcula a proporção sobre o
@@ -70,7 +81,7 @@ export async function calcularAjustesAntecipacao(params: {
     });
     const porDia = new Map<string, number>();
     for (const l of linhas) {
-      if (!l.dataPagamento || classificarModalidadeVenda(l.tipoVenda, g.nome) !== "CREDITO") continue;
+      if (!l.dataPagamento || !podeSerAntecipada(l.tipoVenda, g.nome)) continue;
       const d = iso(l.dataPagamento);
       porDia.set(d, (porDia.get(d) ?? 0) + Number(l._sum.valorLiquido ?? 0));
     }

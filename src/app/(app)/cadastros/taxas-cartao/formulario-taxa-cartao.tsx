@@ -235,11 +235,12 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
           className="mt-1"
         />
         <span>
-          Crédito com antecipação automática
+          Crédito: usar a taxa e o prazo do cadastro
           <span className="block text-xs text-foreground/50">
-            Use a taxa total e o prazo de crédito cadastrados acima (não os do arquivo) no líquido e na data de
-            pagamento das vendas de crédito. Ex: Getnet — o arquivo traz 30 dias e só 1,33%, mas cai em 1 dia com
-            2,58% (1,33% + 1,25% de antecipação).
+            Vale a taxa e o prazo de crédito cadastrados acima (não os do arquivo) no líquido e na data de
+            pagamento das vendas de crédito. Ex: Getnet com antecipação automática — o arquivo traz 30 dias e só
+            1,33%, mas cai em 1 dia com 2,58% (1,33% + 1,25% de antecipação). Prazo até 5 dias conta em dias
+            úteis; acima disso, em dias corridos.
           </span>
         </span>
       </label>
