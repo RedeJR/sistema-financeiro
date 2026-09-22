@@ -10,6 +10,7 @@ import { parseSaqpay } from "./saqpay";
 import { parseSemParar } from "./semparar";
 import { parseAbasteceAi } from "./abasteceai";
 import { parsePremmia } from "./premmia";
+import { parsePluxee } from "./pluxee";
 
 export type DefinicaoAdquirente = {
   nomeExibicao: string;
@@ -32,6 +33,7 @@ export const PARSERS: Record<string, DefinicaoAdquirente> = {
   SEMPARAR: { nomeExibicao: "SEM PARAR", multiPosto: "nome", parse: parseSemParar },
   ABASTECE_AI: { nomeExibicao: "ABASTECE AÍ", multiPosto: "cnpj", parse: parseAbasteceAi },
   PREMMIA: { nomeExibicao: "PREMMIA", multiPosto: false, parse: parsePremmia },
+  PLUXEE: { nomeExibicao: "PLUXEE", multiPosto: false, parse: parsePluxee },
 };
 
 // Reconhece a adquirente pelo nome do arquivo — mesma convenção que já era
@@ -53,6 +55,7 @@ const DETECCAO: [string, keyof typeof PARSERS][] = [
   ["SEMPARAR", "SEMPARAR"],
   ["ABASTECE", "ABASTECE_AI"],
   ["PREMMIA", "PREMMIA"],
+  ["PLUXEE", "PLUXEE"],
 ];
 
 export function detectarAdquirentePorNome(nomeArquivo: string): keyof typeof PARSERS | null {
@@ -78,6 +81,7 @@ const ASSINATURAS: [string[], keyof typeof PARSERS][] = [
   [["CREDENCIADO", "DATA_REPASSE"], "SEMPARAR"],
   [["OFERTA É SUA", "LÍQUIDO A RECEBER"], "ABASTECE_AI"],
   [["CÓDIGO TRANSAÇÃO", "FORMA DE PAGAMENTO"], "PREMMIA"],
+  [["REDE DE CAPTURA", "DATA DE PAGAMENTO"], "PLUXEE"],
 ];
 
 // Junta as primeiras linhas/células do arquivo num texto só, em maiúsculas,
