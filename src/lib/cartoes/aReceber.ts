@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
+import { MAQUININHAS_COM_VOUCHER } from "./vouchersDuplicados";
 
 export type BaseAReceber = "venda" | "recebimento";
 
@@ -37,7 +38,14 @@ export async function buscarVendasAReceber(params: {
     base === "venda"
       ? {
           dataVenda: { gte: dataInicio, lte: dataFim },
-          OR: [{ dataPagamento: { gt: dataFim } }, { dataPagamento: null }],
+          // Sem data de pagamento só conta pra voucher (VR etc., cujo relatório
+          // não traz repasse). Venda sem data numa maquininha é voucher que
+          // ela captura mas não paga (ex: "Voucher" da PagSeguro, relatório de
+          // "parceiros" da Cielo) — fica fora.
+          OR: [
+            { dataPagamento: { gt: dataFim } },
+            { dataPagamento: null, adquirente: { nome: { notIn: MAQUININHAS_COM_VOUCHER } } },
+          ],
         }
       : { dataPagamento: { gte: dataInicio, lte: dataFim } };
   const where = {
