@@ -34,6 +34,8 @@ type DadoTransacao = {
 
 const TAMANHO_LOTE = 5000;
 
+const ADQUIRENTES_LIQUIDO_PELA_TAXA = new Set(["PLUXEE", "VR"]);
+
 // Venda que a adquirente mandou ANTES de liquidar (ex: Getnet exportado no
 // próprio dia, sem líquido nem taxa) fica gravada com valorLiquido em branco —
 // e reimportar o arquivo completo depois não a atualizava, porque a dedupe
@@ -178,6 +180,24 @@ export async function importarTransacoesCartao(params: {
       }
 
       const dados = limite ? todosDados.slice(deslocamento, deslocamento + limite) : todosDados;
+
+      // Relatório de vendas sem líquido (Pluxee, VR): o parser deixa
+      // líquido = bruto; aqui aplica a taxa cadastrada pro posto em Taxas de
+      // Cartão (campo Débito, único usado por adquirente voucher).
+      if (ADQUIRENTES_LIQUIDO_PELA_TAXA.has(definicao.nomeExibicao)) {
+        const cadastrosTaxa = await prisma.taxaCartao.findMany({
+          where: { adquirenteId: adquirente.id, postoId: { in: [...new Set(dados.map((d) => d.postoId))] } },
+          select: { postoId: true, taxaDebito: true },
+        });
+        const pctPorPosto = new Map(cadastrosTaxa.filter((c) => c.taxaDebito !== null).map((c) => [c.postoId, Number(c.taxaDebito)]));
+        for (const d of dados) {
+          const pct = pctPorPosto.get(d.postoId);
+          if (pct === undefined) continue;
+          const taxa = Math.round(Number(d.valorBruto) * pct) / 100;
+          d.taxaRs = taxa.toFixed(2);
+          d.valorLiquido = (Number(d.valorBruto) - taxa).toFixed(2);
+        }
+      }
 
       // Crédito com antecipação automática cadastrada: vale a taxa e o prazo
       // do cadastro, não os do arquivo (ver antecipacao.ts).

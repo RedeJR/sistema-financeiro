@@ -173,7 +173,7 @@ export type ModalidadeCartao = "DEBITO" | "CREDITO_VISTA" | "CREDITO_PARCELADO" 
 // Sem Parar, Abastece Aí, Premmia) não, mesmo quando o texto da venda
 // menciona "PIX" (ex: "Saque PIX" da SAQPAY é outra coisa, não uma venda
 // PIX de maquininha — por isso o parâmetro adquirenteNome abaixo).
-const ADQUIRENTES_COM_PIX_MODALIDADE = new Set(["CIELO", "CIELO TEF", "CIELO ALUGUEL", "PAGSEGURO", "REDE", "STONE", "GETNET"]);
+const ADQUIRENTES_COM_PIX_MODALIDADE = new Set(["CIELO", "CIELO TEF", "CIELO ALUGUEL", "PAGSEGURO", "REDE", "STONE", "GETNET", "PREMMIA"]);
 
 export function classificarModalidade(tipoVenda: string, adquirenteNome: string): ModalidadeCartao {
   const t = tipoVenda.toLowerCase();

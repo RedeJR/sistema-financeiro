@@ -2,13 +2,17 @@
 // Social, Produto, filtro de período) antes do cabeçalho de verdade. Já traz
 // a própria "Data de pagamento" por venda — sem precisar nenhuma regra de
 // prazo pra inferir (prazo real visto: bem longo, ~30 dias). Não traz valor
-// líquido/taxa — só aparece no relatório de recebimento, que mostrou taxa
-// 0% no período conferido, então valorLiquido = valorBruto por enquanto.
+// líquido/taxa — o importador aplica a taxa cadastrada pro posto (ver
+// ADQUIRENTES_LIQUIDO_PELA_TAXA em importar.ts). Também lê o relatório de
+// recebimento ("extrato_pagamentos", mesmas colunas + Status): traz as
+// vendas de meses anteriores que só foram pagas agora. O status "ERRO NO
+// PAGAMENTO" não muda a data: o dinheiro caiu na data prevista mesmo assim
+// (conferido no extrato de Cantareira e Barramares), então é ignorado.
 import ExcelJS from "exceljs";
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
 import { criarBuscadorDeColuna, identificadorComposto, paraData, paraValorDecimal } from "../normalizar";
 
-const MAX_LINHAS_PREAMBULO = 20;
+const MAX_LINHAS_PREAMBULO = 40;
 
 export async function parsePluxee(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
   const workbook = new ExcelJS.Workbook();
@@ -36,9 +40,9 @@ export async function parsePluxee(arq: ArquivoEntrada): Promise<LinhaTransacao[]
   const idx = criarBuscadorDeColuna(cabecalho);
   const iDataTransacao = idx("Data da transação");
   const iDescricao = idx("Descrição");
-  const iAutorizacao = idx("Número da autorização");
-  const iValorBruto = idx("Valor bruto");
-  const iDataPagamento = idx("Data de pagamento");
+  const iAutorizacao = idx("Número da autorização") >= 0 ? idx("Número da autorização") : idx("Nº de Autorização");
+  const iValorBruto = idx("Valor bruto") >= 0 ? idx("Valor bruto") : idx("Valor Bruto R$");
+  const iDataPagamento = idx("Data de pagamento") >= 0 ? idx("Data de pagamento") : idx("Data do Pagamento");
 
   const resultado: LinhaTransacao[] = [];
   for (let r = linhaHeader + 1; r <= planilha.rowCount; r++) {
