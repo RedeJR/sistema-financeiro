@@ -4,6 +4,7 @@ import { PARSERS, detectarAdquirente } from "./parsers";
 import { encontrarPostoPorCnpj, encontrarPostoPorFragmento } from "./postos";
 import type { ArquivoEntrada } from "./tipos";
 import { calcularAjusteAntecipacao } from "./antecipacao";
+import { MAQUININHAS_COM_VOUCHER, postoQueJaTemAsMesmasVendas, removerVouchersDuplicadosDasMaquininhas } from "./vouchersDuplicados";
 
 export type ResultadoArquivoCartao = {
   arquivo: string;
@@ -35,6 +36,7 @@ type DadoTransacao = {
 const TAMANHO_LOTE = 5000;
 
 const ADQUIRENTES_LIQUIDO_PELA_TAXA = new Set(["PLUXEE", "VR"]);
+const ADQUIRENTES_DE_VOUCHER_DUPLICADO = new Set([...MAQUININHAS_COM_VOUCHER, "VR", "ALELO", "PLUXEE"]);
 
 // Venda que a adquirente mandou ANTES de liquidar (ex: Getnet exportado no
 // próprio dia, sem líquido nem taxa) fica gravada com valorLiquido em branco —
@@ -179,6 +181,23 @@ export async function importarTransacoesCartao(params: {
         });
       }
 
+      if (definicao.multiPosto === false && deslocamento === 0) {
+        const outroPosto = await postoQueJaTemAsMesmasVendas({
+          postoId,
+          adquirenteId: adquirente.id,
+          identificadores: todosDados.map((d) => d.identificadorExterno).filter((i): i is string => i !== null),
+        });
+        if (outroPosto) {
+          resultados.push({
+            arquivo: arq.nome,
+            status: "erro",
+            adquirente: definicao.nomeExibicao,
+            mensagem: `Essas vendas já estão importadas no posto ${outroPosto} — parece arquivo de outro posto. Nada foi gravado; confira o posto escolhido na tela.`,
+          });
+          continue;
+        }
+      }
+
       const dados = limite ? todosDados.slice(deslocamento, deslocamento + limite) : todosDados;
 
       // Relatório de vendas sem líquido (Pluxee, VR): o parser deixa
@@ -292,6 +311,10 @@ export async function importarTransacoesCartao(params: {
       const gravado = { count: gravadosTotal };
 
       const partes: string[] = [];
+      if (ADQUIRENTES_DE_VOUCHER_DUPLICADO.has(definicao.nomeExibicao)) {
+        const removidas = await removerVouchersDuplicadosDasMaquininhas([...new Set(dados.map((d) => d.postoId))]);
+        if (removidas > 0) partes.push(`${removidas} venda(s) de voucher da maquininha removida(s) por já constarem no relatório do voucher`);
+      }
       if (semPostoReconhecido > 0 && deslocamento === 0) partes.push(`${semPostoReconhecido} linha(s) de posto não reconhecido, ignoradas`);
 
       resultados.push({
