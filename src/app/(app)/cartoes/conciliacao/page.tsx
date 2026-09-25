@@ -232,6 +232,15 @@ export default async function ConciliacaoCartoesPage({
         )}
       </form>
 
+      {temFiltro && filtrarPorVenda && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+          <strong>Filtrando por data da venda.</strong> O esperado só considera as vendas do período, mas o extrato do
+          mesmo intervalo também traz recebimentos de vendas anteriores (ex: D+31 da Premmia, vendas de meses
+          passados). Por isso as diferenças e o status &quot;Divergente&quot; deste modo não indicam erro. Pra conferir
+          com o extrato, use <em>Data de pagamento</em>.
+        </div>
+      )}
+
       {!linhas && (
         <p className="py-10 text-center text-sm text-foreground/50">
           Escolha um posto e o período pra ver a conciliação.
