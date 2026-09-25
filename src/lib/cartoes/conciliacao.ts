@@ -133,8 +133,18 @@ export async function buscarConciliacaoCartoes(params: {
   // extrato numa janela que cubra todas as datas de pagamento encontradas,
   // não só o período original do filtro.
   const datasEsperado = [...gruposEsperado.values()].map((g) => g.data);
-  const dataMinExtrato = datasEsperado.length > 0 ? new Date(`${datasEsperado.reduce((a, b) => (a < b ? a : b))}T00:00:00.000Z`) : dataInicio;
-  const dataMaxExtrato = datasEsperado.length > 0 ? new Date(`${datasEsperado.reduce((a, b) => (a > b ? a : b))}T23:59:59.999Z`) : dataFim;
+  // Por data de pagamento o extrato vale o período inteiro pedido — senão o
+  // que caiu no banco ANTES da primeira venda esperada (ex: recebimento de
+  // vendas de um mês que não foi importado) some da tela e a diferença fica
+  // parecendo menor do que é.
+  const dataMinExtrato =
+    filtrarPor === "pagamento" || datasEsperado.length === 0
+      ? dataInicio
+      : new Date(`${datasEsperado.reduce((a, b) => (a < b ? a : b))}T00:00:00.000Z`);
+  const dataMaxExtrato =
+    filtrarPor === "pagamento" || datasEsperado.length === 0
+      ? dataFim
+      : new Date(`${datasEsperado.reduce((a, b) => (a > b ? a : b))}T23:59:59.999Z`);
 
   const lancamentos =
     categoriaIdsEnvolvidas.length > 0

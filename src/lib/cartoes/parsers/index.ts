@@ -37,6 +37,8 @@ export const PARSERS: Record<string, DefinicaoAdquirente> = {
   PREMMIA: { nomeExibicao: "PREMMIA", multiPosto: false, parse: parsePremmia },
   PLUXEE: { nomeExibicao: "PLUXEE", multiPosto: false, parse: parsePluxee },
   ALELO: { nomeExibicao: "ALELO", multiPosto: false, parse: parseAlelo },
+  // NAIP é o segundo voucher da Alelo (cartões Multi Saldo/Multi Limite) — mesmo formato de relatório.
+  NAIP: { nomeExibicao: "NAIP", multiPosto: false, parse: parseAlelo },
   VR: { nomeExibicao: "VR", multiPosto: "cnpj", parse: parseVr },
 };
 
@@ -62,6 +64,7 @@ const DETECCAO: [string, keyof typeof PARSERS][] = [
   ["PREMIA", "PREMMIA"],
   ["PLUXEE", "PLUXEE"],
   ["ALELO", "ALELO"],
+  ["NAIP", "NAIP"],
   ["_VR", "VR"],
   [" VR ", "VR"],
 ];
