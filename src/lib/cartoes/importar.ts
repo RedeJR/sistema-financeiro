@@ -35,6 +35,10 @@ type DadoTransacao = {
 
 const TAMANHO_LOTE = 5000;
 
+// Postos que não entram no sistema de cartões — as vendas deles vêm nos
+// arquivos de vários postos (ex: Sem Parar) e são descartadas na importação.
+const POSTOS_IGNORADOS = ["PHILIPS", "ABU-DHABI", "LISBOA"];
+
 const ADQUIRENTES_LIQUIDO_PELA_TAXA = new Set(["PLUXEE", "VR"]);
 const ADQUIRENTES_DE_VOUCHER_DUPLICADO = new Set([...MAQUININHAS_COM_VOUCHER, "VR", "ALELO", "PLUXEE"]);
 
@@ -145,6 +149,8 @@ export async function importarTransacoesCartao(params: {
       });
 
       let semPostoReconhecido = 0;
+      let postosIgnoradosLinhas = 0;
+      const idsPostosIgnorados = new Set(todosPostos.filter((p) => POSTOS_IGNORADOS.includes(p.nome.toUpperCase())).map((p) => p.id));
       const todosDados: DadoTransacao[] = [];
 
       for (const l of linhas) {
@@ -165,6 +171,10 @@ export async function importarTransacoesCartao(params: {
             continue;
           }
           postoIdLinha = encontrado.id;
+        }
+        if (definicao.multiPosto !== false && idsPostosIgnorados.has(postoIdLinha)) {
+          postosIgnoradosLinhas++;
+          continue;
         }
         todosDados.push({
           postoId: postoIdLinha,
@@ -315,6 +325,7 @@ export async function importarTransacoesCartao(params: {
         const removidas = await removerVouchersDuplicadosDasMaquininhas([...new Set(dados.map((d) => d.postoId))]);
         if (removidas > 0) partes.push(`${removidas} venda(s) de voucher da maquininha removida(s) por já constarem no relatório do voucher`);
       }
+      if (postosIgnoradosLinhas > 0 && deslocamento === 0) partes.push(`${postosIgnoradosLinhas} linha(s) de posto ignorado (Philips, Abu Dhabi, Lisboa), descartadas`);
       if (semPostoReconhecido > 0 && deslocamento === 0) partes.push(`${semPostoReconhecido} linha(s) de posto não reconhecido, ignoradas`);
 
       resultados.push({
