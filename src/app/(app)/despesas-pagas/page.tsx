@@ -339,18 +339,30 @@ export default async function DespesasPagasPage({
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/* Documento inteiro na mesma grade: um cabeçalho só, barras de grupo e despesas com as mesmas colunas. */}
+      <div className={`overflow-x-auto rounded-lg border border-black/10 dark:border-white/15 ${grupos.length === 0 ? "hidden" : ""}`}>
+       <div className="min-w-[820px]">
+        {grupos.length > 0 && (
+          <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_9.5rem] gap-x-3 bg-black/[0.04] px-4 py-1.5 text-xs font-medium text-foreground/60 dark:bg-white/[0.05]">
+            <span>Fornecedor</span>
+            <span>Plano de contas</span>
+            <span />
+            <span className="text-right">Valor</span>
+            <span />
+          </div>
+        )}
         {grupos.map((g) => {
           const status = g.bancoId ? statusPorChave.get(g.chave)?.status : undefined;
           const verMais = linkVerMais(g);
           return (
-            <div key={g.chave} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 bg-black/[0.03] px-4 py-2 dark:border-white/10 dark:bg-white/[0.04]">
-                <span className="text-sm font-semibold text-foreground/80">
-                  {formatarData(g.data)} — {g.postoNome} — {g.bancoNome ?? "sem banco definido"} — {g.quantidade}{" "}
-                  despesa{g.quantidade === 1 ? "" : "s"} — total {formatarMoeda(g.total)}
-                </span>
-                <div className="flex items-center gap-2">
+            <div key={g.chave} className="border-t border-black/10 dark:border-white/15">
+              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_9.5rem] gap-x-3 items-center bg-blue-950/10 px-4 py-2 dark:bg-blue-950/25">
+                <span className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-foreground/80">
+                  <span>
+                    {formatarData(g.data)} — {g.postoNome} — {g.bancoNome ?? "sem banco definido"} — {g.quantidade}{" "}
+                    despesa{g.quantidade === 1 ? "" : "s"}
+                  </span>
+                  <span className="flex items-center gap-2 font-normal">
                   {status ? <Badge status={status} /> : (
                     <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs text-foreground/50 dark:bg-white/10">
                       sem banco definido
@@ -364,23 +376,18 @@ export default async function DespesasPagasPage({
                       Ver mais +
                     </Link>
                   )}
-                </div>
+                  </span>
+                </span>
+                <span className="text-right text-sm font-semibold whitespace-nowrap">{formatarMoeda(g.total)}</span>
+                <span />
               </div>
               {podeEditar && (
                 <details className="group">
                   <summary className="cursor-pointer px-4 py-1.5 text-xs text-foreground/50 hover:text-foreground/80">
                     Ver despesas do grupo
                   </summary>
-                  {/* Grade com colunas fixas: fornecedor, plano de contas, etiquetas, valor e ação alinham em todas as linhas e grupos. */}
-                  <div className="overflow-x-auto border-t border-black/5 dark:border-white/10">
-                    <div className="min-w-[760px]">
-                      <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_9.5rem] gap-x-3 bg-black/[0.02] px-4 py-1.5 text-xs font-medium text-foreground/60 dark:bg-white/[0.02]">
-                        <span>Fornecedor</span>
-                        <span>Plano de contas</span>
-                        <span />
-                        <span className="text-right">Valor</span>
-                        <span />
-                      </div>
+                  <div className="border-t border-black/5 dark:border-white/10">
+                    <div>
                       <div className="divide-y divide-black/5 dark:divide-white/10">
                         {g.despesas.map((c) => (
                           <div
@@ -426,12 +433,13 @@ export default async function DespesasPagasPage({
             </div>
           );
         })}
-        {grupos.length === 0 && (
-          <p className="rounded-lg border border-black/10 px-4 py-6 text-center text-sm text-foreground/50 dark:border-white/15">
-            Nenhuma despesa paga encontrada pra esse filtro.
-          </p>
-        )}
+       </div>
       </div>
+      {grupos.length === 0 && (
+        <p className="rounded-lg border border-black/10 px-4 py-6 text-center text-sm text-foreground/50 dark:border-white/15">
+          Nenhuma despesa paga encontrada pra esse filtro.
+        </p>
+      )}
     </div>
   );
 }

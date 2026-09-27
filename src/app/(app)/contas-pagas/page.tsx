@@ -201,77 +201,67 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
         {linhas.length} conta{linhas.length === 1 ? "" : "s"} — total {formatarMoeda(total)}
       </p>
 
-      <div className="space-y-4">
-        {grupos.map((g) => (
-          <div key={g.chave} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-            <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
-              {g.subtitulo ? `${g.subtitulo} / ${g.titulo}` : g.titulo} — {g.linhas.length} conta
-              {g.linhas.length === 1 ? "" : "s"} — total {formatarMoeda(g.total)}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] table-fixed text-sm [&_td]:break-words">
-                {/* Larguras fixas: cada grupo é uma tabela própria, e sem isso as colunas mudam de largura de um grupo pro outro. */}
-                <colgroup>
-                  {ordem !== "vencimento" && <col style={{ width: "9%" }} />}
-                  {ordem !== "posto" && <col style={{ width: "14%" }} />}
-                  <col style={{ width: "22%" }} />
-                  {ordem !== "planoConta" && <col style={{ width: "22%" }} />}
-                  <col />
-                  <col style={{ width: "11%" }} />
-                </colgroup>
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
-                  <tr>
-                    {ordem !== "vencimento" && <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>}
-                    {ordem !== "posto" && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
-                    <th className="px-4 py-1.5 text-left font-medium">Fornecedor</th>
-                    {ordem !== "planoConta" && (
-                      <th className="px-4 py-1.5 text-left font-medium">Plano de contas</th>
-                    )}
-                    <th className="px-4 py-1.5 text-left font-medium">Descrição</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor</th>
+      {/* Uma tabela só pro documento inteiro, sempre com as mesmas 6 colunas na mesma ordem
+          (qualquer agrupamento): os títulos de grupo são linhas dentro dela, com o total na
+          coluna Valor — nada muda de posição de um grupo pro outro. */}
+      {grupos.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+          <table className="w-full min-w-[820px] table-fixed text-sm [&_td]:break-words">
+            <colgroup>
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "21%" }} />
+              <col style={{ width: "21%" }} />
+              <col />
+              <col style={{ width: "11%" }} />
+            </colgroup>
+            <thead className="bg-black/[0.04] dark:bg-white/[0.05]">
+              <tr>
+                <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>
+                <th className="px-4 py-1.5 text-left font-medium">Posto</th>
+                <th className="px-4 py-1.5 text-left font-medium">Fornecedor</th>
+                <th className="px-4 py-1.5 text-left font-medium">Plano de contas</th>
+                <th className="px-4 py-1.5 text-left font-medium">Descrição</th>
+                <th className="px-4 py-1.5 text-right font-medium">Valor</th>
+              </tr>
+            </thead>
+            {grupos.map((g) => (
+              <tbody key={g.chave}>
+                <tr className="border-t border-black/10 bg-blue-950/10 font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+                  <td className="px-4 py-1.5" colSpan={5}>
+                    {g.subtitulo ? `${g.subtitulo} / ${g.titulo}` : g.titulo} — {g.linhas.length} conta
+                    {g.linhas.length === 1 ? "" : "s"}
+                  </td>
+                  <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(g.total)}</td>
+                </tr>
+                {g.linhas.map((l, i) => (
+                  <tr
+                    key={l.id}
+                    className={`border-t border-black/5 dark:border-white/10 ${
+                      i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
+                    <td className="px-4 py-1.5">
+                      {(l.postoPagamento ?? l.posto).nome}
+                      {l.postoPagamentoId && (
+                        <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-1.5">{l.fornecedor.nome}</td>
+                    <td className="px-4 py-1.5 text-foreground/70">
+                      {l.planoConta.grupo.nome} / {l.planoConta.nome}
+                    </td>
+                    <td className="px-4 py-1.5 text-foreground/70">{l.descricao ?? "—"}</td>
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valor.toString())}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {g.linhas.map((l, i) => (
-                    <tr
-                      key={l.id}
-                      className={`border-t border-black/5 dark:border-white/10 ${
-                        i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""
-                      }`}
-                    >
-                      {ordem !== "vencimento" && (
-                        <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
-                      )}
-                      {ordem !== "posto" && (
-                        <td className="px-4 py-1.5">
-                          {(l.postoPagamento ?? l.posto).nome}
-                          {l.postoPagamentoId && (
-                            <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-4 py-1.5">
-                        {l.fornecedor.nome}
-                        {ordem === "posto" && l.postoPagamentoId && (
-                          <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
-                        )}
-                      </td>
-                      {ordem !== "planoConta" && (
-                        <td className="px-4 py-1.5 text-foreground/70">
-                          {l.planoConta.grupo.nome} / {l.planoConta.nome}
-                        </td>
-                      )}
-                      <td className="px-4 py-1.5 text-foreground/70">{l.descricao ?? "—"}</td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">
-                        {formatarMoeda(l.valor.toString())}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+                ))}
+              </tbody>
+            ))}
+          </table>
+        </div>
+      )}
+      <div className="space-y-4">
         {grupos.length === 0 && (
           <p className="rounded-lg border border-black/10 px-4 py-6 text-center text-sm text-foreground/50 dark:border-white/15">
             Nenhuma conta paga encontrada pra esse filtro.
