@@ -209,7 +209,16 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
               {g.linhas.length === 1 ? "" : "s"} — total {formatarMoeda(g.total)}
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[720px] table-fixed text-sm [&_td]:break-words">
+                {/* Larguras fixas: cada grupo é uma tabela própria, e sem isso as colunas mudam de largura de um grupo pro outro. */}
+                <colgroup>
+                  {ordem !== "vencimento" && <col style={{ width: "9%" }} />}
+                  {ordem !== "posto" && <col style={{ width: "14%" }} />}
+                  <col style={{ width: "22%" }} />
+                  {ordem !== "planoConta" && <col style={{ width: "22%" }} />}
+                  <col />
+                  <col style={{ width: "11%" }} />
+                </colgroup>
                 <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
                   <tr>
                     {ordem !== "vencimento" && <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>}
