@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { classificarModalidadeVenda, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
+import { classificarModalidadeVenda, ehVendaEmDinheiro, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
 import { MAQUININHAS_COM_VOUCHER } from "./vouchersDuplicados";
 
 export type BaseAReceber = "venda" | "recebimento";
@@ -78,6 +78,7 @@ export async function buscarVendasAReceber(params: {
 
   const linhas = new Map<string, LinhaAReceber>();
   for (const g of grupos) {
+    if (ehVendaEmDinheiro(g.tipoVenda)) continue;
     const adquirente = nomeAdquirente.get(g.adquirenteId) ?? g.adquirenteId;
     const modalidade = classificarModalidadeVenda(g.tipoVenda, adquirente);
     const chave = `${g.postoId}|${g.adquirenteId}|${modalidade}`;

@@ -348,3 +348,10 @@ export function prazoTextoParaDias(texto: unknown): number | null {
   if (porDias) return Number(porDias[1]);
   return null;
 }
+
+// Abastece Aí traz vendas "Dinheiro" (cliente pagou em espécie no posto pelo
+// app): não há repasse — líquido e taxa vêm zerados. Não são venda de cartão,
+// então ficam fora do fechamento e das vendas a receber.
+export function ehVendaEmDinheiro(tipoVenda: string): boolean {
+  return tipoVenda.trim().toLowerCase() === "dinheiro";
+}

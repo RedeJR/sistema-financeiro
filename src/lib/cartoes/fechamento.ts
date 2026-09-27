@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { classificarModalidadeVenda, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
+import { classificarModalidadeVenda, ehVendaEmDinheiro, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
 
 export type ModalidadeFechamento = ModalidadeVenda;
 
@@ -54,6 +54,13 @@ export async function buscarFechamentoCartoes(params: {
       qtdSemLiquido: 0,
       brutoSemLiquido: 0,
     };
+    // Venda em dinheiro (Abastece Aí) não é venda de cartão: fica fora de qtd/bruto/líquido.
+    // Só a tarifa cobrada por pagamento em dinheiro (líquido negativo no arquivo) entra na taxa.
+    if (ehVendaEmDinheiro(t.tipoVenda)) {
+      if (t.valorLiquido !== null && Number(t.valorLiquido) < 0) grupo.taxa += -Number(t.valorLiquido);
+      grupos.set(chave, grupo);
+      continue;
+    }
     grupo.qtd++;
     grupo.totalBruto += Number(t.valorBruto);
     if (t.valorLiquido !== null) {
