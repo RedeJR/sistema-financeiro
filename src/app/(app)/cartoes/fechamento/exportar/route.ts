@@ -1,14 +1,11 @@
 import type { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
+import { ROTULO_TIPO_FECHAMENTO } from "@/lib/cartoes/normalizar";
 import { exigirPermissao } from "@/lib/auth";
 import { buscarFechamentoCartoes, buscarCustoAntecipacao, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
-const ROTULO_MODALIDADE: Record<ModalidadeFechamento, string> = {
-  DEBITO: "Débito",
-  CREDITO: "Crédito",
-  PIX: "Pix",
-};
+const ROTULO_MODALIDADE = ROTULO_TIPO_FECHAMENTO;
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -32,7 +29,7 @@ export async function GET(request: NextRequest) {
   const custos = await buscarCustoAntecipacao({ postoId, adquirenteId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true) });
 
   const titulo = `FECHAMENTO DE CARTÕES - ${inicio} a ${fim}`;
-  const cabecalho = ["Posto", "Adquirente", "Modalidade", "Qtd", "Total Bruto", "Total Líquido", "Taxas"];
+  const cabecalho = ["Posto", "Adquirente", "Tipo", "Qtd", "Total Bruto", "Total Líquido", "Taxas"];
   const aoa: (string | number)[][] = [
     [titulo],
     cabecalho,

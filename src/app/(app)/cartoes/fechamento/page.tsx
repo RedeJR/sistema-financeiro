@@ -2,17 +2,14 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarFechamentoCartoes, buscarCustoAntecipacao, type LinhaFechamento, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
+import { ROTULO_TIPO_FECHAMENTO } from "@/lib/cartoes/normalizar";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
 }
 
-const ROTULO_MODALIDADE: Record<ModalidadeFechamento, string> = {
-  DEBITO: "Débito",
-  CREDITO: "Crédito",
-  PIX: "Pix",
-};
+const ROTULO_MODALIDADE = ROTULO_TIPO_FECHAMENTO;
 
 export default async function FechamentoCartoesPage({
   searchParams,
@@ -199,7 +196,7 @@ export default async function FechamentoCartoesPage({
                   <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
                     <tr>
                       <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                      <th className="px-4 py-1.5 text-left font-medium">Modalidade</th>
+                      <th className="px-4 py-1.5 text-left font-medium">Tipo</th>
                       <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
                       <th className="px-4 py-1.5 text-right font-medium">Total Bruto</th>
                       <th className="px-4 py-1.5 text-right font-medium">Total Líquido</th>

@@ -355,3 +355,35 @@ export function prazoTextoParaDias(texto: unknown): number | null {
 export function ehVendaEmDinheiro(tipoVenda: string): boolean {
   return tipoVenda.trim().toLowerCase() === "dinheiro";
 }
+
+// "Tipo" do fechamento: além de débito/crédito/Pix, separa o que não é venda
+// de maquininha — voucher (Pluxee, VR, Alelo...), aplicativo/tag (Abastece Aí,
+// Sem Parar, Premmia) e saque Pix (SAQPAY).
+export type TipoFechamento = ModalidadeVenda | "VOUCHER" | "APLICATIVO" | "SAQUE_PIX";
+
+export const ORDEM_TIPO_FECHAMENTO: Record<TipoFechamento, number> = {
+  DEBITO: 0,
+  CREDITO: 1,
+  PIX: 2,
+  VOUCHER: 3,
+  APLICATIVO: 4,
+  SAQUE_PIX: 5,
+};
+
+export const ROTULO_TIPO_FECHAMENTO: Record<TipoFechamento, string> = {
+  DEBITO: "Débito",
+  CREDITO: "Crédito",
+  PIX: "Pix",
+  VOUCHER: "Voucher",
+  APLICATIVO: "Aplicativo / tag",
+  SAQUE_PIX: "Saque Pix",
+};
+
+export function classificarTipoFechamento(tipoVenda: string, adquirenteNome: string): TipoFechamento {
+  if (adquirenteNome === "SAQPAY") return "SAQUE_PIX";
+  if (["PLUXEE", "VR", "ALELO", "NAIP", "SODEXO"].includes(adquirenteNome)) return "VOUCHER";
+  if (["ABASTECE AÍ", "SEM PARAR", "PREMMIA"].includes(adquirenteNome)) return "APLICATIVO";
+  // Voucher capturado na maquininha (sem relatório próprio): Rede/Stone/PagSeguro "voucher ...", Cielo "Auto".
+  if (/voucher/i.test(tipoVenda) || (adquirenteNome === "CIELO" && tipoVenda === "Auto")) return "VOUCHER";
+  return classificarModalidadeVenda(tipoVenda, adquirenteNome);
+}

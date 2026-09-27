@@ -1,8 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { classificarModalidadeVenda, ehVendaEmDinheiro, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
+import { classificarTipoFechamento, ehVendaEmDinheiro, ORDEM_TIPO_FECHAMENTO, type TipoFechamento } from "./normalizar";
 
-export type ModalidadeFechamento = ModalidadeVenda;
+export type ModalidadeFechamento = TipoFechamento;
 
 export type LinhaFechamento = {
   posto: string;
@@ -40,7 +40,7 @@ export async function buscarFechamentoCartoes(params: {
 
   const grupos = new Map<string, LinhaFechamento>();
   for (const t of transacoes) {
-    const modalidade = classificarModalidadeVenda(t.tipoVenda, t.adquirente.nome);
+    const modalidade = classificarTipoFechamento(t.tipoVenda, t.adquirente.nome);
     const chave = `${t.postoId}|${t.adquirenteId}|${modalidade}`;
     const grupo = grupos.get(chave) ?? {
       posto: t.posto.nome,
@@ -77,7 +77,7 @@ export async function buscarFechamentoCartoes(params: {
     (a, b) =>
       a.posto.localeCompare(b.posto) ||
       a.adquirente.localeCompare(b.adquirente) ||
-      ORDEM_MODALIDADE_VENDA[a.modalidade] - ORDEM_MODALIDADE_VENDA[b.modalidade]
+      ORDEM_TIPO_FECHAMENTO[a.modalidade] - ORDEM_TIPO_FECHAMENTO[b.modalidade]
   );
 }
 
