@@ -371,40 +371,55 @@ export default async function DespesasPagasPage({
                   <summary className="cursor-pointer px-4 py-1.5 text-xs text-foreground/50 hover:text-foreground/80">
                     Ver despesas do grupo
                   </summary>
-                  <div className="divide-y divide-black/5 border-t border-black/5 dark:divide-white/10 dark:border-white/10">
-                    {g.despesas.map((c) => (
-                      <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-sm">
-                        <span>
-                          {c.fornecedor.nome}
-                          <span className="text-foreground/60"> — {c.planoConta.grupo.nome} / {c.planoConta.nome}</span>
-                          {c.postoPagamentoId && c.postoPagamentoId !== c.postoId && (
-                            <span
-                              className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-400"
-                              title="O grupo acima é agrupado pelo posto que pagou; essa despesa em si é de outro posto."
-                            >
-                              despesa do posto {c.posto.nome}
-                            </span>
-                          )}
-                          {c.avulsa && (
-                            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-400">
-                              avulsa
-                            </span>
-                          )}
-                        </span>
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          {formatarMoeda(c.valor.toString())}
-                          <form action={desfazerPagamento}>
-                            <input type="hidden" name="id" value={c.id} />
-                            <ConfirmSubmitButton
-                              confirmMessage="Desfazer esse pagamento? A conta volta pra Contas a Pagar como não paga."
-                              className="rounded-md px-2 py-1 text-xs text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
-                            >
-                              Desfazer pagamento
-                            </ConfirmSubmitButton>
-                          </form>
-                        </span>
+                  {/* Grade com colunas fixas: fornecedor, plano de contas, etiquetas, valor e ação alinham em todas as linhas e grupos. */}
+                  <div className="overflow-x-auto border-t border-black/5 dark:border-white/10">
+                    <div className="min-w-[760px]">
+                      <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_9.5rem] gap-x-3 bg-black/[0.02] px-4 py-1.5 text-xs font-medium text-foreground/60 dark:bg-white/[0.02]">
+                        <span>Fornecedor</span>
+                        <span>Plano de contas</span>
+                        <span />
+                        <span className="text-right">Valor</span>
+                        <span />
                       </div>
-                    ))}
+                      <div className="divide-y divide-black/5 dark:divide-white/10">
+                        {g.despesas.map((c) => (
+                          <div
+                            key={c.id}
+                            className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_9.5rem] items-center gap-x-3 px-4 py-1.5 text-sm"
+                          >
+                            <span className="break-words">{c.fornecedor.nome}</span>
+                            <span className="break-words text-foreground/60">
+                              {c.planoConta.grupo.nome} / {c.planoConta.nome}
+                            </span>
+                            <span className="flex flex-wrap gap-1">
+                              {c.postoPagamentoId && c.postoPagamentoId !== c.postoId && (
+                                <span
+                                  className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-400"
+                                  title="O grupo acima é agrupado pelo posto que pagou; essa despesa em si é de outro posto."
+                                >
+                                  despesa do posto {c.posto.nome}
+                                </span>
+                              )}
+                              {c.avulsa && (
+                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-400">
+                                  avulsa
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}</span>
+                            <form action={desfazerPagamento} className="text-right">
+                              <input type="hidden" name="id" value={c.id} />
+                              <ConfirmSubmitButton
+                                confirmMessage="Desfazer esse pagamento? A conta volta pra Contas a Pagar como não paga."
+                                className="rounded-md px-2 py-1 text-xs text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                              >
+                                Desfazer pagamento
+                              </ConfirmSubmitButton>
+                            </form>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </details>
               )}
