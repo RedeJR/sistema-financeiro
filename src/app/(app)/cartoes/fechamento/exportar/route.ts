@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
-import { buscarFechamentoCartoes, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
+import { buscarFechamentoCartoes, buscarCustoAntecipacao, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
 const ROTULO_MODALIDADE: Record<ModalidadeFechamento, string> = {
@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
   }
 
   const linhas = await buscarFechamentoCartoes({ postoId, adquirenteId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true) });
+
+  const custos = await buscarCustoAntecipacao({ postoId, adquirenteId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true) });
 
   const titulo = `FECHAMENTO DE CARTÕES - ${inicio} a ${fim}`;
   const cabecalho = ["Posto", "Adquirente", "Modalidade", "Qtd", "Total Bruto", "Total Líquido", "Taxas"];
@@ -64,6 +66,24 @@ export async function GET(request: NextRequest) {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, planilha, "Fechamento de Cartões");
+
+  if (custos.length > 0) {
+    const aoaCusto: (string | number)[][] = [
+      [`CUSTO DE ANTECIPAÇÃO (data do recebimento) - ${inicio} a ${fim}`],
+      ["Posto", "Adquirente", "Antecipações", "Valor original", "Valor recebido", "Custo"],
+      ...custos.map((c) => [c.posto, c.adquirente, c.qtd, c.valorFace, c.valorLiquido, c.custo]),
+      ["", "Total", "", custos.reduce((s, c) => s + c.valorFace, 0), custos.reduce((s, c) => s + c.valorLiquido, 0), custos.reduce((s, c) => s + c.custo, 0)],
+    ];
+    const planilhaCusto = XLSX.utils.aoa_to_sheet(aoaCusto);
+    for (let r = 2; r < aoaCusto.length; r++) {
+      for (const c of [3, 4, 5]) {
+        const celula = planilhaCusto[XLSX.utils.encode_cell({ r, c })];
+        if (celula && celula.t === "n") celula.z = FORMATO_MOEDA;
+      }
+    }
+    planilhaCusto["!cols"] = [{ wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(workbook, planilhaCusto, "Custo de antecipação");
+  }
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
   const nomeArquivo = `fechamento-cartoes-${inicio}-a-${fim}.xlsx`;

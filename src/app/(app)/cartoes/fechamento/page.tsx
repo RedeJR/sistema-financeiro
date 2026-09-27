@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { buscarFechamentoCartoes, type LinhaFechamento, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
+import { buscarFechamentoCartoes, buscarCustoAntecipacao, type LinhaFechamento, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function dataUTC(iso: string, fim = false): Date {
@@ -36,6 +36,16 @@ export default async function FechamentoCartoesPage({
       })
     : null;
 
+  const custoAntecipacao = temFiltro
+    ? await buscarCustoAntecipacao({
+        postoId: postoId || undefined,
+        adquirenteId: adquirenteId || undefined,
+        dataInicio: dataUTC(inicio!),
+        dataFim: dataUTC(fim!, true),
+      })
+    : [];
+  const totalCustoAntecipacao = custoAntecipacao.reduce((s, l) => s + l.custo, 0);
+
   const porPosto = new Map<string, LinhaFechamento[]>();
   for (const l of linhas ?? []) {
     const arr = porPosto.get(l.posto) ?? [];
@@ -52,6 +62,11 @@ export default async function FechamentoCartoesPage({
   const totalGeral = linhas?.reduce(
     (acc, l) => ({ bruto: acc.bruto + l.totalBruto, liquido: acc.liquido + l.totalLiquido, taxa: acc.taxa + l.taxa }),
     { bruto: 0, liquido: 0, taxa: 0 }
+  );
+
+  const semLiquido = (linhas ?? []).reduce(
+    (acc, l) => ({ qtd: acc.qtd + l.qtdSemLiquido, bruto: acc.bruto + l.brutoSemLiquido }),
+    { qtd: 0, bruto: 0 }
   );
 
   return (
@@ -165,6 +180,11 @@ export default async function FechamentoCartoesPage({
 
       {linhas && linhas.length > 0 && totalGeral && (
         <div className="space-y-4">
+          {semLiquido.qtd > 0 && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+              {semLiquido.qtd} venda(s), {formatarMoeda(semLiquido.bruto)} de bruto, estão sem valor líquido no arquivo (ex: VR) — entram no bruto, mas ficam fora do líquido e das taxas.
+            </p>
+          )}
           {[...porPosto.entries()].map(([posto, linhasPosto]) => {
             const subtotal = linhasPosto.reduce(
               (acc, l) => ({ bruto: acc.bruto + l.totalBruto, liquido: acc.liquido + l.totalLiquido, taxa: acc.taxa + l.taxa }),
@@ -215,6 +235,52 @@ export default async function FechamentoCartoesPage({
               </div>
             );
           })}
+
+          {custoAntecipacao.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
+              <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+                Custo de antecipação <span className="font-normal text-foreground/60">(pela data em que o dinheiro caiu)</span>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                  <tr>
+                    <th className="px-4 py-1.5 text-left font-medium">Posto</th>
+                    <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
+                    <th className="px-4 py-1.5 text-right font-medium">Antecipações</th>
+                    <th className="px-4 py-1.5 text-right font-medium">Valor original</th>
+                    <th className="px-4 py-1.5 text-right font-medium">Valor recebido</th>
+                    <th className="px-4 py-1.5 text-right font-medium">Custo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {custoAntecipacao.map((l) => (
+                    <tr key={l.postoId + l.adquirente} className="border-t border-black/5 dark:border-white/10">
+                      <td className="px-4 py-1.5">{l.posto}</td>
+                      <td className="px-4 py-1.5">{l.adquirente}</td>
+                      <td className="px-4 py-1.5 text-right">{l.qtd}</td>
+                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valorFace)}</td>
+                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valorLiquido)}</td>
+                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.custo)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
+                    <td className="px-4 py-1.5" colSpan={5}>
+                      Total custo de antecipação
+                    </td>
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalCustoAntecipacao)}</td>
+                  </tr>
+                  <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">
+                    <td className="px-4 py-1.5" colSpan={5}>
+                      Taxas das vendas + custo de antecipação
+                    </td>
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral.taxa + totalCustoAntecipacao)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
 
           {porPosto.size > 1 && (
             <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
