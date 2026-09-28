@@ -23,6 +23,51 @@ export async function senhaConfere(senha: string, hash: string): Promise<boolean
 }
 
 // ---------------------------------------------------------------------------
+// Bloqueio de login por força bruta
+// ---------------------------------------------------------------------------
+// Por usuário (não por IP): o CPF já não é segredo (é quem faz login, não
+// uma senha), o que precisa de proteção é a senha. Depois de
+// LIMITE_TENTATIVAS erradas seguidas, tranca esse usuário por
+// DURACAO_BLOQUEIO_MINUTOS — mesmo com a senha certa nesse meio tempo. Uma
+// senha certa zera tudo. Fica no banco (não em memória) porque a Vercel
+// roda cada requisição numa instância serverless diferente.
+
+const LIMITE_TENTATIVAS = 5;
+const DURACAO_BLOQUEIO_MINUTOS = 15;
+
+export function bloqueadoAgora(usuario: { bloqueadoAte: Date | null }): boolean {
+  return !!usuario.bloqueadoAte && usuario.bloqueadoAte > new Date();
+}
+
+// Minutos restantes (arredondado pra cima) pra mostrar na mensagem —
+// undefined se não estiver bloqueado.
+export function minutosDeBloqueioRestantes(usuario: { bloqueadoAte: Date | null }): number | undefined {
+  if (!bloqueadoAgora(usuario)) return undefined;
+  return Math.ceil((usuario.bloqueadoAte!.getTime() - Date.now()) / 60000);
+}
+
+export async function registrarTentativaFalha(usuarioId: string): Promise<void> {
+  const usuario = await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { tentativasFalhasLogin: { increment: 1 } },
+    select: { tentativasFalhasLogin: true },
+  });
+  if (usuario.tentativasFalhasLogin >= LIMITE_TENTATIVAS) {
+    await prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { bloqueadoAte: new Date(Date.now() + DURACAO_BLOQUEIO_MINUTOS * 60 * 1000) },
+    });
+  }
+}
+
+export async function limparTentativasFalhas(usuarioId: string): Promise<void> {
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { tentativasFalhasLogin: 0, bloqueadoAte: null },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Sessão
 // ---------------------------------------------------------------------------
 // O cookie guarda um token aleatório; só o hash (SHA-256) dele fica salvo no

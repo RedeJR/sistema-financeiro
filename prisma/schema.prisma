@@ -696,6 +696,12 @@ model Usuario {
   email                 String?             @unique
   senhaHash             String
   ativo                 Boolean             @default(true)
+  // Bloqueio temporário contra força bruta (ver login/actions.ts): a cada
+  // senha errada soma 1 aqui; ao chegar no limite, `bloqueadoAte` trava
+  // login (mesmo com a senha certa) até aquele horário. Uma senha certa
+  // zera os dois campos.
+  tentativasFalhasLogin Int                 @default(0)
+  bloqueadoAte          DateTime?
   permissoes            Permissao[]
   sessoes               Sessao[]
   recuperacoesSenha     RecuperacaoSenha[]
