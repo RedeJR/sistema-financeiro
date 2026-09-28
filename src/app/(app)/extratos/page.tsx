@@ -141,6 +141,12 @@ export default async function ExtratosPage({
           >
             Fechamento
           </Link>
+          <Link
+            href="/extratos/relatorios"
+            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          >
+            Relatórios
+          </Link>
           {podeEditar && (
             <Link
               href="/extratos/importar"
