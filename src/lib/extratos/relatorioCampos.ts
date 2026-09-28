@@ -9,10 +9,15 @@ import { prisma } from "@/lib/prisma";
 //
 // "Tarifas" junta as duas categorias de tarifa bancária (C/C e Pix) numa
 // coisa só — ela não separa isso na planilha.
-export type CampoRelatorioExtrato = "OUTROS" | "SAQPAY" | "DESPESAS_PAGAS" | "TARIFAS";
+export type CampoRelatorioExtrato = "OUTROS" | "RECEITA_EXTRA" | "SAQPAY" | "DESPESAS_PAGAS" | "TARIFAS";
 
 export const CAMPOS_RELATORIO_EXTRATO: { valor: CampoRelatorioExtrato; label: string; categorias: string[] }[] = [
   { valor: "OUTROS", label: "Outros", categorias: ["OUTROS"] },
+  // Separada de "Outros" a pedido da usuária (28/09/2026) — o que hoje é
+  // receita extra (aluguel de espaço, etc.) estava misturado com tudo mais
+  // que cai em "Outros" no extrato. Ela marca as linhas numa planilha e a
+  // recategorização é feita em lote (ver categorizarComoReceitaExtra abaixo).
+  { valor: "RECEITA_EXTRA", label: "Receita Extra", categorias: ["RECEITA EXTRA"] },
   { valor: "SAQPAY", label: "SAQPAY", categorias: ["SAQPAY"] },
   { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", categorias: ["DESPESAS PAGAS"] },
   { valor: "TARIFAS", label: "Tarifas", categorias: ["TARIFAS C/C", "TARIFAS PIX"] },
@@ -121,4 +126,26 @@ export async function buscarRelatorioCampoExtrato(params: {
 
   for (const bloco of blocos.values()) bloco.linhas.sort((a, b) => a.data.getTime() - b.data.getTime());
   return [...blocos.values()];
+}
+
+// Recategoriza em lote — usado quando a usuária marca linhas numa planilha
+// exportada (coluna "ID") pra virar Receita Extra (ou outra categoria) sem
+// precisar clicar lançamento por lançamento em /extratos/editar. `id` de
+// cada linha vem prefixado "L:" (LancamentoExtrato) ou "D:" (divisão — ver
+// LinhaRelatorioCampo acima), pra saber em qual tabela atualizar.
+export async function recategorizarLancamentos(params: { ids: string[]; categoriaNome: string }): Promise<number> {
+  const { ids, categoriaNome } = params;
+  const categoria = await prisma.categoriaExtrato.findUniqueOrThrow({ where: { nome: categoriaNome } });
+  const idsLancamento = ids.filter((id) => id.startsWith("L:")).map((id) => id.slice(2));
+  const idsDivisao = ids.filter((id) => id.startsWith("D:")).map((id) => id.slice(2));
+
+  const [r1, r2] = await Promise.all([
+    idsLancamento.length > 0
+      ? prisma.lancamentoExtrato.updateMany({ where: { id: { in: idsLancamento } }, data: { categoriaId: categoria.id } })
+      : { count: 0 },
+    idsDivisao.length > 0
+      ? prisma.lancamentoExtratoDivisao.updateMany({ where: { id: { in: idsDivisao } }, data: { categoriaId: categoria.id } })
+      : { count: 0 },
+  ]);
+  return r1.count + r2.count;
 }
