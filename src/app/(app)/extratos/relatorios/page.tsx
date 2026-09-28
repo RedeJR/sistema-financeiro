@@ -2,11 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
-import {
-  buscarRelatorioCampoExtrato,
-  CAMPOS_RELATORIO_EXTRATO,
-  type CampoRelatorioExtrato,
-} from "@/lib/extratos/relatorioCampos";
+import { buscarRelatorioCampoExtrato, listarCategoriasRelatorioExtrato } from "@/lib/extratos/relatorioCampos";
 import { BotaoImprimir } from "./botao-imprimir";
 
 function formatarData(d: Date): string {
@@ -17,30 +13,31 @@ function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
 }
 
-function ehCampoValido(v: string | undefined): v is CampoRelatorioExtrato {
-  return CAMPOS_RELATORIO_EXTRATO.some((c) => c.valor === v);
-}
-
 export default async function RelatoriosExtratosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; campo?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ postoId?: string; categoriaId?: string; de?: string; ate?: string }>;
 }) {
   await exigirPermissao("EXTRATOS", "visualizar");
 
-  const { postoId, de, ate, campo: campoParam } = await searchParams;
-  const campo: CampoRelatorioExtrato = ehCampoValido(campoParam) ? campoParam : "OUTROS";
+  const { postoId, de, ate, categoriaId: categoriaIdParam } = await searchParams;
 
-  const postos = await prisma.posto.findMany({
-    where: { ativo: true },
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
-  });
+  const [postos, categorias] = await Promise.all([
+    prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    listarCategoriasRelatorioExtrato(),
+  ]);
+  // Sem escolha na URL, cai na categoria "OUTROS" quando ela existir (é o
+  // campo que a usuária mais usa pro fechamento) — senão, a primeira da
+  // lista.
+  const categoriaId =
+    categoriaIdParam && categorias.some((c) => c.id === categoriaIdParam)
+      ? categoriaIdParam
+      : (categorias.find((c) => c.nome === "OUTROS") ?? categorias[0])?.id;
 
-  const temFiltro = Boolean(de && ate);
+  const temFiltro = Boolean(de && ate && categoriaId);
   const blocos = temFiltro
     ? await buscarRelatorioCampoExtrato({
-        campo,
+        categoriaId: categoriaId!,
         postoId: postoId || undefined,
         dataInicio: dataUTC(de!),
         dataFim: dataUTC(ate!, true),
@@ -48,18 +45,18 @@ export default async function RelatoriosExtratosPage({
     : null;
 
   const totalGeral = (blocos ?? []).reduce((s, b) => s + b.total, 0);
-  const labelCampo = CAMPOS_RELATORIO_EXTRATO.find((c) => c.valor === campo)!.label;
+  const nomeCategoria = categorias.find((c) => c.id === categoriaId)?.nome ?? "";
   const postoNome = postos.find((p) => p.id === postoId)?.nome;
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
-  const qsBase = new URLSearchParams({ campo, de: de ?? "", ate: ate ?? "" });
+  const qsBase = new URLSearchParams({ categoriaId: categoriaId ?? "", de: de ?? "", ate: ate ?? "" });
   if (postoId) qsBase.set("postoId", postoId);
 
   return (
     <div className="space-y-4">
       <div className="hidden print:block">
         <h2 className="text-lg font-semibold">
-          {labelCampo} — {postoNome ?? "Todos os postos"} — {de} a {ate}
+          {nomeCategoria} — {postoNome ?? "Todos os postos"} — {de} a {ate}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
       </div>
@@ -74,24 +71,24 @@ export default async function RelatoriosExtratosPage({
       </div>
 
       <p className="text-sm text-foreground/60 print:hidden">
-        Junta os lançamentos de extrato de um campo (Outros, SAQPAY, Despesas Pagas ou Tarifas) por posto, no
-        formato da planilha de receitas extras do fechamento.
+        Junta os lançamentos de extrato de uma categoria (qualquer uma cadastrada em Categorias de Extrato) por
+        posto, no formato da planilha de receitas extras do fechamento.
       </p>
 
       <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
         <div className="flex flex-col gap-1">
-          <label htmlFor="campo" className="text-foreground/60">
+          <label htmlFor="categoriaId" className="text-foreground/60">
             Campo
           </label>
           <select
-            id="campo"
-            name="campo"
-            defaultValue={campo}
+            id="categoriaId"
+            name="categoriaId"
+            defaultValue={categoriaId ?? ""}
             className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           >
-            {CAMPOS_RELATORIO_EXTRATO.map((c) => (
-              <option key={c.valor} value={c.valor}>
-                {c.label}
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
               </option>
             ))}
           </select>
@@ -214,7 +211,7 @@ export default async function RelatoriosExtratosPage({
           {blocos.length > 1 && (
             <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
               <div className="flex items-center justify-between bg-blue-950/10 px-4 py-2 text-sm font-semibold text-foreground/80 dark:bg-blue-950/25">
-                <span>Total geral — {labelCampo}</span>
+                <span>Total geral — {nomeCategoria}</span>
                 <span>{formatarMoeda(totalGeral)}</span>
               </div>
             </div>

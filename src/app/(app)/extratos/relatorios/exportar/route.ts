@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
-import { buscarRelatorioCampoExtrato, CAMPOS_RELATORIO_EXTRATO, type CampoRelatorioExtrato } from "@/lib/extratos/relatorioCampos";
+import { prisma } from "@/lib/prisma";
+import { buscarRelatorioCampoExtrato } from "@/lib/extratos/relatorioCampos";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
 
@@ -16,20 +17,21 @@ export async function GET(request: NextRequest) {
   const postoId = params.get("postoId") || undefined;
   const de = params.get("de");
   const ate = params.get("ate");
-  const campoParam = params.get("campo");
-  const campo: CampoRelatorioExtrato = CAMPOS_RELATORIO_EXTRATO.some((c) => c.valor === campoParam)
-    ? (campoParam as CampoRelatorioExtrato)
-    : "OUTROS";
+  const categoriaId = params.get("categoriaId");
 
-  if (!de || !ate) {
-    return new Response("Escolha o período.", { status: 400 });
+  if (!de || !ate || !categoriaId) {
+    return new Response("Escolha o campo e o período.", { status: 400 });
   }
 
-  const blocos = await buscarRelatorioCampoExtrato({ campo, postoId, dataInicio: dataUTC(de), dataFim: dataUTC(ate, true) });
-  const labelCampo = CAMPOS_RELATORIO_EXTRATO.find((c) => c.valor === campo)!.label;
+  const categoria = await prisma.categoriaExtrato.findUnique({ where: { id: categoriaId }, select: { nome: true } });
+  if (!categoria) {
+    return new Response("Categoria não encontrada.", { status: 400 });
+  }
+
+  const blocos = await buscarRelatorioCampoExtrato({ categoriaId, postoId, dataInicio: dataUTC(de), dataFim: dataUTC(ate, true) });
 
   const cabecalho = ["Posto", "Data", "Valor", "Descrição"];
-  const aoa: (string | number)[][] = [[`${labelCampo.toUpperCase()} - ${de} a ${ate}`], cabecalho];
+  const aoa: (string | number)[][] = [[`${categoria.nome} - ${de} a ${ate}`], cabecalho];
   for (const b of blocos) {
     for (const l of b.linhas) {
       aoa.push([b.postoNome, l.data.toISOString().slice(0, 10), l.valor, l.descricao]);
@@ -50,10 +52,19 @@ export async function GET(request: NextRequest) {
   planilha["!cols"] = [{ wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 40 }];
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, planilha, labelCampo.slice(0, 31));
+  // Nome de aba não aceita / \ ? * [ ] (algumas categorias têm barra, ex:
+  // "TARIFAS C/C") e tem limite de 31 caracteres.
+  const nomeAba = categoria.nome.replace(/[/\\?*[\]:]/g, "-").slice(0, 31);
+  XLSX.utils.book_append_sheet(workbook, planilha, nomeAba);
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
-  const nomeArquivo = `${labelCampo.toLowerCase().replace(/\s+/g, "-")}-${de}-a-${ate}.xlsx`;
+  const nomeArquivoBase = categoria.nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const nomeArquivo = `${nomeArquivoBase}-${de}-a-${ate}.xlsx`;
 
   return new Response(new Uint8Array(buffer), {
     headers: {

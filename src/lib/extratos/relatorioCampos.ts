@@ -3,25 +3,19 @@ import { prisma } from "@/lib/prisma";
 
 // Relatório de "campos" do extrato (Extratos > Relatórios) — pedido da
 // usuária pro fechamento mensal: ela precisa, rápido, de tudo que caiu numa
-// categoria específica (hoje: Outros, SAQPAY, Despesas Pagas, Tarifas),
-// posto a posto, no formato que ela já usa pra montar a planilha de
-// "Receitas extras" (bloco por posto, DATA/VALOR/DESCRIÇÃO, com total).
-//
-// "Tarifas" junta as duas categorias de tarifa bancária (C/C e Pix) numa
-// coisa só — ela não separa isso na planilha.
-export type CampoRelatorioExtrato = "OUTROS" | "RECEITA_EXTRA" | "SAQPAY" | "DESPESAS_PAGAS" | "TARIFAS";
-
-export const CAMPOS_RELATORIO_EXTRATO: { valor: CampoRelatorioExtrato; label: string; categorias: string[] }[] = [
-  { valor: "OUTROS", label: "Outros", categorias: ["OUTROS"] },
-  // Separada de "Outros" a pedido da usuária (28/09/2026) — o que hoje é
-  // receita extra (aluguel de espaço, etc.) estava misturado com tudo mais
-  // que cai em "Outros" no extrato. Ela marca as linhas numa planilha e a
-  // recategorização é feita em lote (ver categorizarComoReceitaExtra abaixo).
-  { valor: "RECEITA_EXTRA", label: "Receita Extra", categorias: ["RECEITA EXTRA"] },
-  { valor: "SAQPAY", label: "SAQPAY", categorias: ["SAQPAY"] },
-  { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", categorias: ["DESPESAS PAGAS"] },
-  { valor: "TARIFAS", label: "Tarifas", categorias: ["TARIFAS C/C", "TARIFAS PIX"] },
-];
+// categoria específica do extrato, posto a posto, no formato que ela já usa
+// pra montar a planilha de "Receitas extras" (bloco por posto, DATA/VALOR/
+// DESCRIÇÃO, com total). O "campo" é literalmente uma CategoriaExtrato — a
+// tela lista TODAS as categorias ativas do cadastro (não só um recorte fixo,
+// pedido explícito da usuária em 28/09/2026), então uma categoria nova
+// criada em Cadastros > Categorias de Extrato já aparece aqui sozinha.
+export async function listarCategoriasRelatorioExtrato(): Promise<{ id: string; nome: string }[]> {
+  return prisma.categoriaExtrato.findMany({
+    where: { ativo: true },
+    orderBy: [{ ordem: "asc" }, { nome: "asc" }],
+    select: { id: true, nome: true },
+  });
+}
 
 export type LinhaRelatorioCampo = {
   id: string;
@@ -43,25 +37,23 @@ export type BlocoRelatorioCampo = {
 };
 
 export async function buscarRelatorioCampoExtrato(params: {
-  campo: CampoRelatorioExtrato;
+  categoriaId: string;
   postoId?: string;
   dataInicio: Date;
   dataFim: Date;
 }): Promise<BlocoRelatorioCampo[]> {
-  const { campo, postoId, dataInicio, dataFim } = params;
-  const definicao = CAMPOS_RELATORIO_EXTRATO.find((c) => c.valor === campo);
-  if (!definicao) return [];
+  const { categoriaId, postoId, dataInicio, dataFim } = params;
 
-  const [postos, categorias] = await Promise.all([
+  const [postos, categoria] = await Promise.all([
     prisma.posto.findMany({
       where: { ativo: true, ...(postoId ? { id: postoId } : {}) },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     }),
-    prisma.categoriaExtrato.findMany({ where: { nome: { in: definicao.categorias } }, select: { id: true, nome: true } }),
+    prisma.categoriaExtrato.findUnique({ where: { id: categoriaId }, select: { id: true, nome: true } }),
   ]);
-  const nomeCategoriaPorId = new Map(categorias.map((c) => [c.id, c.nome]));
-  const categoriaIds = categorias.map((c) => c.id);
+  const nomeCategoriaPorId = new Map(categoria ? [[categoria.id, categoria.nome]] : []);
+  const categoriaIds = categoria ? [categoria.id] : [];
 
   const blocos = new Map<string, BlocoRelatorioCampo>(
     postos.map((p) => [p.id, { postoId: p.id, postoNome: p.nome, linhas: [], total: 0 }])
