@@ -13,6 +13,7 @@ const ROTA_POR_MODULO: Record<Modulo, string> = {
   COMBUSTIVEIS_A_PAGAR: "/combustiveis-a-pagar",
   COMBUSTIVEIS_PAGOS: "/combustiveis-pagos",
   EXTRATOS: "/extratos",
+  ENTRE_POSTOS: "/entre-postos",
   DESPESAS_PAGAS: "/despesas-pagas",
   CARTOES: "/cartoes",
   VENDAS_A_PRAZO: "/vendas-a-prazo",

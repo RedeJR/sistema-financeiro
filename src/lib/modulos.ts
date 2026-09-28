@@ -13,6 +13,7 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   { valor: "COMBUSTIVEIS_A_PAGAR", label: "Combustíveis a Pagar", disponivel: true },
   { valor: "COMBUSTIVEIS_PAGOS", label: "Combustíveis Pagos", disponivel: true },
   { valor: "EXTRATOS", label: "Conciliação de Extratos", disponivel: true },
+  { valor: "ENTRE_POSTOS", label: "Entre Postos", disponivel: true },
   { valor: "DESPESAS_PAGAS", label: "Despesas Pagas", disponivel: true },
   // Primeira aba (Conferência de Taxas) construída — o upload e o
   // relatório por adquirente que moravam aqui antes saíram pro módulo
@@ -33,7 +34,7 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
 export const GRUPOS_NAV: { label: string; modulos: Modulo[] }[] = [
   { label: "Despesas", modulos: ["CONTAS_A_PAGAR", "CONFERENCIA_DIARIA", "CONTAS_PAGAS"] },
   { label: "Combustíveis", modulos: ["COMBUSTIVEIS_A_PAGAR", "COMBUSTIVEIS_PAGOS"] },
-  { label: "Conciliação", modulos: ["EXTRATOS", "DESPESAS_PAGAS", "CARTOES", "VENDAS_A_PRAZO"] },
+  { label: "Conciliação", modulos: ["EXTRATOS", "ENTRE_POSTOS", "DESPESAS_PAGAS", "CARTOES", "VENDAS_A_PRAZO"] },
 ];
 
 // Fluxo de Caixa e Conferência de Caixa ficam de fora do grupo Conciliação,

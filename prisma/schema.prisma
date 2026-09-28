@@ -15,26 +15,31 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Posto {
-  id                 String              @id @default(cuid())
-  nome               String              @unique
+  id                              String                    @id @default(cuid())
+  nome                            String                    @unique
   // Único quando preenchido — Postgres trata NULL como distinto entre si,
   // então vários postos sem CNPJ cadastrado convivem sem problema. Formatado
   // sempre como 00.000.000/0000-00 antes de salvar (ver src/lib/documento.ts).
-  cnpj               String?             @unique
-  ativo              Boolean             @default(true)
-  contasAPagar       ContaAPagar[]
+  cnpj                            String?                   @unique
+  ativo                           Boolean                   @default(true)
+  contasAPagar                    ContaAPagar[]
   // Contas pagas onde ESSE posto foi quem realmente pagou (banco de conta
   // dele), mesmo quando a despesa em si (`contasAPagar` acima) pertence a
   // outro posto — ver ContaAPagar.postoPagamentoId.
-  contasPagasPorEste ContaAPagar[]       @relation("PostoPagamento")
-  lancamentosExtrato LancamentoExtrato[]
-  fluxoCaixaDias     FluxoCaixaDia[]
-  taxasCartao        TaxaCartao[]
-  transacoesCartao   TransacaoCartao[]
-  conferenciasCaixa  ConferenciaCaixa[]
-  antecipacoesCartao AntecipacaoCartao[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  contasPagasPorEste              ContaAPagar[]             @relation("PostoPagamento")
+  lancamentosExtrato              LancamentoExtrato[]
+  fluxoCaixaDias                  FluxoCaixaDia[]
+  taxasCartao                     TaxaCartao[]
+  transacoesCartao                TransacaoCartao[]
+  conferenciasCaixa               ConferenciaCaixa[]
+  antecipacoesCartao              AntecipacaoCartao[]
+  // Empréstimos entre postos: um posto aparece aqui tanto como quem
+  // emprestou/recebeu de volta (Origem) quanto como quem tomou emprestado/
+  // devolveu (Destino) — ver MovimentacaoEntrePostos.
+  movimentacoesEntrePostosOrigem  MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosOrigem")
+  movimentacoesEntrePostosDestino MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosDestino")
+  createdAt                       DateTime                  @default(now())
+  updatedAt                       DateTime                  @updatedAt
 
   @@map("postos")
 }
@@ -85,46 +90,46 @@ model Banco {
 // ---------------------------------------------------------------------------
 
 model AdquirenteCartao {
-  id          String            @id @default(cuid())
-  nome        String            @unique
-  ativo       Boolean           @default(true)
-  taxas       TaxaCartao[]
-  transacoes  TransacaoCartao[]
+  id           String              @id @default(cuid())
+  nome         String              @unique
+  ativo        Boolean             @default(true)
+  taxas        TaxaCartao[]
+  transacoes   TransacaoCartao[]
   antecipacoes AntecipacaoCartao[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@map("adquirentes_cartao")
 }
 
 model TaxaCartao {
-  id           String           @id @default(cuid())
-  postoId      String
-  posto        Posto            @relation(fields: [postoId], references: [id])
-  adquirenteId String
-  adquirente   AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
+  id                        String           @id @default(cuid())
+  postoId                   String
+  posto                     Posto            @relation(fields: [postoId], references: [id])
+  adquirenteId              String
+  adquirente                AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
   // Percentual armazenado como o próprio número (ex: 0.76 = 0,76%), igual
   // aparece na planilha de origem. Null = não contratado ("-" na planilha).
-  taxaDebito                Decimal? @db.Decimal(6, 4)
-  prazoDebitoDias           Int      @default(1)
-  taxaCreditoVista          Decimal? @db.Decimal(6, 4)
-  prazoCreditoVistaDias     Int      @default(1)
-  taxaCreditoParcelado      Decimal? @db.Decimal(6, 4)
-  prazoCreditoParceladoDias Int      @default(30)
+  taxaDebito                Decimal?         @db.Decimal(6, 4)
+  prazoDebitoDias           Int              @default(1)
+  taxaCreditoVista          Decimal?         @db.Decimal(6, 4)
+  prazoCreditoVistaDias     Int              @default(1)
+  taxaCreditoParcelado      Decimal?         @db.Decimal(6, 4)
+  prazoCreditoParceladoDias Int              @default(30)
   // Só as adquirentes com maquininha de verdade (Cielo, Pagseguro, Rede,
   // Stone, Getnet) cobram PIX como modalidade própria — as "voucher"
   // (SAQPAY, Sem Parar, Abastece Aí, Premmia) usam só taxaDebito pra tudo,
   // mesmo quando o texto da venda menciona "PIX" (ex: "Saque PIX" da
   // SAQPAY não é a mesma coisa).
-  taxaPix                   Decimal? @db.Decimal(6, 4)
-  prazoPixDias              Int      @default(1)
+  taxaPix                   Decimal?         @db.Decimal(6, 4)
+  prazoPixDias              Int              @default(1)
   // "Crédito pré-pago" (Pagseguro) — cartão de crédito recarregável, taxa
   // e prazo próprios, diferente do "Débito Pré-pago" (Stone, esse já cai
   // em taxaDebito — nomes parecidos, produtos diferentes).
-  taxaCreditoPrePago        Decimal? @db.Decimal(6, 4)
-  prazoCreditoPrePagoDias   Int      @default(1)
+  taxaCreditoPrePago        Decimal?         @db.Decimal(6, 4)
+  prazoCreditoPrePagoDias   Int              @default(1)
   domicilioBancoId          String?
-  domicilioBanco            Banco?   @relation("DomicilioBancario", fields: [domicilioBancoId], references: [id])
+  domicilioBanco            Banco?           @relation("DomicilioBancario", fields: [domicilioBancoId], references: [id])
   // Texto livre igual à planilha de origem (ex: "SEM USO", "CRÉDITO: TURNO 2")
   observacao                String?
   // Adquirentes do MESMO posto com o mesmo texto aqui são conciliadas juntas
@@ -138,10 +143,10 @@ model TaxaCartao {
   // adquirente/posto são gravadas com o líquido e a data de pagamento
   // calculados pela taxa e prazo de crédito cadastrados aqui, em vez dos do
   // arquivo (ver src/lib/cartoes/antecipacao.ts).
-  antecipacaoAutomatica     Boolean  @default(false)
-  ativo                     Boolean  @default(true)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  antecipacaoAutomatica     Boolean          @default(false)
+  ativo                     Boolean          @default(true)
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
 
   @@unique([postoId, adquirenteId])
   @@map("taxas_cartao")
@@ -152,22 +157,22 @@ model TaxaCartao {
 // Nomes de campo espelham o "COLUNAS_PADRAO" do protótipo em Python que
 // já lê esses arquivos há tempos, pra facilitar comparar os dois.
 model TransacaoCartao {
-  id           String           @id @default(cuid())
-  postoId      String
-  posto        Posto            @relation(fields: [postoId], references: [id])
-  adquirenteId String
-  adquirente   AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
-  dataVenda    DateTime         @db.Date
+  id                   String           @id @default(cuid())
+  postoId              String
+  posto                Posto            @relation(fields: [postoId], references: [id])
+  adquirenteId         String
+  adquirente           AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
+  dataVenda            DateTime         @db.Date
   // "" quando a adquirente não informa hora (relatório diário agrupado) —
   // participa da constraint de duplicidade abaixo, então não pode ser null
   // (Postgres trata NULL como sempre distinto, o que quebraria a dedupe).
-  horaVenda    String           @default("")
+  horaVenda            String           @default("")
   // Texto original da adquirente (ex: "Débito à vista", "Crédito parcelado").
-  tipoVenda      String
-  valorBruto     Decimal   @db.Decimal(12, 2)
-  taxaRs         Decimal?  @db.Decimal(12, 2)
-  valorLiquido   Decimal?  @db.Decimal(12, 2)
-  dataPagamento  DateTime? @db.Date
+  tipoVenda            String
+  valorBruto           Decimal          @db.Decimal(12, 2)
+  taxaRs               Decimal?         @db.Decimal(12, 2)
+  valorLiquido         Decimal?         @db.Decimal(12, 2)
+  dataPagamento        DateTime?        @db.Date
   // NSU/CV/Código da venda/Stone ID — identificador único que a adquirente
   // dá pra cada transação, quando o arquivo traz um. É a chave de dedupe
   // confiável (ver @@unique abaixo): sem ela, duas vendas de mesmo valor no
@@ -175,8 +180,8 @@ model TransacaoCartao {
   // ficaria de fora na hora de gravar.
   identificadorExterno String?
   // Nome do arquivo importado — rastreabilidade de onde a linha veio.
-  arquivoOrigem  String
-  importadoEm    DateTime  @default(now())
+  arquivoOrigem        String
+  importadoEm          DateTime         @default(now())
 
   // Dedupe por identificador da adquirente quando disponível (não bate
   // contra outras linhas com identificador nulo — NULL nunca é igual a NULL
@@ -217,6 +222,61 @@ model AntecipacaoCartao {
   @@map("antecipacoes_cartao")
 }
 
+// ---------------------------------------------------------------------------
+// Empréstimos entre postos: um posto empresta dinheiro pra outro (ex: pra
+// cobrir combustível, folha etc.) e o outro devolve depois, aos poucos ou de
+// uma vez — pedido da usuária em 28/09/2026, mesmo modelo da planilha que
+// ela já mantinha por fora (aba "Movimentações").
+//
+// `postoOrigemId`/`postoDestinoId` são sempre o sentido REAL do dinheiro
+// naquela transação (quem manda, quem recebe) — inclusive numa DEVOLUCAO,
+// onde é o TOMADOR mandando de volta pro CREDOR original (não o par
+// invertido do empréstimo). `valor` é sempre positivo; o sinal/sentido do
+// saldo vem do campo `tipo`. Ver src/lib/entrePostos/relatorios.ts pra como
+// isso vira "quem deve pra quem" (pareia cada devolução com o empréstimo na
+// direção oposta).
+enum TipoMovimentacaoEntrePostos {
+  EMPRESTIMO
+  DEVOLUCAO
+}
+
+model MovimentacaoEntrePostos {
+  id             String                      @id @default(cuid())
+  data           DateTime                    @db.Date
+  postoOrigemId  String
+  postoOrigem    Posto                       @relation("MovimentacaoEntrePostosOrigem", fields: [postoOrigemId], references: [id], onDelete: Restrict)
+  postoDestinoId String
+  postoDestino   Posto                       @relation("MovimentacaoEntrePostosDestino", fields: [postoDestinoId], references: [id], onDelete: Restrict)
+  valor          Decimal                     @db.Decimal(12, 2)
+  tipo           TipoMovimentacaoEntrePostos
+  // Anotação livre da própria usuária (ex: "QUITADO", "EM ABERTO",
+  // "PARCIAL") — não entra em nenhum cálculo do sistema; quem decide se uma
+  // relação está quitada é o saldo em aberto calculado (ver relatorios.ts),
+  // isso aqui é só o controle pessoal dela, igual já era na planilha.
+  statusManual   String?
+  observacao     String?
+
+  // Vínculo com o lançamento REAL do extrato de cada lado da transferência
+  // (débito na conta de quem manda, crédito na de quem recebe) — evita
+  // contar o mesmo dinheiro duas vezes (uma no extrato, outra aqui) e é
+  // como o sistema confirma "não esqueci de lançar nada", pedido da
+  // usuária em 28/09/2026. Opcional pros dois lados: um repasse em espécie,
+  // ou um extrato ainda não importado, fica sem vínculo até ela resolver.
+  // Ver src/lib/entrePostos/vinculo.ts.
+  lancamentoExtratoOrigemId  String?
+  lancamentoExtratoOrigem    LancamentoExtrato? @relation("MovimentacaoEntrePostosLancamentoOrigem", fields: [lancamentoExtratoOrigemId], references: [id], onDelete: SetNull)
+  lancamentoExtratoDestinoId String?
+  lancamentoExtratoDestino   LancamentoExtrato? @relation("MovimentacaoEntrePostosLancamentoDestino", fields: [lancamentoExtratoDestinoId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postoOrigemId])
+  @@index([postoDestinoId])
+  @@index([data])
+  @@map("movimentacoes_entre_postos")
+}
+
 enum StatusConferenciaCaixa {
   PENDENTE
   CONFERIDO
@@ -229,15 +289,15 @@ enum StatusConferenciaCaixa {
 // o Histórico de Conferência lista o resultado. PENDENTE existe no enum mas
 // hoje nunca é gravado: o registro só nasce quando alguém marca um status.
 model ConferenciaCaixa {
-  id         String                 @id @default(cuid())
-  postoId    String
-  posto      Posto                  @relation(fields: [postoId], references: [id])
-  inicio     DateTime
-  fim        DateTime
-  valorTotal Decimal                @db.Decimal(12, 2)
-  status     StatusConferenciaCaixa @default(PENDENTE)
-  criadoEm   DateTime               @default(now())
-  atualizadoEm DateTime             @updatedAt
+  id           String                 @id @default(cuid())
+  postoId      String
+  posto        Posto                  @relation(fields: [postoId], references: [id])
+  inicio       DateTime
+  fim          DateTime
+  valorTotal   Decimal                @db.Decimal(12, 2)
+  status       StatusConferenciaCaixa @default(PENDENTE)
+  criadoEm     DateTime               @default(now())
+  atualizadoEm DateTime               @updatedAt
 
   @@unique([postoId, inicio, fim])
   @@map("conferencias_caixa")
@@ -268,15 +328,15 @@ enum TipoLancamentoAdquirente {
 }
 
 model CategoriaExtrato {
-  id          String                      @id @default(cuid())
-  nome        String                      @unique
-  tipo        TipoCategoriaExtrato        @default(PADRAO)
-  ordem       Int                         @default(0) // ordem de exibição no fechamento
-  ativo       Boolean                     @default(true)
+  id          String                     @id @default(cuid())
+  nome        String                     @unique
+  tipo        TipoCategoriaExtrato       @default(PADRAO)
+  ordem       Int                        @default(0) // ordem de exibição no fechamento
+  ativo       Boolean                    @default(true)
   lancamentos LancamentoExtrato[]
   divisoes    LancamentoExtratoDivisao[]
-  createdAt   DateTime                    @default(now())
-  updatedAt   DateTime                    @updatedAt
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
 
   @@map("categorias_extrato")
 }
@@ -285,16 +345,16 @@ model CategoriaExtrato {
 // `divisoes` acima. Cada lançamento dividido tem 2+ linhas aqui, cuja soma
 // de valor deve bater com o valor total do lançamento original.
 model LancamentoExtratoDivisao {
-  id                  String                     @id @default(cuid())
+  id                  String                    @id @default(cuid())
   lancamentoExtratoId String
-  lancamentoExtrato   LancamentoExtrato          @relation(fields: [lancamentoExtratoId], references: [id], onDelete: Cascade)
+  lancamentoExtrato   LancamentoExtrato         @relation(fields: [lancamentoExtratoId], references: [id], onDelete: Cascade)
   categoriaId         String?
-  categoria           CategoriaExtrato?          @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoria           CategoriaExtrato?         @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
   tipoAdquirente      TipoLancamentoAdquirente?
-  valor               Decimal                    @db.Decimal(12, 2)
+  valor               Decimal                   @db.Decimal(12, 2)
   observacao          String?
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@map("lancamentos_extrato_divisoes")
 }
@@ -355,6 +415,12 @@ model LancamentoExtrato {
   // com ele, é só uma forma diferente de fatiar a mesma transação.
   divisoes LancamentoExtratoDivisao[]
 
+  // Ver MovimentacaoEntrePostos acima — listas só porque o Prisma exige o
+  // lado reverso da relação nomeada; na prática, no máximo uma movimentação
+  // usa esse lançamento como origem e no máximo uma como destino.
+  movimentacoesEntrePostosOrigem  MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoOrigem")
+  movimentacoesEntrePostosDestino MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoDestino")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -413,10 +479,10 @@ model GrupoPlanoConta {
 }
 
 model PlanoConta {
-  id      String          @id @default(cuid())
-  nome    String // o "Centro" dentro do grupo, ex: "ICMS", "Salários"
-  grupoId String
-  grupo   GrupoPlanoConta @relation(fields: [grupoId], references: [id], onDelete: Restrict)
+  id           String          @id @default(cuid())
+  nome         String // o "Centro" dentro do grupo, ex: "ICMS", "Salários"
+  grupoId      String
+  grupo        GrupoPlanoConta @relation(fields: [grupoId], references: [id], onDelete: Restrict)
   // Código curto opcional (ex: "105") pra achar a conta digitando, sem
   // precisar abrir o grupo e procurar na lista — como no sistema antigo da
   // usuária. Único no plano de contas inteiro (não só dentro do grupo),
@@ -510,7 +576,7 @@ model ContaAPagar {
   // linhas pra não aparecerem misturadas na listagem normal de Contas a
   // Pagar nem entrarem no motor de conciliação manual (que exige paga=true
   // ANTES de procurar par, o oposto do que combustível precisa).
-  combustivel Boolean @default(false)
+  combustivel  Boolean   @default(false)
   // Data de descarga do combustível na bomba — informativo, não entra no
   // casamento com o extrato (a data que bate é a do débito bancário real,
   // que pode ser diferente da descarga).
@@ -527,10 +593,10 @@ model ContaAPagar {
   // diasSemanaRecorrencia só vale pra frequência SEMANAL — dias da semana em
   // que a despesa relança, mesmo índice de Date.getUTCDay() (0 = domingo ...
   // 6 = sábado); ver gerarOcorrenciasRecorrentesPendentes em recorrencia.ts.
-  recorrente             Boolean                @default(false)
-  frequenciaRecorrencia  FrequenciaRecorrencia?
-  diasSemanaRecorrencia  Int[]                  @default([])
-  grupoRecorrenciaId     String?
+  recorrente            Boolean                @default(false)
+  frequenciaRecorrencia FrequenciaRecorrencia?
+  diasSemanaRecorrencia Int[]                  @default([])
+  grupoRecorrenciaId    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -614,6 +680,10 @@ enum Modulo {
   // bancário. Fica como item avulso no menu, logo abaixo do grupo
   // Conciliação (ver MODULOS_AVULSOS em modulos.ts).
   CONFERENCIA_CAIXA
+  // Empréstimos e devoluções entre postos (ver MovimentacaoEntrePostos
+  // abaixo) — pedido da usuária em 28/09/2026, pra conferir mês a mês quem
+  // deve pra quem, sem depender de planilha à parte.
+  ENTRE_POSTOS
 }
 
 model Usuario {
