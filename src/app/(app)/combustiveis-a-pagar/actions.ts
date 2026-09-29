@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
 import { isForeignKeyConstraintError, valoresDoFormulario, type ActionState } from "@/lib/form-state";
+import { vincularLancamentosCombustivel, desvincularLancamentoCombustivel } from "@/lib/combustiveis/vinculo";
 
 const ROTA = "/combustiveis-a-pagar";
 
@@ -192,4 +193,36 @@ export async function excluirCombustivelAPagar(formData: FormData) {
 
   await prisma.contaAPagar.delete({ where: { id } });
   revalidatePath(ROTA);
+}
+
+function revalidarVinculo(contaId: string) {
+  revalidatePath(ROTA);
+  revalidatePath("/combustiveis-pagos");
+  revalidatePath(`${ROTA}/${contaId}/vincular`);
+}
+
+export async function vincularCombustivel(formData: FormData) {
+  await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "editar");
+  const contaId = formData.get("contaId");
+  const lancamentoIds = formData.getAll("lancamentoId").map(String);
+  if (typeof contaId !== "string" || !contaId || lancamentoIds.length === 0) return;
+
+  const resultado = await vincularLancamentosCombustivel({ contaId, lancamentoIds });
+  revalidarVinculo(contaId);
+
+  // Alguém (ou outra aba) já tinha pego um dos selecionados nesse meio
+  // tempo — avisa em vez de deixar parecer que vinculou tudo.
+  if (resultado.idsJaUsadosPorOutraConta.length > 0) {
+    redirect(`${ROTA}/${contaId}/vincular?erro=ja-vinculado&qtd=${resultado.idsJaUsadosPorOutraConta.length}`);
+  }
+}
+
+export async function desvincularCombustivel(formData: FormData) {
+  await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "editar");
+  const contaId = formData.get("contaId");
+  const lancamentoId = formData.get("lancamentoId");
+  if (typeof contaId !== "string" || !contaId || typeof lancamentoId !== "string" || !lancamentoId) return;
+
+  await desvincularLancamentoCombustivel({ contaId, lancamentoId });
+  revalidarVinculo(contaId);
 }
