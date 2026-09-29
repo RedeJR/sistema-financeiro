@@ -79,9 +79,9 @@ export default async function VincularCombustivelPage({
 
       {erro === "ja-vinculado" && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
-          {qtd ?? "Um"} dos lançamentos selecionados já tinha sido vinculado a outra conta nesse meio tempo (por
-          outra pessoa, ou outra aba) — os demais foram vinculados normalmente. Escolha outro lançamento pra
-          esse aqui.
+          {qtd ?? "Um"} dos lançamentos selecionados não pôde ser vinculado — ou já tinha sido pego por outra
+          conta nesse meio tempo (outra pessoa, ou outra aba), ou era uma entrada de dinheiro, não um pagamento.
+          Os demais foram vinculados normalmente. Escolha outro lançamento pra esse aqui.
         </div>
       )}
 

@@ -100,19 +100,30 @@ export async function vincularLancamentosCombustivel(params: {
 
   let idsJaUsadosPorOutraConta: string[] = [];
   if (lancamentoIds.length > 0) {
+    // `valor: { lt: 0 }` de novo aqui (já vale lá em cima, na lista de
+    // candidatos) — trava no ponto que grava de verdade, pra uma entrada
+    // (crédito) nunca poder ser contada como pagamento de combustível,
+    // mesmo que o id venha de fora da tela normal. Achado real (28/09/2026):
+    // um PIX recebido bateu por coincidência com o valor de uma conta —
+    // não chegou a ser vinculado (a lista de candidatos já não mostra
+    // crédito), mas essa trava garante isso também na escrita.
     const resultado = await prisma.lancamentoExtrato.updateMany({
-      where: { id: { in: lancamentoIds }, contaAPagarId: null },
+      where: { id: { in: lancamentoIds }, contaAPagarId: null, valor: { lt: 0 } },
       data: { contaAPagarId: contaId },
     });
     if (resultado.count < lancamentoIds.length) {
       // Algum dos selecionados já não estava mais livre (outra conta pegou
-      // primeiro, ou já estava vinculado a essa mesma conta de outro jeito)
-      // — avisa quais, em vez de falhar calado.
-      const aindaNaoNestaConta = await prisma.lancamentoExtrato.findMany({
-        where: { id: { in: lancamentoIds }, NOT: { contaAPagarId: contaId } },
-        select: { id: true },
+      // primeiro), já estava vinculado a essa mesma conta, ou era um
+      // crédito (barrado pela trava acima) — avisa quais, em vez de falhar
+      // calado. Filtra em JS, não com `NOT: { contaAPagarId: contaId }` no
+      // Prisma: em SQL, `<> valor` não bate linha com NULL (lógica de três
+      // valores), então um lançamento nunca vinculado (contaAPagarId NULL)
+      // ficava de fora dessa lista por engano — bug real, achado em teste.
+      const todosSelecionados = await prisma.lancamentoExtrato.findMany({
+        where: { id: { in: lancamentoIds } },
+        select: { id: true, contaAPagarId: true },
       });
-      idsJaUsadosPorOutraConta = aindaNaoNestaConta.map((l) => l.id);
+      idsJaUsadosPorOutraConta = todosSelecionados.filter((l) => l.contaAPagarId !== contaId).map((l) => l.id);
     }
   }
 
