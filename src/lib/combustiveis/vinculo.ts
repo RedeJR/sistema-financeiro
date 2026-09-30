@@ -9,6 +9,15 @@ import { prisma } from "@/lib/prisma";
 // pagamento picado em dias diferentes, ou dividido junto de outra conta de
 // valor diferente no mesmo dia, ela não arrisca sozinha — fica pra usuária
 // escolher aqui à mão.
+//
+// Busca de candidatos NÃO filtra por posto (mudança pedida em 29/09/2026):
+// é comum um posto pagar combustível de outro pelo próprio banco (boleto
+// dividido, adiantamento entre postos), e a usuária já confere manualmente
+// se é combustível antes de vincular — pedir que o lançamento esteja na
+// conta bancária "certa" só atrapalhava. A categoria "Combustíveis" (a não
+// ser que `todasCategorias`) e o valor batendo já bastam; `postoNome`
+// devolvido junto pra ela ver de qual posto veio o dinheiro antes de
+// confirmar.
 
 const TOLERANCIA = 0.01;
 
@@ -19,6 +28,7 @@ export type CandidatoLancamentoCombustivel = {
   valor: number; // sempre negativo (débito)
   categoriaNome: string | null;
   bancoNome: string;
+  postoNome: string;
 };
 
 export async function buscarCandidatosCombustivel(params: {
@@ -27,12 +37,7 @@ export async function buscarCandidatosCombustivel(params: {
   dataFim: Date;
   todasCategorias: boolean;
 }): Promise<CandidatoLancamentoCombustivel[]> {
-  const { contaId, dataInicio, dataFim, todasCategorias } = params;
-  const conta = await prisma.contaAPagar.findUniqueOrThrow({
-    where: { id: contaId },
-    select: { postoId: true, postoPagamentoId: true },
-  });
-  const postoId = conta.postoPagamentoId ?? conta.postoId;
+  const { dataInicio, dataFim, todasCategorias } = params;
 
   const categoriaCombustiveis = todasCategorias
     ? null
@@ -40,13 +45,12 @@ export async function buscarCandidatosCombustivel(params: {
 
   const lancamentos = await prisma.lancamentoExtrato.findMany({
     where: {
-      postoId,
       contaAPagarId: null,
       valor: { lt: 0 },
       data: { gte: dataInicio, lte: dataFim },
       ...(categoriaCombustiveis ? { categoriaId: categoriaCombustiveis.id } : {}),
     },
-    include: { categoria: true, banco: true },
+    include: { categoria: true, banco: true, posto: true },
     orderBy: { data: "asc" },
   });
   return lancamentos.map((l) => ({
@@ -56,6 +60,7 @@ export async function buscarCandidatosCombustivel(params: {
     valor: Number(l.valor),
     categoriaNome: l.categoria?.nome ?? null,
     bancoNome: l.banco.nome,
+    postoNome: l.posto.nome,
   }));
 }
 
@@ -64,7 +69,7 @@ export type LancamentoVinculadoCombustivel = CandidatoLancamentoCombustivel;
 export async function buscarVinculadosCombustivel(contaId: string): Promise<LancamentoVinculadoCombustivel[]> {
   const lancamentos = await prisma.lancamentoExtrato.findMany({
     where: { contaAPagarId: contaId },
-    include: { categoria: true, banco: true },
+    include: { categoria: true, banco: true, posto: true },
     orderBy: { data: "asc" },
   });
   return lancamentos.map((l) => ({
@@ -74,6 +79,7 @@ export async function buscarVinculadosCombustivel(contaId: string): Promise<Lanc
     valor: Number(l.valor),
     categoriaNome: l.categoria?.nome ?? null,
     bancoNome: l.banco.nome,
+    postoNome: l.posto.nome,
   }));
 }
 

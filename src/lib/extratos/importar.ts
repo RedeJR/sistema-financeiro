@@ -116,10 +116,15 @@ export async function importarExtratos(params: {
       // banco, cai no mesmo fallback de "sem FITID confiável" abaixo mesmo
       // quando o campo vem preenchido.
       //
+      // Mesmo problema achado no Bradesco em 30/09/2026: Cantareira (28/09)
+      // e Sul América (25/09) tiveram o mesmo dia importado duas vezes, de
+      // dois arquivos .OFX diferentes, cada um com FITID diferente pra a
+      // MESMA transação real — 110 lançamentos duplicados, R$423.229,28.
+      //
       // Linhas sem FITID confiável: o fallback é comparar
       // (posto,banco,data,descrição,valor) — só entre ELAS MESMAS, contra o
       // que já existe no banco E dentro do próprio lote sendo importado.
-      const fitidNaoConfiavel = codigo === "SANTANDER";
+      const fitidNaoConfiavel = codigo === "SANTANDER" || codigo === "BRADESCO";
       const semFitidConfiavel = linhas.filter((l) => l.fitid === null || fitidNaoConfiavel);
       const chaveSemFitid = (l: { postoId: string; bancoId: string; data: Date; descricao: string; valor: string }) =>
         `${l.postoId}|${l.bancoId}|${l.data.toISOString()}|${l.descricao}|${l.valor}`;

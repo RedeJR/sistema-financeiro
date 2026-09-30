@@ -50,4 +50,5 @@ export async function marcarComoPagas(formData: FormData) {
   revalidatePath(ROTA);
   revalidatePath("/despesas-pagas");
   revalidatePath("/contas-a-pagar");
+  revalidatePath("/combustiveis-a-pagar");
 }

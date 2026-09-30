@@ -79,10 +79,11 @@ export default async function ConferenciaDiariaPage({
     prisma.contaAPagar.findMany({
       where: {
         paga: false,
-        // Combustível não se marca como pago aqui — a baixa é sempre
-        // automática pela conciliação com o extrato (ver
-        // rodarConciliacaoAutomaticaCombustiveis em conciliacao.ts).
-        combustivel: false,
+        // Combustível aparece aqui também (pedido da usuária em 29/09/2026):
+        // a baixa automática por conciliação com o extrato (ver
+        // rodarConciliacaoAutomaticaCombustiveis em conciliacao.ts) continua
+        // rodando sozinha por trás, mas ela quer poder marcar como paga na
+        // mão junto com o resto, sem depender só do casamento automático.
         ...(postoId ? { postoId } : {}),
         ...(fornecedorId ? { fornecedorId } : {}),
         ...(planoContaId ? { planoContaId } : {}),
@@ -343,6 +344,11 @@ export default async function ConferenciaDiariaPage({
                         vencida
                       </span>
                     )}
+                    {c.combustivel && (
+                      <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-400">
+                        combustível
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2">{c.posto.nome}</td>
                   <td className="px-4 py-2">
@@ -352,6 +358,9 @@ export default async function ConferenciaDiariaPage({
                         {" "}
                         <ComentarioHover texto={c.observacao} />
                       </>
+                    )}
+                    {c.combustivel && c.descricao && (
+                      <p className="text-xs text-foreground/50">{c.descricao}</p>
                     )}
                   </td>
                   <td className="px-4 py-2 text-foreground/70">

@@ -113,7 +113,7 @@ export default async function VincularCombustivelPage({
                     {formatarData(l.data)} — {formatarMoeda(Math.abs(l.valor))}
                   </p>
                   <p className="text-foreground/60">
-                    {l.bancoNome} · {l.categoriaNome ?? "sem categoria"} · {l.descricao}
+                    {l.postoNome} · {l.bancoNome} · {l.categoriaNome ?? "sem categoria"} · {l.descricao}
                   </p>
                 </div>
                 <form action={desvincularCombustivel}>
@@ -173,8 +173,8 @@ export default async function VincularCombustivelPage({
         <input type="hidden" name="contaId" value={id} />
         <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
           <div className="border-b border-black/10 bg-black/[0.02] px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-white/[0.02]">
-            Lançamentos do extrato de {(conta.postoPagamento ?? conta.posto).nome} nesse período, ainda sem conta
-            vinculada
+            Lançamentos do extrato nesse período, ainda sem conta vinculada (de qualquer posto — combustível às
+            vezes é pago pela conta de outro posto)
           </div>
           <div className="divide-y divide-black/5 dark:divide-white/10">
             {candidatos.map((l) => (
@@ -185,7 +185,7 @@ export default async function VincularCombustivelPage({
                     {formatarData(l.data)} — {formatarMoeda(Math.abs(l.valor))}
                   </p>
                   <p className="text-foreground/60">
-                    {l.bancoNome} · {l.categoriaNome ?? "sem categoria"} · {l.descricao}
+                    {l.postoNome} · {l.bancoNome} · {l.categoriaNome ?? "sem categoria"} · {l.descricao}
                   </p>
                 </div>
               </label>
