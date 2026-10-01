@@ -10,6 +10,7 @@ import {
   rodarConciliacaoAutomaticaCombustiveis,
   conferenciaTotalDiario,
 } from "@/lib/conciliacao";
+import { hojeUTC } from "@/lib/datas";
 import { vincularManualmente, desvincular } from "./actions";
 
 const MENSAGENS_ERRO: Record<string, string> = {
@@ -47,10 +48,25 @@ export default async function ConciliacaoPage({
     await rodarConciliacaoAutomaticaCombustiveis();
   }
 
+  // Conferência por total diário: sem filtro de data explícito, olha só o
+  // mês corrente — pedido da usuária em 01/10/2026 ("tira qualquer aviso de
+  // conciliação do mês 08"). Sem esse piso, a lista de dias divergentes
+  // acumula pra sempre (ex: 107 posto/dias de agosto ainda apareciam em
+  // outubro) porque é um comparativo calculado na hora, não um aviso que
+  // alguém resolve e ele some sozinho. O filtro de data da tela (`de`/`ate`)
+  // continua funcionando normalmente se ela quiser olhar um mês fechado de
+  // propósito — só o padrão (nada preenchido) muda. As outras duas listas
+  // desta tela (despesas sem lançamento / lançamentos sem despesa) não têm
+  // esse problema de acúmulo do mesmo jeito — ficam com o comportamento de
+  // sempre (sem piso de data por padrão).
+  const hoje = hojeUTC();
+  const inicioMesAtual = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1));
+  const deConferencia = de ?? inicioMesAtual.toISOString().slice(0, 10);
+
   const [postos, bancos, conferenciaDiaria] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
-    conferenciaTotalDiario({ postoId: postoId || undefined, de, ate }),
+    conferenciaTotalDiario({ postoId: postoId || undefined, de: deConferencia, ate }),
   ]);
   // Só o que não bate (tolerância de 1 centavo) — é o que precisa de ação;
   // dias batendo certinho não ajudam a usuária a achar o que falta lançar.
@@ -224,6 +240,12 @@ export default async function ConciliacaoPage({
           despesa que nunca foi lançada em Contas a Pagar não tem par pra comparar, mas aparece aqui como
           diferença no total do dia.
         </p>
+        {!de && (
+          <p className="text-xs text-foreground/50">
+            Mostrando só a partir de {formatarData(inicioMesAtual)} (mês corrente) — use o filtro &quot;De&quot;
+            acima pra olhar um mês já fechado.
+          </p>
+        )}
         <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
           <table className="w-full text-sm">
             <thead className="bg-black/5 dark:bg-white/5">
