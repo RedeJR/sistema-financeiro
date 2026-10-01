@@ -8,7 +8,8 @@ export type AjusteAntecipacao = {
   adquirenteId: string;
   adquirenteNome: string;
   data: string; // YYYY-MM-DD
-  delta: number; // + no dia em que o dinheiro caiu, − nos dias do período antecipado
+  delta: number; // + no dia em que o dinheiro caiu, − nos dias do período antecipado (líquido)
+  deltaBruto: number; // mesma proporção, mas sobre o valor bruto — pra "vendas a receber" (ver aReceber.ts)
 };
 
 // Adquirentes de maquininha (débito, crédito, pix): a antecipação atinge só o
@@ -56,8 +57,11 @@ export async function calcularAjustesAntecipacao(params: {
   });
   if (antecipacoes.length === 0) return [];
 
-  // Esperado de crédito por dia (posto|adquirente), sobre a união dos períodos.
-  const restante = new Map<string, Map<string, number>>();
+  // Esperado de crédito por dia (posto|adquirente), sobre a união dos períodos
+  // — líquido (pra conciliação com extrato) e bruto (pra "vendas a receber",
+  // que mostra valor de venda, não o que efetivamente cai no banco) lado a
+  // lado, na mesma proporção.
+  const restante = new Map<string, Map<string, { liquido: number; bruto: number }>>();
   const grupos = new Map<string, { postoId: string; adquirenteId: string; nome: string; de: Date; ate: Date }>();
   for (const a of antecipacoes) {
     const k = `${a.postoId}|${a.adquirenteId}`;
@@ -77,13 +81,16 @@ export async function calcularAjustesAntecipacao(params: {
         dataPagamento: { gte: g.de, lte: g.ate },
         valorLiquido: { not: null },
       },
-      _sum: { valorLiquido: true },
+      _sum: { valorLiquido: true, valorBruto: true },
     });
-    const porDia = new Map<string, number>();
+    const porDia = new Map<string, { liquido: number; bruto: number }>();
     for (const l of linhas) {
       if (!l.dataPagamento || !podeSerAntecipada(l.tipoVenda, g.nome)) continue;
       const d = iso(l.dataPagamento);
-      porDia.set(d, (porDia.get(d) ?? 0) + Number(l._sum.valorLiquido ?? 0));
+      const atual = porDia.get(d) ?? { liquido: 0, bruto: 0 };
+      atual.liquido += Number(l._sum.valorLiquido ?? 0);
+      atual.bruto += Number(l._sum.valorBruto ?? 0);
+      porDia.set(d, atual);
     }
     restante.set(k, porDia);
   }
@@ -93,19 +100,22 @@ export async function calcularAjustesAntecipacao(params: {
   for (const a of antecipacoes) {
     const base = { postoId: a.postoId, postoNome: a.posto.nome, adquirenteId: a.adquirenteId, adquirenteNome: a.adquirente.nome };
     const recebimento = iso(a.dataRecebimento);
-    if (dentro(recebimento)) ajustes.push({ ...base, data: recebimento, delta: Number(a.valorLiquido) });
+    if (dentro(recebimento)) ajustes.push({ ...base, data: recebimento, delta: Number(a.valorLiquido), deltaBruto: Number(a.valorFace) });
 
     const dias = restante.get(`${a.postoId}|${a.adquirenteId}`)!;
     const de = iso(a.periodoDe);
     const ate = iso(a.periodoAte);
     const diasDoPeriodo = [...dias.keys()].filter((d) => d >= de && d <= ate);
-    const disponivel = diasDoPeriodo.reduce((s, d) => s + dias.get(d)!, 0);
+    const disponivel = diasDoPeriodo.reduce((s, d) => s + dias.get(d)!.liquido, 0);
     if (disponivel <= 0) continue;
     const fator = Math.min(Number(a.valorFace), disponivel) / disponivel;
     for (const d of diasDoPeriodo) {
-      const reducao = dias.get(d)! * fator;
-      dias.set(d, dias.get(d)! - reducao);
-      if (dentro(d)) ajustes.push({ ...base, data: d, delta: -reducao });
+      const dia = dias.get(d)!;
+      const reducaoLiquido = dia.liquido * fator;
+      const reducaoBruto = dia.bruto * fator;
+      dia.liquido -= reducaoLiquido;
+      dia.bruto -= reducaoBruto;
+      if (dentro(d)) ajustes.push({ ...base, data: d, delta: -reducaoLiquido, deltaBruto: -reducaoBruto });
     }
   }
   return ajustes;
