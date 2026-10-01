@@ -17,15 +17,14 @@ export type LinhaAReceber = {
   // Vendas sem data de repasse (ex: VR) entram como "a receber" — sem data,
   // não dá pra saber se já caíram.
   qtdSemDataRepasse: number;
-  // Intervalo de DATA DE PAGAMENTO prevista (não data da venda) — é a
-  // pergunta que importa num relatório "a receber": quando esse dinheiro
-  // cai. Null quando todas as vendas da linha são sem data de repasse
-  // (qtdSemDataRepasse cobre esse caso). Pra linha de crédito afetada por
-  // antecipação, o intervalo é restrito aos dias que ainda têm saldo de
-  // verdade por receber (ver ajuste mais abaixo) — não ao período de venda
-  // nem ao intervalo de pagamento original inteiro.
-  pagamentoDe: Date | null;
-  pagamentoAte: Date | null;
+  // Intervalo de data da venda (não de pagamento) das vendas somadas nessa
+  // linha. Continua cobrindo o período pedido inteiro mesmo quando parte do
+  // totalBruto/totalLiquido foi abatida por antecipação — a antecipação não
+  // diz quais vendas específicas cobriu, só adianta um valor dentro de um
+  // período de recebíveis futuros (ver antecipacoes.ts), então não dá pra
+  // apontar com certeza a partir de qual dia de venda o saldo começa.
+  vendaDe: Date;
+  vendaAte: Date;
 };
 
 // Vendas a receber, pra entrega do dia 01 (valores que ainda vão cair na conta).
@@ -63,13 +62,13 @@ export async function buscarVendasAReceber(params: {
   };
 
   const [grupos, semData, postos, adquirentes] = await Promise.all([
-    // Agrupa por dataPagamento (não dataVenda) — o "Período" mostrado é
-    // quando o dinheiro cai, não quando a venda foi feita.
     prisma.transacaoCartao.groupBy({
-      by: ["postoId", "adquirenteId", "tipoVenda", "dataPagamento"],
+      by: ["postoId", "adquirenteId", "tipoVenda"],
       where,
       _count: { _all: true },
       _sum: { valorBruto: true, valorLiquido: true },
+      _min: { dataVenda: true },
+      _max: { dataVenda: true },
     }),
     prisma.transacaoCartao.groupBy({
       by: ["postoId", "adquirenteId", "tipoVenda"],
@@ -90,7 +89,8 @@ export async function buscarVendasAReceber(params: {
     const adquirente = nomeAdquirente.get(g.adquirenteId) ?? g.adquirenteId;
     const modalidade = classificarModalidadeVenda(g.tipoVenda, adquirente);
     const chave = `${g.postoId}|${g.adquirenteId}|${modalidade}`;
-    const data = g.dataPagamento; // pode ser null (voucher sem data de repasse)
+    const de = g._min.dataVenda!;
+    const ate = g._max.dataVenda!;
     const atual = linhas.get(chave);
     const semDataGrupo = semDataPorChave.get(`${g.postoId}|${g.adquirenteId}|${g.tipoVenda}`) ?? 0;
     if (!atual) {
@@ -103,18 +103,16 @@ export async function buscarVendasAReceber(params: {
         totalBruto: Number(g._sum.valorBruto ?? 0),
         totalLiquido: Number(g._sum.valorLiquido ?? 0),
         qtdSemDataRepasse: semDataGrupo,
-        pagamentoDe: data,
-        pagamentoAte: data,
+        vendaDe: de,
+        vendaAte: ate,
       });
     } else {
       atual.qtd += g._count._all;
       atual.totalBruto += Number(g._sum.valorBruto ?? 0);
       atual.totalLiquido += Number(g._sum.valorLiquido ?? 0);
       atual.qtdSemDataRepasse += semDataGrupo;
-      if (data) {
-        if (!atual.pagamentoDe || data < atual.pagamentoDe) atual.pagamentoDe = data;
-        if (!atual.pagamentoAte || data > atual.pagamentoAte) atual.pagamentoAte = data;
-      }
+      if (de < atual.vendaDe) atual.vendaDe = de;
+      if (ate > atual.vendaAte) atual.vendaAte = ate;
     }
   }
 
@@ -147,48 +145,6 @@ export async function buscarVendasAReceber(params: {
       linha.totalLiquido = Math.max(0, linha.totalLiquido + a.delta); // delta já é negativo
       linha.totalBruto = Math.max(0, linha.totalBruto + a.deltaBruto);
     }
-
-    // O período mostrado não pode continuar indo até a data de pagamento mais
-    // distante de antes da antecipação — isso incluiria dias que a
-    // antecipação já esvaziou de verdade (dinheiro já caiu). Reconstrói o
-    // intervalo olhando, dia a dia (por dataPagamento), quanto ainda sobra
-    // depois de aplicar as mesmas reduções acima.
-    const brutoPorDiaChave = new Map<string, Map<string, number>>();
-    for (const g of grupos) {
-      if (!g.dataPagamento) continue;
-      const nomeAdq = nomeAdquirente.get(g.adquirenteId) ?? g.adquirenteId;
-      if (classificarModalidadeVenda(g.tipoVenda, nomeAdq) !== "CREDITO") continue;
-      const k = `${g.postoId}|${g.adquirenteId}`;
-      const dia = g.dataPagamento.toISOString().slice(0, 10);
-      const m = brutoPorDiaChave.get(k) ?? new Map<string, number>();
-      m.set(dia, (m.get(dia) ?? 0) + Number(g._sum.valorBruto ?? 0));
-      brutoPorDiaChave.set(k, m);
-    }
-    const reducaoPorDiaChave = new Map<string, Map<string, number>>();
-    for (const a of ajustes) {
-      if (a.delta >= 0) continue;
-      const k = `${a.postoId}|${a.adquirenteId}`;
-      const m = reducaoPorDiaChave.get(k) ?? new Map<string, number>();
-      m.set(a.data, (m.get(a.data) ?? 0) + a.deltaBruto); // deltaBruto já é negativo
-      reducaoPorDiaChave.set(k, m);
-    }
-    for (const [k, diasBruto] of brutoPorDiaChave) {
-      const reducoes = reducaoPorDiaChave.get(k);
-      if (!reducoes) continue; // sem antecipação tocando essa linha — mantém o intervalo original
-      const linha = linhas.get(`${k}|CREDITO`);
-      if (!linha) continue;
-      let novoDe: Date | null = null;
-      let novoAte: Date | null = null;
-      for (const [dia, bruto] of diasBruto) {
-        const residual = bruto + (reducoes.get(dia) ?? 0);
-        if (residual <= 0.01) continue; // esse dia já foi todo antecipado — não entra no intervalo
-        const d = new Date(`${dia}T00:00:00.000Z`);
-        if (!novoDe || d < novoDe) novoDe = d;
-        if (!novoAte || d > novoAte) novoAte = d;
-      }
-      linha.pagamentoDe = novoDe;
-      linha.pagamentoAte = novoAte;
-    }
   } else {
     // Vendas cujo pagamento previsto (nominal, do arquivo) cai dentro do
     // período já foram somadas acima — mas se uma delas já tinha sido
@@ -212,8 +168,8 @@ export async function buscarVendasAReceber(params: {
           totalBruto: Math.max(0, a.deltaBruto),
           totalLiquido: Math.max(0, a.delta),
           qtdSemDataRepasse: 0,
-          pagamentoDe: new Date(`${a.data}T00:00:00.000Z`),
-          pagamentoAte: new Date(`${a.data}T00:00:00.000Z`),
+          vendaDe: new Date(`${a.data}T00:00:00.000Z`),
+          vendaAte: new Date(`${a.data}T00:00:00.000Z`),
         });
         continue;
       }
@@ -281,8 +237,8 @@ export function agruparEmBlocos(linhas: LinhaAReceber[]): PostoAReceber[] {
       blocoDoRotulo.set(chave, bloco);
       const atual = acumulado.get(chave) ?? { rotulo, bruto: 0, de: null, ate: null };
       atual.bruto += l.totalBruto;
-      if (l.pagamentoDe && (atual.de === null || l.pagamentoDe < atual.de)) atual.de = l.pagamentoDe;
-      if (l.pagamentoAte && (atual.ate === null || l.pagamentoAte > atual.ate)) atual.ate = l.pagamentoAte;
+      atual.de = atual.de === null || l.vendaDe < atual.de ? l.vendaDe : atual.de;
+      atual.ate = atual.ate === null || l.vendaAte > atual.ate ? l.vendaAte : atual.ate;
       acumulado.set(chave, atual);
     }
 
