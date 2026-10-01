@@ -205,8 +205,15 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
           (qualquer agrupamento): os títulos de grupo são linhas dentro dela, com o total na
           coluna Valor — nada muda de posição de um grupo pro outro. */}
       {grupos.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
-          <table className="w-full min-w-[820px] table-fixed text-sm [&_td]:break-words">
+        // min-w-[820px] evita que a tabela fique espremida demais numa tela
+        // estreita — mas impresso/PDF não tem como rolar pro lado, e a
+        // página (A4, ~190mm úteis) é mais estreita que 820px: a coluna
+        // Valor (a última) ficava cortada fora da página inteira. No print
+        // a tabela não pode ter largura mínima nenhuma — tem que caber na
+        // página, nem que fique mais apertada (as % do colgroup garantem
+        // isso, table-fixed já reparte proporcional ao que sobrar).
+        <div className="overflow-x-auto rounded-lg border border-black/10 print:overflow-visible dark:border-white/15">
+          <table className="w-full min-w-[820px] table-fixed text-sm [&_td]:break-words print:min-w-0">
             <colgroup>
               <col style={{ width: "9%" }} />
               <col style={{ width: "13%" }} />
