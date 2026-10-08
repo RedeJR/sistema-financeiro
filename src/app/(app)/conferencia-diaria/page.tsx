@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { hojeUTC } from "@/lib/datas";
+import { nomeBancoPadraoDoPosto } from "@/lib/banco-padrao-posto";
 import { gerarOcorrenciasRecorrentesPendentes } from "@/app/(app)/contas-a-pagar/recorrencia";
 import { marcarComoPagas } from "./actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
@@ -245,7 +246,7 @@ export default async function ConferenciaDiariaPage({
                 className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
                 required
               >
-                <option value="previsto">Banco previsto de cada conta</option>
+                <option value="previsto">Banco previsto de cada conta (padrão do posto)</option>
                 {bancos.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.nome}
@@ -359,7 +360,13 @@ export default async function ConferenciaDiariaPage({
                   <td className="px-4 py-2 text-foreground/70">
                     {c.planoConta.grupo.nome} / {c.planoConta.nome}
                   </td>
-                  <td className="px-4 py-2 text-foreground/70">{c.bancoPrevisto?.nome ?? "—"}</td>
+                  <td className="px-4 py-2 text-foreground/70">
+                    {c.bancoPrevisto?.nome ?? (
+                      <span title="Banco padrão do posto" className="text-foreground/50">
+                        {nomeBancoPadraoDoPosto(c.posto.nome)}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-right">{formatarMoeda(c.valor.toString())}</td>
                   {podeEditar && (
                     <td className="px-4 py-2 text-right">

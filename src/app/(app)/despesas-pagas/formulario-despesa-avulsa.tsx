@@ -26,9 +26,9 @@ type Props = {
   // src/lib/sugestao-plano-conta.ts e o mesmo mecanismo em
   // formulario-conta-a-pagar.tsx.
   sugestaoPlanoContaPorFornecedor?: Record<string, string>;
-  // fornecedorId -> banco mais usado por ele (src/lib/sugestao-banco.ts) —
-  // pré-seleciona "Pago no banco" ao trocar de fornecedor; dá pra trocar.
-  sugestaoBancoPorFornecedor?: Record<string, string>;
+  // postoId -> bancoId padrão do posto (src/lib/banco-padrao-posto.ts) —
+  // pré-seleciona "Pago no banco" pelo posto que paga; dá pra trocar.
+  bancoPadraoPorPosto?: Record<string, string>;
   // URL da lista de onde a usuária veio, com o filtro aplicado — volta pra
   // lá depois de salvar. Ver actions.ts (criarDespesaAvulsa).
   voltarPara?: string;
@@ -43,7 +43,7 @@ export function FormularioDespesaAvulsa({
   grupos,
   bancos,
   sugestaoPlanoContaPorFornecedor = {},
-  sugestaoBancoPorFornecedor = {},
+  bancoPadraoPorPosto = {},
   voltarPara,
 }: Props) {
   const [state, formAction] = useActionState<ActionState, FormData>(criarDespesaAvulsa, null);
@@ -65,8 +65,17 @@ export function FormularioDespesaAvulsa({
     setFornecedorSelecionado(novoFornecedorId);
     const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
     if (sugestao) setPlanoContaSugerido(sugestao);
-    const bancoSugerido = sugestaoBancoPorFornecedor[novoFornecedorId];
-    if (bancoSugerido) setBancoSelecionado(bancoSugerido);
+  }
+
+  // O banco depende de QUEM PAGA: o posto escolhido em "Pago pelo posto" quando
+  // preenchido, senão o próprio Posto.
+  const [postoEscolhido, setPostoEscolhido] = useState(v?.postoId ?? "");
+  const [postoPagadorEscolhido, setPostoPagadorEscolhido] = useState(v?.postoPagamentoId ?? "");
+  function atualizarBancoPadrao(postoId: string, postoPagadorId: string) {
+    setPostoEscolhido(postoId);
+    setPostoPagadorEscolhido(postoPagadorId);
+    const bancoPadrao = bancoPadraoPorPosto[postoPagadorId || postoId];
+    if (bancoPadrao) setBancoSelecionado(bancoPadrao);
   }
 
   const [mostrarNovoFornecedor, setMostrarNovoFornecedor] = useState(false);
@@ -99,7 +108,14 @@ export function FormularioDespesaAvulsa({
           <label htmlFor="postoId" className="text-sm font-medium text-foreground/80">
             Posto
           </label>
-          <select id="postoId" name="postoId" defaultValue={v?.postoId ?? ""} className={campoSelect} required>
+          <select
+            id="postoId"
+            name="postoId"
+            defaultValue={v?.postoId ?? ""}
+            onChange={(e) => atualizarBancoPadrao(e.target.value, postoPagadorEscolhido)}
+            className={campoSelect}
+            required
+          >
             <option value="" disabled>
               Escolha um posto
             </option>
@@ -206,6 +222,7 @@ export function FormularioDespesaAvulsa({
           id="postoPagamentoId"
           name="postoPagamentoId"
           defaultValue={v?.postoPagamentoId ?? ""}
+          onChange={(e) => atualizarBancoPadrao(postoEscolhido, e.target.value)}
           className={campoSelect}
         >
           <option value="">Mesmo posto acima</option>

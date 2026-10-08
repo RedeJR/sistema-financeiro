@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
+import { bancoPadraoPorPosto } from "@/lib/banco-padrao-posto";
 
 const ROTA = "/conferencia-diaria";
 
@@ -35,16 +36,25 @@ export async function marcarComoPagas(formData: FormData) {
 
   // "previsto" = usa o banco escolhido no lançamento de cada conta (ver
   // ContaAPagar.bancoPrevistoId) — agrupa por banco e atualiza um grupo por
-  // vez; se alguma das selecionadas não tem banco previsto, não paga nada.
+  // vez. Conta sem banco previsto usa o padrão do posto que paga (Sinergia =
+  // Stone, Lago = Itaú, Aveiro = Banco do Brasil, demais = Bradesco — ver
+  // banco-padrao-posto.ts); só não paga nada se nem isso existir.
   const porBanco = new Map<string, string[]>();
   if (bancoId === "previsto") {
     const contas = await prisma.contaAPagar.findMany({
       where: { id: { in: ids }, paga: false },
-      select: { id: true, bancoPrevistoId: true },
+      select: { id: true, postoId: true, bancoPrevistoId: true },
     });
+    const [todosPostos, todosBancos] = await Promise.all([
+      prisma.posto.findMany({ select: { id: true, nome: true } }),
+      prisma.banco.findMany({ select: { id: true, nome: true } }),
+    ]);
+    const padraoPorPosto = bancoPadraoPorPosto(todosPostos, todosBancos);
+    const postoPagador = typeof postoPagamentoId === "string" && postoPagamentoId ? postoPagamentoId : null;
     for (const c of contas) {
-      if (!c.bancoPrevistoId) redirect(`${ROTA}?erro=sem-banco-previsto`);
-      porBanco.set(c.bancoPrevistoId, [...(porBanco.get(c.bancoPrevistoId) ?? []), c.id]);
+      const bancoDaConta = c.bancoPrevistoId ?? padraoPorPosto[postoPagador ?? c.postoId];
+      if (!bancoDaConta) redirect(`${ROTA}?erro=sem-banco-previsto`);
+      porBanco.set(bancoDaConta, [...(porBanco.get(bancoDaConta) ?? []), c.id]);
     }
   } else {
     porBanco.set(bancoId, ids);

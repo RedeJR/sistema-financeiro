@@ -24,10 +24,9 @@ type Props = {
   fornecedores: Opcao[];
   grupos: GrupoComContas[];
   bancos: Opcao[];
-  // fornecedorId -> bancoId mais usado por ele (ver src/lib/sugestao-banco.ts)
-  // — mesmo mecanismo do plano de contas: preenche sozinho ao trocar de
-  // fornecedor num lançamento NOVO, e dá pra trocar na hora.
-  sugestaoBancoPorFornecedor?: Record<string, string>;
+  // postoId -> bancoId padrão do posto (ver src/lib/banco-padrao-posto.ts):
+  // preenche sozinho ao escolher o posto num lançamento NOVO, e dá pra trocar na hora.
+  bancoPadraoPorPosto?: Record<string, string>;
   // fornecedorId -> planoContaId mais usado historicamente por ele (ver
   // src/lib/sugestao-plano-conta.ts) — só some ao trocar de fornecedor num
   // lançamento NOVO (não mexe durante edição), e continua editável depois.
@@ -77,7 +76,7 @@ export function FormularioContaAPagar({
   fornecedores: fornecedoresIniciais,
   grupos,
   bancos,
-  sugestaoBancoPorFornecedor = {},
+  bancoPadraoPorPosto = {},
   sugestaoPlanoContaPorFornecedor = {},
   voltarPara,
   modoEdicao = false,
@@ -104,8 +103,11 @@ export function FormularioContaAPagar({
     // não mexe no que já estava selecionado, nem limpa nada.
     const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
     if (!modoEdicao && sugestao) setPlanoContaSugerido(sugestao);
-    const bancoSugerido = sugestaoBancoPorFornecedor[novoFornecedorId];
-    if (!modoEdicao && bancoSugerido) setBancoPrevisto(bancoSugerido);
+  }
+
+  function aoMudarPosto(novoPostoId: string) {
+    const bancoPadrao = bancoPadraoPorPosto[novoPostoId];
+    if (!modoEdicao && bancoPadrao) setBancoPrevisto(bancoPadrao);
   }
   const [mostrarNovoFornecedor, setMostrarNovoFornecedor] = useState(false);
   const [novoNome, setNovoNome] = useState("");
@@ -202,7 +204,14 @@ export function FormularioContaAPagar({
           <label htmlFor="postoId" className="text-sm font-medium text-foreground/80">
             Posto
           </label>
-          <select id="postoId" name="postoId" defaultValue={v?.postoId ?? ""} className={campoSelect} required>
+          <select
+            id="postoId"
+            name="postoId"
+            defaultValue={v?.postoId ?? ""}
+            onChange={(e) => aoMudarPosto(e.target.value)}
+            className={campoSelect}
+            required
+          >
             <option value="" disabled>
               Escolha um posto
             </option>
@@ -293,7 +302,7 @@ export function FormularioContaAPagar({
           ))}
         </select>
         <p className="text-xs text-foreground/50">
-          Já vem preenchido com o banco que esse fornecedor mais usa — troque aqui se for diferente. Na
+          Já vem preenchido com o banco padrão do posto (Sinergia = Stone, Lago = Itaú, Aveiro = Banco do Brasil, demais = Bradesco) — troque aqui se for diferente. Na
           Conferência Diária, vale como banco do pagamento se você não escolher outro.
         </p>
       </div>
