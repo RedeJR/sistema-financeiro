@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { emLista } from "@/lib/filtro-multiplo";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "visualizar");
 
   const params = request.nextUrl.searchParams;
-  const postoId = params.get("postoId");
+  const postoIds = params.getAll("postoId").filter(Boolean);
   const de = params.get("de");
   const ate = params.get("ate");
 
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     where: {
       combustivel: true,
       paga: false,
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", postoIds),
       ...(de || ate
         ? {
             dataVencimento: {

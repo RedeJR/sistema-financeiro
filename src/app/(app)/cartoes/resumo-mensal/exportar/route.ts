@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const mes = params.get("mes");
-  const postoId = params.get("postoId") || undefined;
+  const postoId = params.getAll("postoId").filter(Boolean);
   const vendasPor = params.get("vendasPor") === "pagamento" ? "pagamento" : "venda";
 
   if (!mes || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {

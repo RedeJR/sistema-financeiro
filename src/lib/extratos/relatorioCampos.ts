@@ -38,15 +38,15 @@ export type BlocoRelatorioCampo = {
 
 export async function buscarRelatorioCampoExtrato(params: {
   categoriaId: string;
-  postoId?: string;
+  postoIds?: string[];
   dataInicio: Date;
   dataFim: Date;
 }): Promise<BlocoRelatorioCampo[]> {
-  const { categoriaId, postoId, dataInicio, dataFim } = params;
+  const { categoriaId, postoIds = [], dataInicio, dataFim } = params;
 
   const [postos, categoria] = await Promise.all([
     prisma.posto.findMany({
-      where: { ativo: true, ...(postoId ? { id: postoId } : {}) },
+      where: { ativo: true, ...(postoIds.length ? { id: { in: postoIds } } : {}) },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     }),
@@ -70,14 +70,14 @@ export async function buscarRelatorioCampoExtrato(params: {
         categoriaId: { in: categoriaIds },
         divisoes: { none: {} },
         data: { gte: dataInicio, lte: dataFim },
-        ...(postoId ? { postoId } : {}),
+        ...(postoIds.length ? { postoId: { in: postoIds } } : {}),
       },
       select: { id: true, postoId: true, data: true, valor: true, observacao: true, descricao: true, categoriaId: true },
     }),
     prisma.lancamentoExtratoDivisao.findMany({
       where: {
         categoriaId: { in: categoriaIds },
-        lancamentoExtrato: { data: { gte: dataInicio, lte: dataFim }, ...(postoId ? { postoId } : {}) },
+        lancamentoExtrato: { data: { gte: dataInicio, lte: dataFim }, ...(postoIds.length ? { postoId: { in: postoIds } } : {}) },
       },
       select: {
         id: true,

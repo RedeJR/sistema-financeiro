@@ -29,6 +29,7 @@ export function SeletorDropdown(props: Props) {
     () => new Set(selecionados.length ? selecionados : todosItens.map((i) => i.id))
   );
   const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +43,12 @@ export function SeletorDropdown(props: Props) {
   }, []);
 
   const todosMarcados = marcados.size === todosItens.length;
+  const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const termo = semAcento(busca.trim());
+  const casaBusca = (nomeItem: string) => !termo || semAcento(nomeItem).includes(termo);
+  // Só mostra a busca quando a lista é grande o bastante pra valer a pena
+  // (fornecedor, plano de contas) — posto (poucos) fica sem.
+  const mostrarBusca = todosItens.length > 8;
 
   function alternarTodos() {
     setMarcados(todosMarcados ? new Set() : new Set(todosItens.map((i) => i.id)));
@@ -87,6 +94,20 @@ export function SeletorDropdown(props: Props) {
           aberto ? "block" : "hidden"
         }`}
       >
+        {mostrarBusca && (
+          <div className="sticky top-0 border-b border-black/10 bg-background p-2 dark:border-white/15">
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.preventDefault();
+              }}
+              placeholder="Buscar pelo nome..."
+              className="w-full rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none dark:border-white/20"
+            />
+          </div>
+        )}
         <label className="flex items-center gap-2 border-b border-black/10 px-3 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10">
           <input type="checkbox" checked={todosMarcados} onChange={alternarTodos} />
           {rotuloTodos}
@@ -101,7 +122,9 @@ export function SeletorDropdown(props: Props) {
             {g.itens.map((item) => (
               <label
                 key={item.id}
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10 ${
+                  casaBusca(item.nome) ? "" : "hidden"
+                }`}
               >
                 <input
                   type="checkbox"

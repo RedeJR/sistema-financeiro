@@ -1,4 +1,5 @@
 import { exigirPermissao } from "@/lib/auth";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { BotaoImprimir } from "./botao-imprimir";
@@ -14,7 +15,7 @@ function formatarData(d: Date | null): string {
 export default async function RelatorioCombustiveisAPagarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; de?: string; ate?: string }>;
 }) {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "visualizar");
 
@@ -24,7 +25,7 @@ export default async function RelatorioCombustiveisAPagarPage({
     where: {
       combustivel: true,
       paga: false,
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", paraLista(postoId)),
       ...(de || ate
         ? {
             dataVencimento: {

@@ -1,4 +1,6 @@
 import { Fragment } from "react";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista } from "@/lib/filtro-multiplo";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
@@ -162,6 +164,7 @@ export default async function EditarExtratosPage({
 
   const filtros = await searchParams;
   const { postoId, bancoId, categoria, de, ate, arquivo, erro, gravados, duplicados, foraDoPeriodo } = filtros;
+  const postoIds = paraLista(postoId);
 
   const [resultado, postos, bancos, categorias] = await Promise.all([
     buscarLancamentosExtrato(filtros),
@@ -172,7 +175,7 @@ export default async function EditarExtratosPage({
 
   const { lancamentos, total, totalSemCategoria, totalSemDescricaoObrigatoria, somaValor, pagina, totalPaginas } =
     resultado;
-  const temFiltro = Boolean(postoId || bancoId || categoria || de || ate || arquivo);
+  const temFiltro = Boolean(postoIds.length || bancoId || categoria || de || ate || arquivo);
   const grupos = agruparPorDia(lancamentos);
 
   const qsSemPagina = construirQuery(filtros, ["pagina", "erro", "gravados", "duplicados", "foraDoPeriodo"]);
@@ -238,19 +241,12 @@ export default async function EditarExtratosPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="bancoId" className="text-foreground/60">

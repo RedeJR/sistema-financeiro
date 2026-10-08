@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -16,11 +18,12 @@ function dataUTC(iso: string, fim = false): Date {
 export default async function RelatoriosExtratosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; categoriaId?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; categoriaId?: string; de?: string; ate?: string }>;
 }) {
   await exigirPermissao("EXTRATOS", "visualizar");
 
   const { postoId, de, ate, categoriaId: categoriaIdParam } = await searchParams;
+  const postoIds = paraLista(postoId);
 
   const [postos, categorias] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -38,7 +41,7 @@ export default async function RelatoriosExtratosPage({
   const blocos = temFiltro
     ? await buscarRelatorioCampoExtrato({
         categoriaId: categoriaId!,
-        postoId: postoId || undefined,
+        postoIds,
         dataInicio: dataUTC(de!),
         dataFim: dataUTC(ate!, true),
       })
@@ -46,11 +49,11 @@ export default async function RelatoriosExtratosPage({
 
   const totalGeral = (blocos ?? []).reduce((s, b) => s + b.total, 0);
   const nomeCategoria = categorias.find((c) => c.id === categoriaId)?.nome ?? "";
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
+  const postoNome = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : undefined;
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   const qsBase = new URLSearchParams({ categoriaId: categoriaId ?? "", de: de ?? "", ate: ate ?? "" });
-  if (postoId) qsBase.set("postoId", postoId);
+  anexarLista(qsBase, "postoId", postoIds);
 
   return (
     <div className="space-y-4">
@@ -97,19 +100,12 @@ export default async function RelatoriosExtratosPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">

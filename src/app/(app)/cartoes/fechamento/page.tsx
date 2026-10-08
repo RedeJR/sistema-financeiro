@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarFechamentoCartoes, buscarCustoAntecipacao, type LinhaFechamento, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
@@ -14,9 +16,10 @@ const ROTULO_MODALIDADE = ROTULO_TIPO_FECHAMENTO;
 export default async function FechamentoCartoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; inicio?: string; fim?: string; adquirenteId?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; inicio?: string; fim?: string; adquirenteId?: string }>;
 }) {
   const { postoId, inicio, fim, adquirenteId } = await searchParams;
+  const postoIds = paraLista(postoId);
 
   const [postos, adquirentes] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -26,7 +29,7 @@ export default async function FechamentoCartoesPage({
   const temFiltro = Boolean(inicio && fim);
   const linhas = temFiltro
     ? await buscarFechamentoCartoes({
-        postoId: postoId || undefined,
+        postoId: postoIds,
         adquirenteId: adquirenteId || undefined,
         dataInicio: dataUTC(inicio!),
         dataFim: dataUTC(fim!, true),
@@ -35,7 +38,7 @@ export default async function FechamentoCartoesPage({
 
   const custoAntecipacao = temFiltro
     ? await buscarCustoAntecipacao({
-        postoId: postoId || undefined,
+        postoId: postoIds,
         adquirenteId: adquirenteId || undefined,
         dataInicio: dataUTC(inicio!),
         dataFim: dataUTC(fim!, true),
@@ -50,9 +53,9 @@ export default async function FechamentoCartoesPage({
     porPosto.set(l.posto, arr);
   }
 
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
+  const postoNome = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : undefined;
   const qsBase = new URLSearchParams({ inicio: inicio ?? "", fim: fim ?? "" });
-  if (postoId) qsBase.set("postoId", postoId);
+  anexarLista(qsBase, "postoId", postoIds);
   if (adquirenteId) qsBase.set("adquirenteId", adquirenteId);
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
@@ -85,19 +88,12 @@ export default async function FechamentoCartoesPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="adquirenteId" className="text-foreground/60">

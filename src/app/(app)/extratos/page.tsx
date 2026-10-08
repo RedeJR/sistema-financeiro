@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -97,6 +99,7 @@ export default async function ExtratosPage({
 
   const filtros = await searchParams;
   const { postoId, bancoId, categoria, de, ate } = filtros;
+  const postoIds = paraLista(postoId);
 
   const [resultado, postos, bancos, categorias] = await Promise.all([
     buscarLancamentosExtrato(filtros),
@@ -107,7 +110,7 @@ export default async function ExtratosPage({
 
   const { lancamentos, total, totalSemCategoria, totalSemDescricaoObrigatoria, somaValor, pagina, totalPaginas } =
     resultado;
-  const temFiltro = Boolean(postoId || bancoId || categoria || de || ate);
+  const temFiltro = Boolean(postoIds.length || bancoId || categoria || de || ate);
   const grupos = agruparPorDia(lancamentos);
 
   const qsSemPagina = construirQuery(filtros, ["pagina"]);
@@ -163,19 +166,12 @@ export default async function ExtratosPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="bancoId" className="text-foreground/60">

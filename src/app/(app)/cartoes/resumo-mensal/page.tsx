@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import {
@@ -53,22 +55,23 @@ function CelulasValores({ l }: { l: LinhaResumoMensal }) {
 export default async function ResumoMensalCartoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; postoId?: string; vendasPor?: string }>;
+  searchParams: Promise<{ mes?: string; postoId?: string | string[]; vendasPor?: string }>;
 }) {
   const { mes, postoId, vendasPor } = await searchParams;
+  const postoIds = paraLista(postoId);
   const vendasPorPagamento = vendasPor === "pagamento";
   const modo: VendasPor = vendasPorPagamento ? "pagamento" : "venda";
   const mesValido = mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : undefined;
 
   const postos = await prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } });
 
-  const resultado = mesValido ? await buscarResumoMensal({ mes: mesValido, postoId: postoId || undefined, vendasPor: modo }) : null;
+  const resultado = mesValido ? await buscarResumoMensal({ mes: mesValido, postoId: postoIds, vendasPor: modo }) : null;
 
   const qsBase = new URLSearchParams({ mes: mesValido ?? "" });
-  if (postoId) qsBase.set("postoId", postoId);
+  anexarLista(qsBase, "postoId", postoIds);
   if (vendasPorPagamento) qsBase.set("vendasPor", "pagamento");
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
+  const postoNome = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : undefined;
 
   const totalGeral = resultado?.reduce(
     (acc, p) => ({
@@ -117,19 +120,12 @@ export default async function ResumoMensalCartoesPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="vendasPor" className="text-foreground/60">

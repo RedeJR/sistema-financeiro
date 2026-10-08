@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarConferenciasCaixa, type StatusConferenciaCaixa } from "@/lib/conferenciaCaixa";
@@ -28,14 +30,15 @@ const COR_STATUS: Record<StatusConferenciaCaixa, string> = {
 export default async function HistoricoConferenciaCaixaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; status?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; status?: string }>;
 }) {
   const { postoId, status } = await searchParams;
+  const postoIds = paraLista(postoId);
   const statusFiltro = status === "CONFERIDO" || status === "DIVERGENTE" ? status : undefined;
 
   const [postos, linhas] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    buscarConferenciasCaixa({ postoId: postoId || undefined, status: statusFiltro }),
+    buscarConferenciasCaixa({ postoId: postoIds, status: statusFiltro }),
   ]);
 
   return (
@@ -50,19 +53,12 @@ export default async function HistoricoConferenciaCaixaPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="status" className="text-foreground/60">
@@ -85,7 +81,7 @@ export default async function HistoricoConferenciaCaixaPage({
         >
           Filtrar
         </button>
-        {(postoId || statusFiltro) && (
+        {(postoIds.length || statusFiltro) && (
           <Link href="/conferencia-caixa/conferencia" className="text-foreground/60 underline">
             Limpar filtros
           </Link>

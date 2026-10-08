@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { classificarTipoFechamento, ehVendaEmDinheiro, ORDEM_TIPO_FECHAMENTO, type TipoFechamento } from "./normalizar";
 
@@ -22,17 +23,18 @@ export type LinhaFechamento = {
 // extrato (isso é a aba Recebimentos). Sem postoId, traz todos os postos
 // ativos agrupados (uso: fechamento do mês pra rede inteira).
 export async function buscarFechamentoCartoes(params: {
-  postoId?: string;
+  postoId?: string | string[];
   adquirenteId?: string;
   dataInicio: Date;
   dataFim: Date;
 }): Promise<LinhaFechamento[]> {
   const { postoId, adquirenteId, dataInicio, dataFim } = params;
+  const postoIds = paraLista(postoId);
 
   const transacoes = await prisma.transacaoCartao.findMany({
     where: {
       dataVenda: { gte: dataInicio, lte: dataFim },
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", postoIds),
       ...(adquirenteId ? { adquirenteId } : {}),
     },
     include: { adquirente: true, posto: true },
@@ -95,16 +97,17 @@ export type LinhaCustoAntecipacao = {
 // período — pela data em que o dinheiro caiu. Não entra no bruto − líquido das
 // vendas, porque o arquivo da adquirente traz só a taxa nominal.
 export async function buscarCustoAntecipacao(params: {
-  postoId?: string;
+  postoId?: string | string[];
   adquirenteId?: string;
   dataInicio: Date;
   dataFim: Date;
 }): Promise<LinhaCustoAntecipacao[]> {
   const { postoId, adquirenteId, dataInicio, dataFim } = params;
+  const postoIds = paraLista(postoId);
   const antecipacoes = await prisma.antecipacaoCartao.findMany({
     where: {
       dataRecebimento: { gte: dataInicio, lte: dataFim },
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", postoIds),
       ...(adquirenteId ? { adquirenteId } : {}),
     },
     include: { adquirente: true, posto: true },

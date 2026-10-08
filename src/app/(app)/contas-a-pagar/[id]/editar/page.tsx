@@ -21,7 +21,7 @@ export default async function EditarContaAPagarPage({
 
   const { id } = await params;
   const { voltarPara } = await searchParams;
-  const [conta, postos, fornecedores, grupos] = await Promise.all([
+  const [conta, postos, fornecedores, grupos, bancos] = await Promise.all([
     prisma.contaAPagar.findUnique({ where: { id } }),
     // Busca todos (não só ativos) pra não perder a referência se algo foi
     // desativado depois que essa conta foi criada.
@@ -31,6 +31,7 @@ export default async function EditarContaAPagarPage({
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],
       include: { contas: { orderBy: { nome: "asc" } } },
     }),
+    prisma.banco.findMany({ orderBy: { nome: "asc" } }),
   ]);
   if (!conta) notFound();
 
@@ -61,11 +62,13 @@ export default async function EditarContaAPagarPage({
         postos={postos}
         fornecedores={fornecedores}
         grupos={grupos}
+        bancos={bancos}
         voltarPara={voltarPara}
         valoresIniciais={{
           postoId: conta.postoId,
           fornecedorId: conta.fornecedorId,
           planoContaId: conta.planoContaId,
+          bancoPrevistoId: conta.bancoPrevistoId,
           dataEmissao: paraDataInput(conta.dataEmissao),
           dataVencimento: paraDataInput(conta.dataVencimento),
           numeroDocumento: conta.numeroDocumento,

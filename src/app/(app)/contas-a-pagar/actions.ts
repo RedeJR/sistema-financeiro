@@ -63,6 +63,12 @@ const schemaComuns = z.object({
   postoId: z.string().trim().min(1, "Escolha um posto."),
   fornecedorId: z.string().trim().min(1, "Escolha um fornecedor."),
   planoContaId: z.string().trim().min(1, "Escolha uma conta do plano de contas."),
+  // Vazio = sem banco previsto (ver ContaAPagar.bancoPrevistoId).
+  bancoPrevistoId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v : null)),
   dataEmissao: z.string().trim().min(1, "Informe a data de emissão."),
   numeroDocumento: z
     .string()
@@ -142,6 +148,7 @@ export async function criarContaAPagar(
         postoId: formData.get("postoId"),
         fornecedorId: formData.get("fornecedorId"),
         planoContaId: formData.get("planoContaId"),
+        bancoPrevistoId: formData.get("bancoPrevistoId"),
         dataEmissao: formData.get("dataEmissao"),
         numeroDocumento: formData.get("numeroDocumento"),
         descricao: formData.get("descricao"),
@@ -158,6 +165,7 @@ export async function criarContaAPagar(
         postoId: parsedComuns.data.postoId,
         fornecedorId: parsedComuns.data.fornecedorId,
         planoContaId: parsedComuns.data.planoContaId,
+        bancoPrevistoId: parsedComuns.data.bancoPrevistoId,
         numeroDocumento: parsedComuns.data.numeroDocumento,
         descricao: parsedComuns.data.descricao,
         observacao: parsedComuns.data.observacao,
@@ -202,6 +210,7 @@ export async function criarContaAPagar(
         postoId: formData.get("postoId"),
         fornecedorId: formData.get("fornecedorId"),
         planoContaId: formData.get("planoContaId"),
+        bancoPrevistoId: formData.get("bancoPrevistoId"),
         dataEmissao: formData.get("dataEmissao"),
         numeroDocumento: formData.get("numeroDocumento"),
         descricao: formData.get("descricao"),
@@ -221,6 +230,7 @@ export async function criarContaAPagar(
         postoId: parsedUnica.data.postoId,
         fornecedorId: parsedUnica.data.fornecedorId,
         planoContaId: parsedUnica.data.planoContaId,
+        bancoPrevistoId: parsedUnica.data.bancoPrevistoId,
         numeroDocumento: parsedUnica.data.numeroDocumento,
         descricao: parsedUnica.data.descricao,
         observacao: parsedUnica.data.observacao,
@@ -293,6 +303,7 @@ export async function atualizarContaAPagar(
     postoId: formData.get("postoId"),
     fornecedorId: formData.get("fornecedorId"),
     planoContaId: formData.get("planoContaId"),
+        bancoPrevistoId: formData.get("bancoPrevistoId"),
     dataEmissao: formData.get("dataEmissao"),
     dataVencimento: formData.get("dataVencimento"),
     numeroDocumento: formData.get("numeroDocumento"),

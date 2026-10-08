@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const filtros = {
-    postoId: params.get("postoId") ?? undefined,
+    postoId: params.getAll("postoId").filter(Boolean),
     postoDono: params.get("postoDono") ?? undefined,
     fornecedorId: params.get("fornecedorId") ?? undefined,
     planoContaId: params.get("planoContaId") ?? undefined,

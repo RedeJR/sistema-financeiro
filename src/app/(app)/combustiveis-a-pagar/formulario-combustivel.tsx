@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { SeletorBusca } from "@/components/ui/seletor-busca";
 import { Campo } from "@/components/ui/campo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -40,7 +41,7 @@ export function FormularioCombustivel({ postos, fornecedores, valoresIniciais, a
   return (
     <form key={formKey} action={formAction} className="max-w-2xl space-y-4">
       <p className="rounded-md bg-black/5 px-3 py-2 text-sm text-foreground/70 dark:bg-white/5">
-        O plano de contas dessa despesa é sempre <strong>COMBUSTIVEIS</strong> — não precisa escolher. A
+        O plano de contas dessa despesa é sempre <strong>GERAL &gt; GERAL</strong> — não precisa escolher. A
         baixa também é automática: assim que o débito correspondente aparecer conciliado no extrato
         bancário (mesmo posto pagador, mesmo valor, categoria &quot;Combustíveis&quot;), essa conta sai da
         lista de pendentes sozinha.
@@ -66,22 +67,14 @@ export function FormularioCombustivel({ postos, fornecedores, valoresIniciais, a
           <label htmlFor="fornecedorId" className="text-sm font-medium text-foreground/80">
             Fornecedor
           </label>
-          <select
+          <SeletorBusca
             id="fornecedorId"
-            name="fornecedorId"
-            defaultValue={v?.fornecedorId ?? ""}
-            className={campoSelect}
+            nome="fornecedorId"
+            itens={fornecedores}
+            valorInicial={v?.fornecedorId ?? ""}
+            placeholder="Digite pra buscar o fornecedor..."
             required
-          >
-            <option value="" disabled>
-              Escolha um fornecedor
-            </option>
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nome}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 

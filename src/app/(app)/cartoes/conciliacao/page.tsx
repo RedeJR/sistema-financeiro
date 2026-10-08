@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import {
-  buscarConciliacaoCartoes,
+  buscarConciliacaoVariosPostos,
   type AgrupamentoConciliacao,
   type LinhaConciliacao,
+  type LinhaConciliacaoPosto,
   type StatusConciliacao,
 } from "@/lib/cartoes/conciliacao";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
@@ -45,7 +47,7 @@ export default async function ConciliacaoCartoesPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    postoId?: string;
+    postoId?: string | string[];
     inicio?: string;
     fim?: string;
     adquirenteId?: string | string[];
@@ -55,6 +57,7 @@ export default async function ConciliacaoCartoesPage({
   }>;
 }) {
   const { postoId, inicio, fim, adquirenteId, status, filtrarPor, agruparPor } = await searchParams;
+  const postoIds = paraLista(postoId);
   const filtrarPorVenda = filtrarPor === "venda";
   const adquirenteIds = adquirenteId ? (Array.isArray(adquirenteId) ? adquirenteId : [adquirenteId]) : [];
   const agrupamento: AgrupamentoConciliacao = agruparPor === "adquirente" ? agruparPor : "recebimento";
@@ -64,11 +67,11 @@ export default async function ConciliacaoCartoesPage({
     prisma.adquirenteCartao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
 
-  const temFiltro = Boolean(postoId && inicio && fim);
+  const temFiltro = Boolean(inicio && fim);
   const todasLinhas =
-    temFiltro && postoId && inicio && fim
-      ? await buscarConciliacaoCartoes({
-          postoId,
+    temFiltro && inicio && fim
+      ? await buscarConciliacaoVariosPostos({
+          postoIds: postoIds.length ? postoIds : postos.map((p) => p.id),
           dataInicio: dataUTC(inicio),
           dataFim: dataUTC(fim, true),
           adquirenteIds,
@@ -79,8 +82,10 @@ export default async function ConciliacaoCartoesPage({
 
   const linhas = todasLinhas && status ? todasLinhas.filter((l) => l.status === status) : todasLinhas;
 
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
-  const qsBase = new URLSearchParams({ postoId: postoId ?? "", inicio: inicio ?? "", fim: fim ?? "" });
+  const postoNome = postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ");
+  const varios = postoIds.length !== 1;
+  const qsBase = new URLSearchParams({ inicio: inicio ?? "", fim: fim ?? "" });
+  anexarLista(qsBase, "postoId", postoIds);
   for (const id of adquirenteIds) qsBase.append("adquirenteId", id);
   if (status) qsBase.set("status", status);
   if (filtrarPorVenda) qsBase.set("filtrarPor", "venda");
@@ -117,22 +122,12 @@ export default async function ConciliacaoCartoesPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="" disabled>
-              Escolha um posto
-            </option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-foreground/60">Adquirente</span>
@@ -258,6 +253,7 @@ export default async function ConciliacaoCartoesPage({
           <table className="w-full text-sm">
             <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
               <tr>
+                {varios && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
                 <th className="px-4 py-1.5 text-left font-medium">{colunaData}</th>
                 <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
                 <th className="px-4 py-1.5 text-left font-medium">Prazo</th>
@@ -271,9 +267,9 @@ export default async function ConciliacaoCartoesPage({
               </tr>
             </thead>
             <tbody>
-              {linhas.map((l: LinhaConciliacao) => {
+              {linhas.map((l: LinhaConciliacaoPosto) => {
                 const qsLancamentos = new URLSearchParams({
-                  postoId: postoId ?? "",
+                  postoId: l.postoId,
                   categoria: l.categoriaId ?? "",
                   de: l.dataLinkDe,
                   ate: l.dataLinkAte,
@@ -283,6 +279,7 @@ export default async function ConciliacaoCartoesPage({
                     key={l.chave}
                     className={`border-t border-black/5 dark:border-white/10 ${COR_LINHA[l.status]}`}
                   >
+                    {varios && <td className="px-4 py-1.5">{l.posto}</td>}
                     <td className="px-4 py-1.5 whitespace-nowrap">
                       {l.data ? formatarData(l.data) : `${formatarData(l.dataLinkDe)} a ${formatarData(l.dataLinkAte)}`}
                     </td>
@@ -313,7 +310,7 @@ export default async function ConciliacaoCartoesPage({
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                <td className="px-4 py-1.5" colSpan={4}>
+                <td className="px-4 py-1.5" colSpan={varios ? 5 : 4}>
                   Total
                 </td>
                 <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.esperado)}</td>

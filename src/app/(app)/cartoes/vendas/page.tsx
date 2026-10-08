@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarVendasCartoes, type LinhaVendas } from "@/lib/cartoes/vendas";
@@ -18,13 +19,14 @@ export default async function VendasCartoesPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    postoId?: string;
+    postoId?: string | string[];
     inicio?: string;
     fim?: string;
     adquirenteId?: string | string[];
   }>;
 }) {
   const { postoId, inicio, fim, adquirenteId } = await searchParams;
+  const postoIds = paraLista(postoId);
   const adquirenteIds = adquirenteId ? (Array.isArray(adquirenteId) ? adquirenteId : [adquirenteId]) : [];
 
   const [postos, adquirentes] = await Promise.all([
@@ -32,19 +34,21 @@ export default async function VendasCartoesPage({
     prisma.adquirenteCartao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
 
-  const temFiltro = Boolean(postoId && inicio && fim);
+  const temFiltro = Boolean(inicio && fim);
   const linhas =
-    temFiltro && postoId && inicio && fim
+    temFiltro && inicio && fim
       ? await buscarVendasCartoes({
-          postoId,
+          postoIds: postoIds.length ? postoIds : postos.map((p) => p.id),
           adquirenteIds,
           dataInicio: dataUTC(inicio),
           dataFim: dataUTC(fim, true),
         })
       : null;
 
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
-  const qsBase = new URLSearchParams({ postoId: postoId ?? "", inicio: inicio ?? "", fim: fim ?? "" });
+  const postoNome = postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ");
+  const varios = postoIds.length !== 1;
+  const qsBase = new URLSearchParams({ inicio: inicio ?? "", fim: fim ?? "" });
+  anexarLista(qsBase, "postoId", postoIds);
   for (const id of adquirenteIds) qsBase.append("adquirenteId", id);
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
@@ -57,7 +61,7 @@ export default async function VendasCartoesPage({
     <div className="space-y-4">
       <div className="hidden print:block">
         <h2 className="text-lg font-semibold">
-          Vendas de Cartões — {postoNome ?? ""} — {inicio} a {fim}
+          Vendas de Cartões — {postoNome || "Todos os postos"} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
       </div>
@@ -72,22 +76,12 @@ export default async function VendasCartoesPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="" disabled>
-              Escolha um posto
-            </option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-foreground/60">Adquirente</span>
@@ -145,7 +139,7 @@ export default async function VendasCartoesPage({
 
       {!linhas && (
         <p className="py-10 text-center text-sm text-foreground/50">
-          Escolha um posto e o período pra ver as vendas.
+          Escolha o período (e, se quiser, os postos) pra ver as vendas.
         </p>
       )}
 
@@ -160,6 +154,7 @@ export default async function VendasCartoesPage({
           <table className="w-full text-sm">
             <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
               <tr>
+                {varios && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
                 <th className="px-4 py-1.5 text-left font-medium">Data</th>
                 <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
                 <th className="px-4 py-1.5 text-left font-medium">Modalidade</th>
@@ -171,7 +166,8 @@ export default async function VendasCartoesPage({
             </thead>
             <tbody>
               {linhas.map((l: LinhaVendas) => (
-                <tr key={`${l.adquirenteId}|${l.data}|${l.modalidade}`} className="border-t border-black/5 dark:border-white/10">
+                <tr key={`${l.postoId}|${l.adquirenteId}|${l.data}|${l.modalidade}`} className="border-t border-black/5 dark:border-white/10">
+                  {varios && <td className="px-4 py-1.5">{l.posto}</td>}
                   <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.data)}</td>
                   <td className="px-4 py-1.5">{l.adquirente}</td>
                   <td className="px-4 py-1.5 text-foreground/70">{ROTULO_MODALIDADE_VENDA[l.modalidade]}</td>
@@ -184,7 +180,7 @@ export default async function VendasCartoesPage({
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                <td className="px-4 py-1.5" colSpan={4}>
+                <td className="px-4 py-1.5" colSpan={varios ? 5 : 4}>
                   Total
                 </td>
                 <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.bruto)}</td>

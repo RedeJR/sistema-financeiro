@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { agruparEmBlocos, buscarVendasAReceber, formatarPeriodoVendas, type BaseAReceber } from "@/lib/cartoes/aReceber";
@@ -13,9 +15,10 @@ const CLASSE_CAMPO = "rounded-md border border-black/15 bg-transparent px-3 py-1
 export default async function VendasAReceberPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; inicio?: string; fim?: string; adquirenteId?: string; base?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; inicio?: string; fim?: string; adquirenteId?: string; base?: string }>;
 }) {
   const { postoId, inicio, fim, adquirenteId, base: baseParam } = await searchParams;
+  const postoIds = paraLista(postoId);
   const base: BaseAReceber = baseParam === "recebimento" ? "recebimento" : "venda";
 
   const [postos, adquirentes] = await Promise.all([
@@ -26,7 +29,7 @@ export default async function VendasAReceberPage({
   const temFiltro = Boolean(inicio && fim);
   const linhas = temFiltro
     ? await buscarVendasAReceber({
-        postoId: postoId || undefined,
+        postoId: postoIds,
         adquirenteId: adquirenteId || undefined,
         dataInicio: dataUTC(inicio!),
         dataFim: dataUTC(fim!, true),
@@ -38,9 +41,9 @@ export default async function VendasAReceberPage({
   const totalGeral = postosBlocos.reduce((s, p) => s + p.total, 0);
   const totalSemData = linhas?.reduce((s, l) => s + l.qtdSemDataRepasse, 0) ?? 0;
 
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
+  const postoNome = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : undefined;
   const qsBase = new URLSearchParams({ inicio: inicio ?? "", fim: fim ?? "", base });
-  if (postoId) qsBase.set("postoId", postoId);
+  anexarLista(qsBase, "postoId", postoIds);
   if (adquirenteId) qsBase.set("adquirenteId", adquirenteId);
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
   const descricaoBase = base === "venda" ? "vendas do período ainda não recebidas" : "vendas com recebimento previsto no período";
@@ -66,14 +69,12 @@ export default async function VendasAReceberPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select id="postoId" name="postoId" defaultValue={postoId ?? ""} className={CLASSE_CAMPO}>
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="adquirenteId" className="text-foreground/60">

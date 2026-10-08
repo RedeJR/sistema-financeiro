@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { sugestaoPlanoContaPorFornecedor } from "@/lib/sugestao-plano-conta";
+import { sugestaoBancoPorFornecedor } from "@/lib/sugestao-banco";
 import { FormularioContaAPagar } from "../formulario-conta-a-pagar";
 import { criarContaAPagar } from "../actions";
 
@@ -12,7 +13,7 @@ export default async function NovaContaAPagarPage({
   await exigirPermissao("CONTAS_A_PAGAR", "editar");
   const { voltarPara } = await searchParams;
 
-  const [postos, fornecedores, grupos, sugestaoPlanoConta] = await Promise.all([
+  const [postos, fornecedores, grupos, sugestaoPlanoConta, bancos, sugestaoBanco] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.grupoPlanoConta.findMany({
@@ -21,6 +22,8 @@ export default async function NovaContaAPagarPage({
       include: { contas: { where: { ativo: true }, orderBy: { nome: "asc" } } },
     }),
     sugestaoPlanoContaPorFornecedor(),
+    prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+    sugestaoBancoPorFornecedor(),
   ]);
 
   const hoje = new Date().toISOString().slice(0, 10);
@@ -40,12 +43,15 @@ export default async function NovaContaAPagarPage({
           postos={postos}
           fornecedores={fornecedores}
           grupos={grupos}
+          bancos={bancos}
+          sugestaoBancoPorFornecedor={sugestaoBanco}
           sugestaoPlanoContaPorFornecedor={sugestaoPlanoConta}
           voltarPara={voltarPara}
           valoresIniciais={{
             postoId: "",
             fornecedorId: "",
             planoContaId: "",
+            bancoPrevistoId: null,
             dataEmissao: hoje,
             dataVencimento: "",
             numeroDocumento: null,

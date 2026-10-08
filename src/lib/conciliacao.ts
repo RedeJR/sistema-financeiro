@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 
 // Cruza Despesas Pagas (Sistema 2 — Contas a Pagar) com os lançamentos de
@@ -24,9 +25,10 @@ function chave(postoId: string, bancoId: string, valorAbs: string, dataIso: stri
 }
 
 export async function rodarConciliacaoAutomatica(
-  postoId?: string,
+  postoId?: string | string[],
   bancoId?: string
 ): Promise<{ novosVinculos: number }> {
+  const postoIds = paraLista(postoId);
   const [despesas, lancamentos] = await Promise.all([
     prisma.contaAPagar.findMany({
       where: {
@@ -36,7 +38,7 @@ export async function rodarConciliacaoAutomatica(
         // postoId aqui filtra pelo posto PAGADOR (ver comentário acima) —
         // cobre tanto quem tem postoPagamentoId explícito quanto quem usa o
         // próprio posto da conta (postoPagamentoId null).
-        ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
+        ...(postoIds.length ? { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] } : {}),
         ...(bancoId ? { bancoPagamentoId: bancoId } : {}),
       },
       select: {
@@ -52,7 +54,7 @@ export async function rodarConciliacaoAutomatica(
       where: {
         contaAPagarId: null,
         valor: { lt: 0 },
-        ...(postoId ? { postoId } : {}),
+        ...emLista("postoId", postoIds),
         ...(bancoId ? { bancoId } : {}),
       },
       select: { id: true, postoId: true, bancoId: true, valor: true, data: true },
@@ -661,11 +663,12 @@ export type LinhaConferenciaDiaria = {
 };
 
 export async function conferenciaTotalDiario(params: {
-  postoId?: string;
+  postoId?: string | string[];
   de?: string; // "YYYY-MM-DD"
   ate?: string;
 }): Promise<LinhaConferenciaDiaria[]> {
   const { postoId, de, ate } = params;
+  const postoIds = paraLista(postoId);
 
   const categoriaDespesasPagas = await prisma.categoriaExtrato.findUnique({
     where: { nome: "DESPESAS PAGAS" },
@@ -692,7 +695,7 @@ export async function conferenciaTotalDiario(params: {
         // postoId filtra pelo posto PAGADOR (mesmo motivo do comentário no
         // topo do arquivo) — essa comparação é contra o extrato bancário
         // real, que é sempre do posto de quem pagou.
-        ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
+        ...(postoIds.length ? { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] } : {}),
         ...(filtroData ? { dataPagamento: filtroData } : {}),
       },
       select: { postoId: true, postoPagamentoId: true, dataPagamento: true, valor: true },
@@ -700,7 +703,7 @@ export async function conferenciaTotalDiario(params: {
     prisma.lancamentoExtrato.findMany({
       where: {
         categoriaId: categoriaDespesasPagas.id,
-        ...(postoId ? { postoId } : {}),
+        ...emLista("postoId", postoIds),
         ...(filtroData ? { data: filtroData } : {}),
       },
       select: { postoId: true, data: true, valor: true },
@@ -709,7 +712,7 @@ export async function conferenciaTotalDiario(params: {
       where: {
         categoriaId: categoriaDespesasPagas.id,
         lancamentoExtrato: {
-          ...(postoId ? { postoId } : {}),
+          ...emLista("postoId", postoIds),
           ...(filtroData ? { data: filtroData } : {}),
         },
       },
@@ -812,12 +815,13 @@ function classificarCelula(despesa: number, extrato: number): StatusCelulaDia {
 }
 
 export async function statusDiarioPorPosto(params: {
-  postoId?: string;
+  postoId?: string | string[];
   bancoId?: string;
   de: string; // "YYYY-MM-DD"
   ate: string;
 }): Promise<LinhaStatusPosto[]> {
   const { postoId, bancoId, de, ate } = params;
+  const postoIds = paraLista(postoId);
 
   const categoriaDespesasPagas = await prisma.categoriaExtrato.findUnique({
     where: { nome: "DESPESAS PAGAS" },
@@ -834,7 +838,7 @@ export async function statusDiarioPorPosto(params: {
       where: {
         paga: true,
         combustivel: false,
-        ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
+        ...(postoIds.length ? { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] } : {}),
         ...(bancoId ? { bancoPagamentoId: bancoId } : {}),
         dataPagamento: filtroData,
       },
@@ -843,7 +847,7 @@ export async function statusDiarioPorPosto(params: {
     prisma.lancamentoExtrato.findMany({
       where: {
         categoriaId: categoriaDespesasPagas.id,
-        ...(postoId ? { postoId } : {}),
+        ...emLista("postoId", postoIds),
         ...(bancoId ? { bancoId } : {}),
         data: filtroData,
       },
@@ -853,7 +857,7 @@ export async function statusDiarioPorPosto(params: {
       where: {
         categoriaId: categoriaDespesasPagas.id,
         lancamentoExtrato: {
-          ...(postoId ? { postoId } : {}),
+          ...emLista("postoId", postoIds),
           ...(bancoId ? { bancoId } : {}),
           data: filtroData,
         },
@@ -894,7 +898,7 @@ export async function statusDiarioPorPosto(params: {
     dias.push(new Date(t));
   }
 
-  const postosRelevantes = postoId ? postos.filter((p) => p.id === postoId) : postos;
+  const postosRelevantes = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)) : postos;
 
   const linhas: LinhaStatusPosto[] = postosRelevantes
     .map((p) => {

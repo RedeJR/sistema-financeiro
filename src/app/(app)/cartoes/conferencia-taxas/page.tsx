@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarConferenciaTaxas, type LinhaConferenciaTaxas } from "@/lib/cartoes/conferenciaTaxas";
@@ -29,23 +31,26 @@ function temDivergencia(l: LinhaConferenciaTaxas): boolean {
 export default async function ConferenciaTaxasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; inicio?: string; fim?: string; adquirenteId?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; inicio?: string; fim?: string; adquirenteId?: string }>;
 }) {
   const { postoId, inicio, fim, adquirenteId } = await searchParams;
+  const postoIds = paraLista(postoId);
 
   const [postos, adquirentes] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.adquirenteCartao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
 
-  const temFiltro = Boolean(postoId && inicio && fim);
+  const temFiltro = Boolean(inicio && fim);
   const linhas =
-    temFiltro && postoId && inicio && fim
-      ? await buscarConferenciaTaxas({ postoId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId: adquirenteId || undefined })
+    temFiltro && inicio && fim
+      ? await buscarConferenciaTaxas({ postoIds: postoIds.length ? postoIds : postos.map((p) => p.id), dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId: adquirenteId || undefined })
       : null;
 
-  const postoNome = postos.find((p) => p.id === postoId)?.nome;
-  const qsExportar = new URLSearchParams({ postoId: postoId ?? "", inicio: inicio ?? "", fim: fim ?? "" });
+  const postoNome = postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ");
+  const varios = postoIds.length !== 1;
+  const qsExportar = new URLSearchParams({ inicio: inicio ?? "", fim: fim ?? "" });
+  anexarLista(qsExportar, "postoId", postoIds);
   if (adquirenteId) qsExportar.set("adquirenteId", adquirenteId);
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
@@ -53,7 +58,7 @@ export default async function ConferenciaTaxasPage({
     <div className="space-y-4">
       <div className="hidden print:block">
         <h2 className="text-lg font-semibold">
-          Conferência de Taxas — {postoNome ?? ""} — {inicio} a {fim}
+          Conferência de Taxas — {postoNome || "Todos os postos"} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
       </div>
@@ -69,22 +74,12 @@ export default async function ConferenciaTaxasPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="" disabled>
-              Escolha um posto
-            </option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="adquirenteId" className="text-foreground/60">
@@ -163,7 +158,7 @@ export default async function ConferenciaTaxasPage({
 
       {!linhas && (
         <p className="py-10 text-center text-sm text-foreground/50">
-          Escolha um posto e o período pra ver a conferência.
+          Escolha o período (e, se quiser, os postos) pra ver a conferência.
         </p>
       )}
 
@@ -178,6 +173,7 @@ export default async function ConferenciaTaxasPage({
           <table className="w-full text-sm">
             <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
               <tr>
+                {varios && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
                 <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
                 <th className="px-4 py-1.5 text-left font-medium">Modalidade (arquivo)</th>
                 <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
@@ -193,7 +189,7 @@ export default async function ConferenciaTaxasPage({
                 const divergente = temDivergencia(l);
                 return (
                   <tr
-                    key={`${l.adquirente}|${l.tipoVenda}`}
+                    key={`${l.postoId}|${l.adquirente}|${l.tipoVenda}`}
                     className={`border-t border-black/5 dark:border-white/10 ${
                       divergente
                         ? "bg-amber-100/60 dark:bg-amber-900/20"
@@ -202,6 +198,7 @@ export default async function ConferenciaTaxasPage({
                           : ""
                     }`}
                   >
+                    {varios && <td className="px-4 py-1.5">{l.posto}</td>}
                     <td className="px-4 py-1.5">{l.adquirente}</td>
                     <td className="px-4 py-1.5 text-foreground/70">{l.tipoVenda}</td>
                     <td className="px-4 py-1.5 text-right">{l.qtd}</td>

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -22,14 +24,15 @@ const ROTULO_TIPO: Record<"EMPRESTIMO" | "DEVOLUCAO", string> = {
 export default async function EntrePostosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; de?: string; ate?: string }>;
 }) {
   const { postoId, de, ate } = await searchParams;
+  const postoIds = paraLista(postoId);
 
   const [postos, movimentacoes, podeEditar] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     listarMovimentacoes({
-      postoId: postoId || undefined,
+      postoId: postoIds,
       dataInicio: de ? dataUTC(de) : undefined,
       dataFim: ate ? dataUTC(ate, true) : undefined,
     }),
@@ -51,19 +54,12 @@ export default async function EntrePostosPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">
@@ -95,7 +91,7 @@ export default async function EntrePostosPage({
         >
           Filtrar
         </button>
-        {(postoId || de || ate) && (
+        {(postoIds.length || de || ate) && (
           <Link href="/entre-postos" className="text-foreground/60 underline">
             Limpar filtros
           </Link>

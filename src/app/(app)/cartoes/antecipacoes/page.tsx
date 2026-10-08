@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -12,15 +14,16 @@ function formatarData(d: Date): string {
 export default async function AntecipacoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; adquirenteId?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; adquirenteId?: string }>;
 }) {
   const { postoId, adquirenteId } = await searchParams;
+  const postoIds = paraLista(postoId);
 
   const [postos, adquirentes, antecipacoes, podeEditar] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.adquirenteCartao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.antecipacaoCartao.findMany({
-      where: { ...(postoId ? { postoId } : {}), ...(adquirenteId ? { adquirenteId } : {}) },
+      where: { ...emLista("postoId", postoIds), ...(adquirenteId ? { adquirenteId } : {}) },
       include: { posto: true, adquirente: true },
       orderBy: [{ dataRecebimento: "desc" }, { createdAt: "desc" }],
     }),
@@ -46,19 +49,12 @@ export default async function AntecipacoesPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos os postos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="adquirenteId" className="text-foreground/60">
@@ -84,7 +80,7 @@ export default async function AntecipacoesPage({
         >
           Filtrar
         </button>
-        {(postoId || adquirenteId) && (
+        {(postoIds.length || adquirenteId) && (
           <Link href="/cartoes/antecipacoes" className="text-foreground/60 underline">
             Limpar filtros
           </Link>

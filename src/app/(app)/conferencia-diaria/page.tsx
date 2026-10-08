@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
+import { SeletorBusca } from "@/components/ui/seletor-busca";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -14,6 +17,8 @@ const FORM_PAGAR = "form-marcar-pagas";
 const MENSAGENS_ERRO: Record<string, string> = {
   "nenhuma-selecionada": "Selecione ao menos uma conta antes de marcar como paga.",
   "sem-banco": "Escolha o banco onde foi pago.",
+  "sem-banco-previsto":
+    "Alguma das contas selecionadas não tem banco previsto — escolha o banco manualmente em \"Pago no banco\".",
   "sem-data": "Informe a data do pagamento.",
 };
 
@@ -33,7 +38,7 @@ export default async function ConferenciaDiariaPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    postoId?: string;
+    postoId?: string | string[];
     fornecedorId?: string;
     planoContaId?: string;
     de?: string;
@@ -48,6 +53,7 @@ export default async function ConferenciaDiariaPage({
   await gerarOcorrenciasRecorrentesPendentes();
 
   const { postoId, fornecedorId, planoContaId, de, ate, q, erro } = await searchParams;
+  const postoIds = paraLista(postoId);
   const busca = q?.trim();
   const hoje = hojeUTC();
 
@@ -55,12 +61,11 @@ export default async function ConferenciaDiariaPage({
   // formulário é compartilhado com Contas a Pagar) voltava pra Contas a
   // Pagar sem filtro nenhum em vez de voltar pra cá, com o filtro que já
   // estava aplicado. Ver contas-a-pagar/actions.ts.
-  const qsAtual = new URLSearchParams(
-    Object.entries({ postoId, fornecedorId, planoContaId, de, ate, q: busca }).filter(([, v]) => v) as [
-      string,
-      string
-    ][]
-  ).toString();
+  const qsAtualParams = new URLSearchParams(
+    Object.entries({ fornecedorId, planoContaId, de, ate, q: busca }).filter(([, v]) => v) as [string, string][]
+  );
+  anexarLista(qsAtualParams, "postoId", postoIds);
+  const qsAtual = qsAtualParams.toString();
   const urlAtual = `/conferencia-diaria${qsAtual ? `?${qsAtual}` : ""}`;
   const qsVoltarPara = `voltarPara=${encodeURIComponent(urlAtual)}`;
   // Só duas datas: inicial (opcional — sem ela, pega tudo que já venceu até
@@ -84,7 +89,7 @@ export default async function ConferenciaDiariaPage({
         // rodarConciliacaoAutomaticaCombustiveis em conciliacao.ts) continua
         // rodando sozinha por trás, mas ela quer poder marcar como paga na
         // mão junto com o resto, sem depender só do casamento automático.
-        ...(postoId ? { postoId } : {}),
+        ...emLista("postoId", postoIds),
         ...(fornecedorId ? { fornecedorId } : {}),
         ...(planoContaId ? { planoContaId } : {}),
         ...condicaoData,
@@ -99,7 +104,7 @@ export default async function ConferenciaDiariaPage({
             }
           : {}),
       },
-      include: { posto: true, fornecedor: true, planoConta: { include: { grupo: true } } },
+      include: { posto: true, fornecedor: true, bancoPrevisto: true, planoConta: { include: { grupo: true } } },
       orderBy: { dataVencimento: "asc" },
     }),
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -165,37 +170,26 @@ export default async function ConferenciaDiariaPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="fornecedorId" className="text-foreground/60">
             Fornecedor
           </label>
-          <select
+          <SeletorBusca
             id="fornecedorId"
-            name="fornecedorId"
-            defaultValue={fornecedorId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nome}
-              </option>
-            ))}
-          </select>
+            nome="fornecedorId"
+            itens={fornecedores}
+            valorInicial={fornecedorId ?? ""}
+            rotuloVazio="Todos os fornecedores"
+            placeholder="Digite pra buscar..."
+            className="w-64"
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="planoContaId" className="text-foreground/60">
@@ -225,7 +219,7 @@ export default async function ConferenciaDiariaPage({
         >
           Filtrar
         </button>
-        {(postoId || fornecedorId || planoContaId || de || ate || busca) && (
+        {(postoIds.length || fornecedorId || planoContaId || de || ate || busca) && (
           <Link href="/conferencia-diaria" className="text-foreground/60 underline">
             Limpar filtros
           </Link>
@@ -247,13 +241,11 @@ export default async function ConferenciaDiariaPage({
                 id="bancoId"
                 name="bancoId"
                 form={FORM_PAGAR}
-                defaultValue=""
+                defaultValue="previsto"
                 className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
                 required
               >
-                <option value="" disabled>
-                  Escolha o banco
-                </option>
+                <option value="previsto">Banco previsto de cada conta</option>
                 {bancos.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.nome}
@@ -323,6 +315,7 @@ export default async function ConferenciaDiariaPage({
               <th className="px-4 py-2 text-left font-medium">Posto</th>
               <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
               <th className="px-4 py-2 text-left font-medium">Plano de contas</th>
+              <th className="px-4 py-2 text-left font-medium">Banco previsto</th>
               <th className="px-4 py-2 text-right font-medium">Valor</th>
               {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
             </tr>
@@ -366,6 +359,7 @@ export default async function ConferenciaDiariaPage({
                   <td className="px-4 py-2 text-foreground/70">
                     {c.planoConta.grupo.nome} / {c.planoConta.nome}
                   </td>
+                  <td className="px-4 py-2 text-foreground/70">{c.bancoPrevisto?.nome ?? "—"}</td>
                   <td className="px-4 py-2 text-right">{formatarMoeda(c.valor.toString())}</td>
                   {podeEditar && (
                     <td className="px-4 py-2 text-right">
@@ -382,7 +376,7 @@ export default async function ConferenciaDiariaPage({
             })}
             {contas.length === 0 && (
               <tr>
-                <td colSpan={podeEditar ? 7 : 5} className="px-4 py-6 text-center text-foreground/50">
+                <td colSpan={podeEditar ? 8 : 6} className="px-4 py-6 text-center text-foreground/50">
                   Nada pendente pra esse filtro.
                 </td>
               </tr>

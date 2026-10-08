@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
@@ -30,18 +32,19 @@ function dataUTC(iso: string): Date {
 export default async function ConciliacaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; bancoId?: string; de?: string; ate?: string; erro?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; bancoId?: string; de?: string; ate?: string; erro?: string }>;
 }) {
   await exigirPermissao("EXTRATOS", "visualizar");
   const podeEditar = await podeEditarModulo("EXTRATOS");
 
   const { postoId, bancoId, de, ate, erro } = await searchParams;
+  const postoIds = paraLista(postoId);
 
   // Roda a sugestão automática a cada visita (idempotente — só cria vínculo
   // novo pro que ainda está pendente dos dois lados). Só quem pode editar
   // dispara isso; visualização não deve ter efeito colateral no banco.
   if (podeEditar) {
-    await rodarConciliacaoAutomatica(postoId || undefined, bancoId || undefined);
+    await rodarConciliacaoAutomatica(postoIds, bancoId || undefined);
     // Combustíveis a Pagar: baixa automática, não depende de filtro de
     // posto/banco da tela (roda sempre que alguém com permissão de editar
     // visita essa página, igual ao motor normal acima).
@@ -66,7 +69,7 @@ export default async function ConciliacaoPage({
   const [postos, bancos, conferenciaDiaria] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
-    conferenciaTotalDiario({ postoId: postoId || undefined, de: deConferencia, ate }),
+    conferenciaTotalDiario({ postoId: postoIds, de: deConferencia, ate }),
   ]);
   // Só o que não bate (tolerância de 1 centavo) — é o que precisa de ação;
   // dias batendo certinho não ajudam a usuária a achar o que falta lançar.
@@ -85,13 +88,15 @@ export default async function ConciliacaoPage({
     // src/lib/conciliacao.ts) — essa tela compara contra o extrato bancário
     // de verdade, que é sempre do posto de quem pagou, não do dono da
     // despesa. postoPagamentoId null = pago pelo próprio posto da conta.
-    ...(postoId ? { OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] } : {}),
+    ...(postoIds.length
+      ? { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] }
+      : {}),
     ...(bancoId ? { bancoPagamentoId: bancoId } : {}),
     ...periodoDespesa,
   };
   const whereLancamentoComum: Prisma.LancamentoExtratoWhereInput = {
     valor: { lt: 0 },
-    ...(postoId ? { postoId } : {}),
+    ...emLista("postoId", postoIds),
     ...(bancoId ? { bancoId } : {}),
     ...periodoLancamento,
   };
@@ -118,9 +123,9 @@ export default async function ConciliacaoPage({
     }),
   ]);
 
-  const qs = new URLSearchParams(
-    Object.entries({ postoId, bancoId, de, ate }).filter(([, v]) => v) as [string, string][]
-  ).toString();
+  const qsParams = new URLSearchParams(Object.entries({ bancoId, de, ate }).filter(([, v]) => v) as [string, string][]);
+  anexarLista(qsParams, "postoId", postoIds);
+  const qs = qsParams.toString();
   const voltarPara = `/extratos/conciliacao${qs ? `?${qs}` : ""}`;
 
   return (
@@ -156,19 +161,12 @@ export default async function ConciliacaoPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="bancoId" className="text-foreground/60">
@@ -218,7 +216,7 @@ export default async function ConciliacaoPage({
         >
           Filtrar
         </button>
-        {(postoId || bancoId || de || ate) && (
+        {(postoIds.length || bancoId || de || ate) && (
           <Link href="/extratos/conciliacao" className="text-foreground/60 underline">
             Limpar filtros
           </Link>

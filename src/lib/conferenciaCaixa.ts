@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import type { StatusConferenciaCaixa } from "@/generated/prisma/client";
 
@@ -19,14 +20,14 @@ export type LinhaConferenciaCaixa = {
 // registros) — pra "as meninas" acompanharem o que já foi conferido contra
 // o caixa físico e o que ainda falta.
 export async function buscarConferenciasCaixa(params: {
-  postoId?: string;
+  postoId?: string | string[];
   status?: StatusConferenciaCaixa;
 }): Promise<LinhaConferenciaCaixa[]> {
   const { postoId, status } = params;
 
   const registros = await prisma.conferenciaCaixa.findMany({
     where: {
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", paraLista(postoId)),
       ...(status ? { status } : {}),
     },
     include: { posto: true },

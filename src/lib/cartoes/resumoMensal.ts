@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda, type ModalidadeVenda } from "./normalizar";
 import { calcularAjustesAntecipacao } from "./antecipacoes";
@@ -67,10 +68,11 @@ const CAMPO_POR_MODALIDADE: Record<ModalidadeVenda, "debito" | "credito" | "pix"
 // importar.
 export async function buscarResumoMensal(params: {
   mes: string; // YYYY-MM
-  postoId?: string;
+  postoId?: string | string[];
   vendasPor: VendasPor;
 }): Promise<PostoResumoMensal[]> {
   const { mes, postoId, vendasPor } = params;
+  const postoIds = paraLista(postoId);
   const [ano, mesNum] = mes.split("-").map(Number);
   const dataInicio = new Date(Date.UTC(ano, mesNum - 1, 1));
   const dataFim = new Date(Date.UTC(ano, mesNum, 0, 23, 59, 59, 999));
@@ -78,12 +80,12 @@ export async function buscarResumoMensal(params: {
 
   const [transacoes, categorias, taxas] = await Promise.all([
     prisma.transacaoCartao.findMany({
-      where: { [campoData]: { gte: dataInicio, lte: dataFim }, ...(postoId ? { postoId } : {}) },
+      where: { [campoData]: { gte: dataInicio, lte: dataFim }, ...emLista("postoId", postoIds) },
       include: { adquirente: true, posto: true },
     }),
     prisma.categoriaExtrato.findMany({ where: { tipo: { in: ["ADQUIRENTE", "VOUCHER"] } } }),
     prisma.taxaCartao.findMany({
-      where: { domicilioBancoId: { not: null }, ...(postoId ? { postoId } : {}) },
+      where: { domicilioBancoId: { not: null }, ...emLista("postoId", postoIds) },
       include: { adquirente: true },
     }),
   ]);
@@ -95,7 +97,7 @@ export async function buscarResumoMensal(params: {
     where: {
       data: { gte: dataInicio, lte: dataFim },
       categoriaId: { in: [...categorias.map((c) => c.id), ...(categoriaPix ? [categoriaPix.id] : [])] },
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", postoIds),
     },
     select: { postoId: true, bancoId: true, categoriaId: true, valor: true },
   });
@@ -118,7 +120,7 @@ export async function buscarResumoMensal(params: {
 
   const coberturaExtratos = await prisma.lancamentoExtrato.groupBy({
     by: ["postoId"],
-    where: { data: { gte: dataInicio, lte: dataFim }, ...(postoId ? { postoId } : {}) },
+    where: { data: { gte: dataInicio, lte: dataFim }, ...emLista("postoId", postoIds) },
     _min: { data: true },
     _max: { data: true },
   });

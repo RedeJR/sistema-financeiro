@@ -42,6 +42,7 @@ export async function gerarOcorrenciasRecorrentesPendentes(): Promise<void> {
       postoId: ultima.postoId,
       fornecedorId: ultima.fornecedorId,
       planoContaId: ultima.planoContaId,
+      bancoPrevistoId: ultima.bancoPrevistoId,
       numeroDocumento: ultima.numeroDocumento,
       valor: ultima.valor,
       descricao: ultima.descricao,

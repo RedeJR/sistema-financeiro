@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buscarConciliacaoCartoes, type AgrupamentoConciliacao, type StatusConciliacao } from "@/lib/cartoes/conciliacao";
+import { buscarConciliacaoVariosPostos, type AgrupamentoConciliacao, type StatusConciliacao } from "@/lib/cartoes/conciliacao";
 
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
 const ROTULO_STATUS: Record<StatusConciliacao, string> = {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   await exigirPermissao("CARTOES", "visualizar");
 
   const params = request.nextUrl.searchParams;
-  const postoId = params.get("postoId");
+  let postoIds = params.getAll("postoId").filter(Boolean);
   const inicio = params.get("inicio");
   const fim = params.get("fim");
   const adquirenteIds = params.getAll("adquirenteId");
@@ -28,14 +28,17 @@ export async function GET(request: NextRequest) {
   const agruparParam = params.get("agruparPor");
   const agruparPor: AgrupamentoConciliacao = agruparParam === "adquirente" ? agruparParam : "recebimento";
 
-  if (!postoId || !inicio || !fim) {
-    return new Response("Escolha um posto e o período.", { status: 400 });
+  if (!inicio || !fim) {
+    return new Response("Escolha o período.", { status: 400 });
+  }
+  if (postoIds.length === 0) {
+    postoIds = (await prisma.posto.findMany({ where: { ativo: true }, select: { id: true } })).map((p) => p.id);
   }
 
-  const [posto, todasLinhas] = await Promise.all([
-    prisma.posto.findUnique({ where: { id: postoId } }),
-    buscarConciliacaoCartoes({
-      postoId,
+  const [postosSel, todasLinhas] = await Promise.all([
+    prisma.posto.findMany({ where: { id: { in: postoIds } }, orderBy: { nome: "asc" } }),
+    buscarConciliacaoVariosPostos({
+      postoIds,
       dataInicio: dataUTC(inicio),
       dataFim: dataUTC(fim, true),
       adquirenteIds,
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
       agruparPor,
     }),
   ]);
-  if (!posto) {
+  if (postosSel.length === 0) {
     return new Response("Posto não encontrado.", { status: 404 });
   }
   const linhas = statusFiltro ? todasLinhas.filter((l) => l.status === statusFiltro) : todasLinhas;
@@ -53,8 +56,9 @@ export async function GET(request: NextRequest) {
     adquirente: "Período",
   };
 
-  const titulo = `CONCILIAÇÃO DE CARTÕES - ${posto.nome} - ${inicio} a ${fim}`;
+  const titulo = `CONCILIAÇÃO DE CARTÕES - ${postosSel.map((p) => p.nome).join(", ")} - ${inicio} a ${fim}`;
   const cabecalho = [
+    "Posto",
     ROTULO_COLUNA_DATA[agruparPor],
     "Adquirente",
     "Prazo",
@@ -69,6 +73,7 @@ export async function GET(request: NextRequest) {
     [titulo],
     cabecalho,
     ...linhas.map((l) => [
+      l.posto,
       l.data
         ? l.data.split("-").reverse().join("/")
         : `${l.dataLinkDe.split("-").reverse().join("/")} a ${l.dataLinkAte.split("-").reverse().join("/")}`,
@@ -87,13 +92,14 @@ export async function GET(request: NextRequest) {
   planilha["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: cabecalho.length - 1 } }];
 
   for (let r = 2; r < aoa.length; r++) {
-    for (const c of [4, 5, 6, 7]) {
+    for (const c of [5, 6, 7, 8]) {
       const celula = planilha[XLSX.utils.encode_cell({ r, c })];
       if (celula && celula.t === "n") celula.z = FORMATO_MOEDA;
     }
   }
 
   planilha["!cols"] = [
+    { wch: 18 },
     { wch: 14 },
     { wch: 14 },
     { wch: 18 },
@@ -109,7 +115,7 @@ export async function GET(request: NextRequest) {
   XLSX.utils.book_append_sheet(workbook, planilha, "Conciliação de Cartões");
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
-  const nomeArquivo = `conciliacao-cartoes-${posto.nome}-${inicio}-a-${fim}.xlsx`;
+  const nomeArquivo = `conciliacao-cartoes-${postosSel.length > 1 ? "varios-postos" : postosSel[0].nome}-${inicio}-a-${fim}.xlsx`;
 
   return new Response(new Uint8Array(buffer), {
     headers: {

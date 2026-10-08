@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   await exigirPermissao("CARTOES", "visualizar");
 
   const params = request.nextUrl.searchParams;
-  const postoId = params.get("postoId") || undefined;
+  const postoId = params.getAll("postoId").filter(Boolean);
   const inicio = params.get("inicio");
   const fim = params.get("fim");
   const adquirenteId = params.get("adquirenteId") || undefined;

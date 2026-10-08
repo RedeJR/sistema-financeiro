@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
+import { SeletorBusca } from "@/components/ui/seletor-busca";
 import { Campo } from "@/components/ui/campo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -25,6 +26,9 @@ type Props = {
   // src/lib/sugestao-plano-conta.ts e o mesmo mecanismo em
   // formulario-conta-a-pagar.tsx.
   sugestaoPlanoContaPorFornecedor?: Record<string, string>;
+  // fornecedorId -> banco mais usado por ele (src/lib/sugestao-banco.ts) —
+  // pré-seleciona "Pago no banco" ao trocar de fornecedor; dá pra trocar.
+  sugestaoBancoPorFornecedor?: Record<string, string>;
   // URL da lista de onde a usuária veio, com o filtro aplicado — volta pra
   // lá depois de salvar. Ver actions.ts (criarDespesaAvulsa).
   voltarPara?: string;
@@ -39,6 +43,7 @@ export function FormularioDespesaAvulsa({
   grupos,
   bancos,
   sugestaoPlanoContaPorFornecedor = {},
+  sugestaoBancoPorFornecedor = {},
   voltarPara,
 }: Props) {
   const [state, formAction] = useActionState<ActionState, FormData>(criarDespesaAvulsa, null);
@@ -54,11 +59,14 @@ export function FormularioDespesaAvulsa({
   // apagar uma escolha manual ao trocar pra um fornecedor sem histórico.
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState(v?.fornecedorId ?? "");
   const [planoContaSugerido, setPlanoContaSugerido] = useState<string | undefined>(undefined);
+  const [bancoSelecionado, setBancoSelecionado] = useState(v?.bancoId ?? "");
 
   function aoMudarFornecedor(novoFornecedorId: string) {
     setFornecedorSelecionado(novoFornecedorId);
     const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
     if (sugestao) setPlanoContaSugerido(sugestao);
+    const bancoSugerido = sugestaoBancoPorFornecedor[novoFornecedorId];
+    if (bancoSugerido) setBancoSelecionado(bancoSugerido);
   }
 
   const [mostrarNovoFornecedor, setMostrarNovoFornecedor] = useState(false);
@@ -115,23 +123,15 @@ export function FormularioDespesaAvulsa({
               {mostrarNovoFornecedor ? "Cancelar" : "+ Novo fornecedor"}
             </button>
           </div>
-          <select
+          <SeletorBusca
             id="fornecedorId"
-            name="fornecedorId"
-            value={fornecedorSelecionado}
-            onChange={(e) => aoMudarFornecedor(e.target.value)}
-            className={campoSelect}
+            nome="fornecedorId"
+            itens={fornecedores}
+            valor={fornecedorSelecionado}
+            onChange={aoMudarFornecedor}
+            placeholder="Digite pra buscar o fornecedor..."
             required
-          >
-            <option value="" disabled>
-              Escolha um fornecedor
-            </option>
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nome}
-              </option>
-            ))}
-          </select>
+          />
           {mostrarNovoFornecedor && (
             <div className="mt-1 space-y-2 rounded-md border border-black/10 p-3 dark:border-white/15">
               <input
@@ -171,7 +171,14 @@ export function FormularioDespesaAvulsa({
           <label htmlFor="bancoId" className="text-sm font-medium text-foreground/80">
             Pago no banco
           </label>
-          <select id="bancoId" name="bancoId" defaultValue={v?.bancoId ?? ""} className={campoSelect} required>
+          <select
+            id="bancoId"
+            name="bancoId"
+            value={bancoSelecionado}
+            onChange={(e) => setBancoSelecionado(e.target.value)}
+            className={campoSelect}
+            required
+          >
             <option value="" disabled>
               Escolha o banco
             </option>

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { hojeUTC } from "@/lib/datas";
+import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { gerarOcorrenciasRecorrentesPendentes } from "./recorrencia";
 import { excluirContaAPagar, excluirContasEmMassa } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -49,7 +51,7 @@ function dataUTC(iso: string): Date {
 export default async function ContasAPagarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string; status?: string; de?: string; ate?: string; q?: string; erro?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; status?: string; de?: string; ate?: string; q?: string; erro?: string }>;
 }) {
   await exigirPermissao("CONTAS_A_PAGAR", "visualizar");
   const podeEditar = await podeEditarModulo("CONTAS_A_PAGAR");
@@ -58,6 +60,7 @@ export default async function ContasAPagarPage({
 
   const { postoId, status, de, ate, q, erro } = await searchParams;
   const busca = q?.trim();
+  const postoIds = paraLista(postoId);
 
   const [contas, postos] = await Promise.all([
     prisma.contaAPagar.findMany({
@@ -66,7 +69,7 @@ export default async function ContasAPagarPage({
         // Combustível é aba própria (Combustíveis a Pagar) — não aparece
         // misturado aqui.
         combustivel: false,
-        ...(postoId ? { postoId } : {}),
+        ...emLista("postoId", postoIds),
         ...(de || ate
           ? {
               dataVencimento: {
@@ -99,7 +102,7 @@ export default async function ContasAPagarPage({
     .filter((c) => !status || c.status === status);
 
   const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoId || status || de || ate || busca);
+  const temFiltro = Boolean(postoIds.length || status || de || ate || busca);
 
   // Relatório unificado (ver /relatorios) — chega de lá já filtrado só pra
   // A pagar (esse módulo). "de"/"ate" aqui já é vencimento, mesma coisa lá,
@@ -107,7 +110,7 @@ export default async function ContasAPagarPage({
   const qsRelatorio = new URLSearchParams();
   qsRelatorio.set("status", "A_PAGAR");
   qsRelatorio.set("statusEnviado", "1");
-  if (postoId) qsRelatorio.append("postoId", postoId);
+  anexarLista(qsRelatorio, "postoId", postoIds);
   if (de) qsRelatorio.set("de", de);
   if (ate) qsRelatorio.set("ate", ate);
   const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
@@ -116,9 +119,11 @@ export default async function ContasAPagarPage({
   // pro filtro que já estava aplicado aqui, em vez de cair na lista inteira
   // sem filtro nenhum (pedido da usuária — dava retrabalho de filtrar de
   // novo toda vez). Ver formulario-conta-a-pagar.tsx e actions.ts.
-  const qsAtual = new URLSearchParams(
-    Object.entries({ postoId, status, de, ate, q }).filter(([, v]) => v) as [string, string][]
-  ).toString();
+  const qsAtualParams = new URLSearchParams(
+    Object.entries({ status, de, ate, q }).filter(([, v]) => v) as [string, string][]
+  );
+  anexarLista(qsAtualParams, "postoId", postoIds);
+  const qsAtual = qsAtualParams.toString();
   const urlAtual = `/contas-a-pagar${qsAtual ? `?${qsAtual}` : ""}`;
   const qsVoltarPara = `voltarPara=${encodeURIComponent(urlAtual)}`;
 
@@ -164,19 +169,12 @@ export default async function ContasAPagarPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="status" className="text-foreground/60">

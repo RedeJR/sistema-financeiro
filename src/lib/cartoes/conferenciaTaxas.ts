@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { classificarModalidade, type ModalidadeCartao } from "./normalizar";
 
 export type LinhaConferenciaTaxas = {
+  postoId: string;
+  posto: string;
   adquirente: string;
   tipoVenda: string;
   modalidade: ModalidadeCartao;
@@ -30,34 +32,36 @@ const CAMPO_POR_MODALIDADE: Record<
 };
 
 export async function buscarConferenciaTaxas(params: {
-  postoId: string;
+  postoIds: string[];
   dataInicio: Date;
   dataFim: Date;
   adquirenteId?: string;
 }): Promise<LinhaConferenciaTaxas[]> {
-  const { postoId, dataInicio, dataFim, adquirenteId } = params;
+  const { postoIds, dataInicio, dataFim, adquirenteId } = params;
 
   const [transacoes, taxas] = await Promise.all([
     prisma.transacaoCartao.findMany({
-      where: { postoId, dataVenda: { gte: dataInicio, lte: dataFim }, ...(adquirenteId ? { adquirenteId } : {}) },
-      include: { adquirente: true },
+      where: { postoId: { in: postoIds }, dataVenda: { gte: dataInicio, lte: dataFim }, ...(adquirenteId ? { adquirenteId } : {}) },
+      include: { adquirente: true, posto: true },
     }),
-    prisma.taxaCartao.findMany({ where: { postoId }, include: { adquirente: true } }),
+    prisma.taxaCartao.findMany({ where: { postoId: { in: postoIds } }, include: { adquirente: true } }),
   ]);
 
-  const taxaPorAdquirente = new Map(taxas.map((t) => [t.adquirenteId, t]));
+  const taxaPorAdquirente = new Map(taxas.map((t) => [`${t.postoId}|${t.adquirenteId}`, t]));
 
   // Agrupa por (adquirente, tipoVenda) — mantém o texto cru da modalidade
   // (em vez de só DEBITO/CREDITO) pra ela conseguir ver exatamente o que
   // apareceu no arquivo.
   const grupos = new Map<
     string,
-    { adquirente: string; adquirenteId: string; tipoVenda: string; qtd: number; somaBruto: number; prazos: number[]; taxasPct: number[] }
+    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; qtd: number; somaBruto: number; prazos: number[]; taxasPct: number[] }
   >();
 
   for (const t of transacoes) {
-    const chave = `${t.adquirenteId}|${t.tipoVenda}`;
+    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}`;
     const grupo = grupos.get(chave) ?? {
+      postoId: t.postoId,
+      posto: t.posto.nome,
       adquirente: t.adquirente.nome,
       adquirenteId: t.adquirenteId,
       tipoVenda: t.tipoVenda,
@@ -84,9 +88,11 @@ export async function buscarConferenciaTaxas(params: {
   for (const g of grupos.values()) {
     const modalidade = classificarModalidade(g.tipoVenda, g.adquirente);
     const campos = CAMPO_POR_MODALIDADE[modalidade];
-    const taxaCartao = taxaPorAdquirente.get(g.adquirenteId);
+    const taxaCartao = taxaPorAdquirente.get(`${g.postoId}|${g.adquirenteId}`);
 
     resultado.push({
+      postoId: g.postoId,
+      posto: g.posto,
       adquirente: g.adquirente,
       tipoVenda: g.tipoVenda,
       modalidade,
@@ -100,5 +106,5 @@ export async function buscarConferenciaTaxas(params: {
     });
   }
 
-  return resultado.sort((a, b) => a.adquirente.localeCompare(b.adquirente) || b.somaBruto - a.somaBruto);
+  return resultado.sort((a, b) => a.posto.localeCompare(b.posto) || a.adquirente.localeCompare(b.adquirente) || b.somaBruto - a.somaBruto);
 }

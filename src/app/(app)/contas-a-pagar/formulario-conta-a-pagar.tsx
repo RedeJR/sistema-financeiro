@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
+import { SeletorBusca } from "@/components/ui/seletor-busca";
 import { Campo } from "@/components/ui/campo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -22,6 +23,11 @@ type Props = {
   postos: Opcao[];
   fornecedores: Opcao[];
   grupos: GrupoComContas[];
+  bancos: Opcao[];
+  // fornecedorId -> bancoId mais usado por ele (ver src/lib/sugestao-banco.ts)
+  // — mesmo mecanismo do plano de contas: preenche sozinho ao trocar de
+  // fornecedor num lançamento NOVO, e dá pra trocar na hora.
+  sugestaoBancoPorFornecedor?: Record<string, string>;
   // fornecedorId -> planoContaId mais usado historicamente por ele (ver
   // src/lib/sugestao-plano-conta.ts) — só some ao trocar de fornecedor num
   // lançamento NOVO (não mexe durante edição), e continua editável depois.
@@ -35,6 +41,7 @@ type Props = {
     postoId: string;
     fornecedorId: string;
     planoContaId: string;
+    bancoPrevistoId?: string | null;
     dataEmissao: string;
     dataVencimento: string;
     numeroDocumento: string | null;
@@ -69,6 +76,8 @@ export function FormularioContaAPagar({
   postos,
   fornecedores: fornecedoresIniciais,
   grupos,
+  bancos,
+  sugestaoBancoPorFornecedor = {},
   sugestaoPlanoContaPorFornecedor = {},
   voltarPara,
   modoEdicao = false,
@@ -86,6 +95,7 @@ export function FormularioContaAPagar({
   // fornecedor" ou "ainda não mexeu no campo", os dois tratados igual: não
   // força nada, deixa o valor atual do SeletorPlanoConta como está.
   const [planoContaSugerido, setPlanoContaSugerido] = useState<string | undefined>(undefined);
+  const [bancoPrevisto, setBancoPrevisto] = useState(v?.bancoPrevistoId ?? "");
 
   function aoMudarFornecedor(novoFornecedorId: string) {
     setFornecedorSelecionado(novoFornecedorId);
@@ -94,6 +104,8 @@ export function FormularioContaAPagar({
     // não mexe no que já estava selecionado, nem limpa nada.
     const sugestao = sugestaoPlanoContaPorFornecedor[novoFornecedorId];
     if (!modoEdicao && sugestao) setPlanoContaSugerido(sugestao);
+    const bancoSugerido = sugestaoBancoPorFornecedor[novoFornecedorId];
+    if (!modoEdicao && bancoSugerido) setBancoPrevisto(bancoSugerido);
   }
   const [mostrarNovoFornecedor, setMostrarNovoFornecedor] = useState(false);
   const [novoNome, setNovoNome] = useState("");
@@ -215,23 +227,15 @@ export function FormularioContaAPagar({
               {mostrarNovoFornecedor ? "Cancelar" : "+ Novo fornecedor"}
             </button>
           </div>
-          <select
+          <SeletorBusca
             id="fornecedorId"
-            name="fornecedorId"
-            value={fornecedorSelecionado}
-            onChange={(e) => aoMudarFornecedor(e.target.value)}
-            className={campoSelect}
+            nome="fornecedorId"
+            itens={fornecedores}
+            valor={fornecedorSelecionado}
+            onChange={aoMudarFornecedor}
+            placeholder="Digite pra buscar o fornecedor..."
             required
-          >
-            <option value="" disabled>
-              Escolha um fornecedor
-            </option>
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nome}
-              </option>
-            ))}
-          </select>
+          />
           {mostrarNovoFornecedor && (
             <div className="mt-1 space-y-2 rounded-md border border-black/10 p-3 dark:border-white/15">
               <input
@@ -269,6 +273,30 @@ export function FormularioContaAPagar({
         grupos={grupos}
         valorInicial={planoContaSugerido ?? v?.planoContaId}
       />
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="bancoPrevistoId" className="text-sm font-medium text-foreground/80">
+          Banco de pagamento (opcional)
+        </label>
+        <select
+          id="bancoPrevistoId"
+          name="bancoPrevistoId"
+          value={bancoPrevisto}
+          onChange={(e) => setBancoPrevisto(e.target.value)}
+          className={campoSelect}
+        >
+          <option value="">Sem banco definido</option>
+          {bancos.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.nome}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-foreground/50">
+          Já vem preenchido com o banco que esse fornecedor mais usa — troque aqui se for diferente. Na
+          Conferência Diária, vale como banco do pagamento se você não escolher outro.
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo

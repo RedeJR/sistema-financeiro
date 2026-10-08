@@ -11,20 +11,17 @@ import { vincularLancamentosCombustivel, desvincularLancamentoCombustivel } from
 
 const ROTA = "/combustiveis-a-pagar";
 
-// Nome exato da conta do plano de contas usada SEMPRE pra combustível —
-// fixo, não aparece pra usuária escolher (pedido dela: "o plano de contas
-// deverá ser automático em COMBUSTÍVEIS"). Ver migração dos códigos
-// sequenciais: essa conta tem nome único dentro do grupo "VEICULOS - FROTA"
-// (existe também "COMBUSTIVEL SOCIO" em outro grupo, por isso escopamos
-// pelo grupo também, não só pelo nome).
+// Conta do plano de contas (DRE) usada SEMPRE pra combustível — fixa, não
+// aparece pra usuária escolher: GERAL > GERAL (pedido dela, em vez de
+// VEICULOS - FROTA > COMBUSTIVEIS, que sujava a DRE de veículos).
 async function planoContaCombustivelId(): Promise<string> {
   const conta = await prisma.planoConta.findFirst({
-    where: { nome: "COMBUSTIVEIS", grupo: { nome: "VEICULOS - FROTA" } },
+    where: { nome: "GERAL", grupo: { nome: "GERAL" } },
     select: { id: true },
   });
   if (!conta) {
     throw new Error(
-      'Conta "COMBUSTIVEIS" não encontrada no grupo "VEICULOS - FROTA" do plano de contas — cadastre ela em Cadastros > Plano de Contas antes de lançar combustível.'
+      'Conta "GERAL" não encontrada no grupo "GERAL" do plano de contas — cadastre ela em Cadastros > Plano de Contas antes de lançar combustível.'
     );
   }
   return conta.id;

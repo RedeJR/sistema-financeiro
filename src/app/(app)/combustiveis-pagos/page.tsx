@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -69,41 +70,25 @@ export default async function CombustiveisPagosPage({
       <form className="flex flex-wrap items-end gap-3 text-sm">
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
-            Posto <span className="text-xs">(Ctrl/Cmd+clique pra mais de um)</span>
+            Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            multiple
-            size={5}
-            defaultValue={postoIds}
-            className="min-w-[11rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-          >
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="fornecedorId" className="text-foreground/60">
             Fornecedor
           </label>
-          <select
-            id="fornecedorId"
-            name="fornecedorId"
-            multiple
-            size={5}
-            defaultValue={fornecedorIds}
-            className="min-w-[13rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-          >
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="fornecedorId"
+            rotuloTodos="Todos os fornecedores"
+            selecionados={fornecedorIds}
+            itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">

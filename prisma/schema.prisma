@@ -69,6 +69,9 @@ model Banco {
   codigoArquivo String?             @unique
   ativo         Boolean             @default(true)
   pagamentos    ContaAPagar[]
+  // Contas lançadas com este banco como o previsto pra pagamento (ver
+  // ContaAPagar.bancoPrevistoId).
+  contasPrevistas ContaAPagar[] @relation("BancoPrevisto")
   lancamentos   LancamentoExtrato[]
   // Domicílio bancário das taxas de cartão — em qual conta a adquirente
   // deposita o repasse (ver TaxaCartao), usado futuramente pra conciliar
@@ -541,6 +544,14 @@ model ContaAPagar {
   dataPagamento    DateTime? @db.Date
   bancoPagamentoId String?
   bancoPagamento   Banco?    @relation(fields: [bancoPagamentoId], references: [id], onDelete: SetNull)
+
+  // Banco previsto pra pagar essa conta — escolhido já no lançamento (vem
+  // sugerido pelo banco mais usado pelo fornecedor, igual ao plano de
+  // contas; dá pra trocar na hora). NÃO é o banco do pagamento: só vira
+  // bancoPagamentoId quando a conta é marcada como paga (Conferência
+  // Diária), e a conciliação continua olhando só o bancoPagamentoId.
+  bancoPrevistoId String?
+  bancoPrevisto   Banco?  @relation("BancoPrevisto", fields: [bancoPrevistoId], references: [id], onDelete: SetNull)
 
   // Posto que efetivamente pagou (saiu do banco dele) — só preenchido quando
   // é DIFERENTE do posto dono da despesa (`postoId` acima). Problema real

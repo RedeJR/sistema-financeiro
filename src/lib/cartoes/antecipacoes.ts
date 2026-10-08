@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda } from "./normalizar";
 
@@ -38,15 +39,16 @@ function iso(d: Date): string {
 // caem dentro de [dataInicio, dataFim], mas calcula a proporção sobre o
 // período inteiro.
 export async function calcularAjustesAntecipacao(params: {
-  postoId?: string;
+  postoId?: string | string[];
   dataInicio: Date;
   dataFim: Date;
 }): Promise<AjusteAntecipacao[]> {
   const { postoId, dataInicio, dataFim } = params;
+  const postoIds = paraLista(postoId);
 
   const antecipacoes = await prisma.antecipacaoCartao.findMany({
     where: {
-      ...(postoId ? { postoId } : {}),
+      ...emLista("postoId", postoIds),
       OR: [
         { dataRecebimento: { gte: dataInicio, lte: dataFim } },
         { periodoDe: { lte: dataFim }, periodoAte: { gte: dataInicio } },

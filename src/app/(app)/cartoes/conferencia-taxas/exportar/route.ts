@@ -15,25 +15,29 @@ export async function GET(request: NextRequest) {
   await exigirPermissao("CARTOES", "visualizar");
 
   const params = request.nextUrl.searchParams;
-  const postoId = params.get("postoId");
+  let postoIds = params.getAll("postoId").filter(Boolean);
   const inicio = params.get("inicio");
   const fim = params.get("fim");
   const adquirenteId = params.get("adquirenteId") || undefined;
 
-  if (!postoId || !inicio || !fim) {
-    return new Response("Escolha um posto e o período.", { status: 400 });
+  if (!inicio || !fim) {
+    return new Response("Escolha o período.", { status: 400 });
+  }
+  if (postoIds.length === 0) {
+    postoIds = (await prisma.posto.findMany({ where: { ativo: true }, select: { id: true } })).map((p) => p.id);
   }
 
-  const [posto, linhas] = await Promise.all([
-    prisma.posto.findUnique({ where: { id: postoId } }),
-    buscarConferenciaTaxas({ postoId, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId }),
+  const [postosSel, linhas] = await Promise.all([
+    prisma.posto.findMany({ where: { id: { in: postoIds } }, orderBy: { nome: "asc" } }),
+    buscarConferenciaTaxas({ postoIds, dataInicio: dataUTC(inicio), dataFim: dataUTC(fim, true), adquirenteId }),
   ]);
-  if (!posto) {
+  if (postosSel.length === 0) {
     return new Response("Posto não encontrado.", { status: 404 });
   }
 
-  const titulo = `CONFERÊNCIA DE TAXAS - ${posto.nome} - ${inicio} a ${fim}`;
+  const titulo = `CONFERÊNCIA DE TAXAS - ${postosSel.map((p) => p.nome).join(", ")} - ${inicio} a ${fim}`;
   const cabecalho = [
+    "Posto",
     "Adquirente",
     "Modalidade (arquivo)",
     "Qtd",
@@ -47,6 +51,7 @@ export async function GET(request: NextRequest) {
     [titulo],
     cabecalho,
     ...linhas.map((l) => [
+      l.posto,
       l.adquirente,
       l.tipoVenda,
       l.qtd,
@@ -62,15 +67,16 @@ export async function GET(request: NextRequest) {
   planilha["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: cabecalho.length - 1 } }];
 
   for (let r = 2; r < aoa.length; r++) {
-    const celulaBruto = planilha[XLSX.utils.encode_cell({ r, c: 3 })];
+    const celulaBruto = planilha[XLSX.utils.encode_cell({ r, c: 4 })];
     if (celulaBruto && celulaBruto.t === "n") celulaBruto.z = FORMATO_MOEDA;
-    for (const c of [6, 7]) {
+    for (const c of [7, 8]) {
       const celula = planilha[XLSX.utils.encode_cell({ r, c })];
       if (celula && celula.t === "n") celula.z = FORMATO_PCT;
     }
   }
 
   planilha["!cols"] = [
+    { wch: 18 },
     { wch: 14 },
     { wch: 24 },
     { wch: 8 },
@@ -85,7 +91,7 @@ export async function GET(request: NextRequest) {
   XLSX.utils.book_append_sheet(workbook, planilha, "Conferência de Taxas");
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
-  const nomeArquivo = `conferencia-taxas-${posto.nome}-${inicio}-a-${fim}.xlsx`;
+  const nomeArquivo = `conferencia-taxas-${postosSel.length > 1 ? "varios-postos" : postosSel[0].nome}-${inicio}-a-${fim}.xlsx`;
 
   return new Response(new Uint8Array(buffer), {
     headers: {

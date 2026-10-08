@@ -33,19 +33,38 @@ export async function marcarComoPagas(formData: FormData) {
     redirect(`${ROTA}?erro=sem-data`);
   }
 
-  await prisma.contaAPagar.updateMany({
-    where: { id: { in: ids }, paga: false },
-    data: {
-      paga: true,
-      bancoPagamentoId: bancoId,
-      dataPagamento: dataUTC(dataPagamento),
-      // Vazio ("Mesmo posto da conta") = null, e todo o motor de conciliação
-      // trata null como "pago pelo próprio posto" (ver postoPagamentoId ??
-      // postoId em src/lib/conciliacao.ts). Só grava algo aqui quando a
-      // usuária escolheu explicitamente um posto pagador diferente.
-      postoPagamentoId: typeof postoPagamentoId === "string" && postoPagamentoId ? postoPagamentoId : null,
-    },
-  });
+  // "previsto" = usa o banco escolhido no lançamento de cada conta (ver
+  // ContaAPagar.bancoPrevistoId) — agrupa por banco e atualiza um grupo por
+  // vez; se alguma das selecionadas não tem banco previsto, não paga nada.
+  const porBanco = new Map<string, string[]>();
+  if (bancoId === "previsto") {
+    const contas = await prisma.contaAPagar.findMany({
+      where: { id: { in: ids }, paga: false },
+      select: { id: true, bancoPrevistoId: true },
+    });
+    for (const c of contas) {
+      if (!c.bancoPrevistoId) redirect(`${ROTA}?erro=sem-banco-previsto`);
+      porBanco.set(c.bancoPrevistoId, [...(porBanco.get(c.bancoPrevistoId) ?? []), c.id]);
+    }
+  } else {
+    porBanco.set(bancoId, ids);
+  }
+
+  for (const [bancoDoGrupo, idsDoGrupo] of porBanco) {
+    await prisma.contaAPagar.updateMany({
+      where: { id: { in: idsDoGrupo }, paga: false },
+      data: {
+        paga: true,
+        bancoPagamentoId: bancoDoGrupo,
+        dataPagamento: dataUTC(dataPagamento),
+        // Vazio ("Mesmo posto da conta") = null, e todo o motor de conciliação
+        // trata null como "pago pelo próprio posto" (ver postoPagamentoId ??
+        // postoId em src/lib/conciliacao.ts). Só grava algo aqui quando a
+        // usuária escolheu explicitamente um posto pagador diferente.
+        postoPagamentoId: typeof postoPagamentoId === "string" && postoPagamentoId ? postoPagamentoId : null,
+      },
+    });
+  }
 
   revalidatePath(ROTA);
   revalidatePath("/despesas-pagas");

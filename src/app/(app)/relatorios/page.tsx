@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissaoQualquer } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -101,24 +102,16 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
 
           <div className="flex flex-col gap-1">
             <label htmlFor="postoId" className="text-foreground/60">
-              Posto <span className="text-xs">(Ctrl/Cmd+clique pra mais de um)</span>
+              Posto
             </label>
             {/* Filtra por quem PAGOU, não por dono da despesa — escolher a
                 OLIVEIRA traz também o que ela pagou pra outros postos. */}
-            <select
-              id="postoId"
-              name="postoId"
-              multiple
-              size={5}
-              defaultValue={postoIdsSelecionados}
-              className="min-w-[11rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-            >
-              {postos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
+            <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIdsSelecionados}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
             <p className="max-w-[11rem] text-xs text-foreground/50">Filtra por quem pagou, não pelo dono da despesa.</p>
           </div>
 
@@ -126,20 +119,12 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
             <label htmlFor="fornecedorId" className="text-foreground/60">
               Fornecedor
             </label>
-            <select
-              id="fornecedorId"
-              name="fornecedorId"
-              multiple
-              size={5}
-              defaultValue={fornecedorIdsSelecionados}
-              className="min-w-[13rem] rounded-md border border-black/15 bg-transparent px-2 py-1 dark:border-white/20"
-            >
-              {fornecedores.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.nome}
-                </option>
-              ))}
-            </select>
+            <SeletorDropdown
+              nome="fornecedorId"
+              rotuloTodos="Todos os fornecedores"
+              selecionados={fornecedorIdsSelecionados}
+              itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome }))}
+            />
           </div>
 
           <div className="flex flex-col gap-1">

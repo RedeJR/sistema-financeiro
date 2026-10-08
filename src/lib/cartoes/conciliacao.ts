@@ -321,3 +321,32 @@ export async function buscarConciliacaoCartoes(params: {
     })
     .sort((a, b) => a.adquirente.localeCompare(b.adquirente));
 }
+
+export type LinhaConciliacaoPosto = LinhaConciliacao & { postoId: string; posto: string };
+
+// Conciliação de vários postos de uma vez: cada posto é conciliado sozinho
+// (domicílio bancário, grupos e extrato são por posto), e as linhas são só
+// juntadas com o nome do posto — ordenadas por posto, mantendo a ordem de
+// cada um.
+export async function buscarConciliacaoVariosPostos(params: {
+  postoIds: string[];
+  dataInicio: Date;
+  dataFim: Date;
+  adquirenteIds?: string[];
+  filtrarPor?: "pagamento" | "venda";
+  agruparPor?: AgrupamentoConciliacao;
+}): Promise<LinhaConciliacaoPosto[]> {
+  const { postoIds, ...resto } = params;
+  const postos = await prisma.posto.findMany({
+    where: { id: { in: postoIds } },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true },
+  });
+  const porPosto = await Promise.all(
+    postos.map(async (p) => {
+      const linhas = await buscarConciliacaoCartoes({ postoId: p.id, ...resto });
+      return linhas.map((l) => ({ ...l, chave: `${p.id}|${l.chave}`, postoId: p.id, posto: p.nome }));
+    })
+  );
+  return porPosto.flat();
+}

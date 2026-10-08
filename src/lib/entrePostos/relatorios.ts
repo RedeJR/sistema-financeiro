@@ -17,14 +17,15 @@ export type MovimentacaoEntrePostos = {
 };
 
 export async function listarMovimentacoes(params: {
-  postoId?: string; // participa como origem OU destino
+  postoId?: string | string[]; // participa como origem OU destino
   dataInicio?: Date;
   dataFim?: Date;
 }): Promise<MovimentacaoEntrePostos[]> {
   const { postoId, dataInicio, dataFim } = params;
+  const postoIds = Array.isArray(postoId) ? postoId : postoId ? [postoId] : [];
   const movs = await prisma.movimentacaoEntrePostos.findMany({
     where: {
-      ...(postoId ? { OR: [{ postoOrigemId: postoId }, { postoDestinoId: postoId }] } : {}),
+      ...(postoIds.length ? { OR: [{ postoOrigemId: { in: postoIds } }, { postoDestinoId: { in: postoIds } }] } : {}),
       ...(dataInicio || dataFim
         ? { data: { ...(dataInicio ? { gte: dataInicio } : {}), ...(dataFim ? { lte: dataFim } : {}) } }
         : {}),

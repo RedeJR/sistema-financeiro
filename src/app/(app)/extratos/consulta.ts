@@ -1,9 +1,10 @@
 import "server-only";
+import { paraLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 
 export type FiltrosExtratos = {
-  postoId?: string;
+  postoId?: string | string[];
   bancoId?: string;
   // "" ou ausente = todos; "sem" = só os sem categoria (revisão pendente);
   // caso contrário é o id da CategoriaExtrato.
@@ -85,7 +86,8 @@ function whereDosFiltros(filtros: FiltrosExtratos) {
 
   const where: Prisma.LancamentoExtratoWhereInput = {};
 
-  if (postoId) where.postoId = postoId;
+  const postoIds = paraLista(postoId);
+  if (postoIds.length) where.postoId = { in: postoIds };
   if (bancoId) where.bancoId = bancoId;
   if (categoria === "sem") Object.assign(where, SEM_CATEGORIA_DE_VERDADE);
   else if (categoria === "sem-descricao") Object.assign(where, SEM_DESCRICAO_OBRIGATORIA);

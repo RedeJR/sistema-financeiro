@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
+import { SeletorBusca } from "@/components/ui/seletor-busca";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -107,6 +110,7 @@ export default async function DespesasPagasPage({
 
   const filtros = await searchParams;
   const { postoId, postoDono, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
+  const postoIds = paraLista(postoId);
 
   // Roda a sugestão automática de conciliação (idempotente) antes de calcular
   // o status dos grupos — sem isso, um extrato importado agorinha mesmo
@@ -119,7 +123,7 @@ export default async function DespesasPagasPage({
   // só atrasa um pouco a sugestão automática pra despesa paga por outro
   // posto enquanto o filtro estiver ativo; sem filtro nenhum, roda tudo).
   if (podeEditarExtratos) {
-    await rodarConciliacaoAutomatica(postoId || undefined, bancoId || undefined);
+    await rodarConciliacaoAutomatica(postoIds, bancoId || undefined);
   }
 
   const [contas, postos, fornecedores, gruposPlanoConta, bancos, conferenciaDiaria] = await Promise.all([
@@ -137,7 +141,7 @@ export default async function DespesasPagasPage({
     // com o total do extrato (mesma lógica de /extratos/conciliacao), um dia
     // com débito categorizado "Despesas Pagas" no extrato mas zero despesa
     // cadastrada aparece aqui mesmo sem ter grupo nenhum na lista abaixo.
-    conferenciaTotalDiario({ postoId: postoId || undefined, de, ate }),
+    conferenciaTotalDiario({ postoId: postoIds, de, ate }),
   ]);
   // Só o que falta lançar (extrato > despesas) — o caso que a usuária pediu
   // pra avisar. O outro sentido (despesa > extrato) já aparece como
@@ -146,10 +150,12 @@ export default async function DespesasPagasPage({
   const diasPendentes = conferenciaDiaria.filter((l) => l.diferenca < -0.005);
 
   const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoId || fornecedorId || planoContaId || bancoId || de || ate || q);
-  const qs = new URLSearchParams(
-    Object.entries(filtros).filter(([, v]) => v) as [string, string][]
-  ).toString();
+  const temFiltro = Boolean(postoIds.length || fornecedorId || planoContaId || bancoId || de || ate || q);
+  const qsParams = new URLSearchParams(
+    Object.entries(filtros).filter(([k, v]) => v && k !== "postoId") as [string, string][]
+  );
+  anexarLista(qsParams, "postoId", postoIds);
+  const qs = qsParams.toString();
   // Pra "+ Despesa avulsa" voltar pro filtro atual depois de salvar, em vez
   // de cair na lista sem filtro nenhum (pedido da usuária).
   const qsVoltarPara = `voltarPara=${encodeURIComponent(`/despesas-pagas${qs ? `?${qs}` : ""}`)}`;
@@ -162,7 +168,7 @@ export default async function DespesasPagasPage({
   const qsRelatorio = new URLSearchParams();
   qsRelatorio.set("status", "PAGA");
   qsRelatorio.set("statusEnviado", "1");
-  if (postoId) qsRelatorio.append("postoId", postoId);
+  anexarLista(qsRelatorio, "postoId", postoIds);
   if (fornecedorId) qsRelatorio.append("fornecedorId", fornecedorId);
   if (planoContaId) qsRelatorio.append("planoContaId", planoContaId);
   const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
@@ -223,14 +229,12 @@ export default async function DespesasPagasPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select id="postoId" name="postoId" defaultValue={postoId ?? ""} className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20">
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
           {/* Padrão busca por quem PAGOU, não pelo dono da despesa (mesmo
               critério do resto do sistema) — pedido da usuária: filtrar a
               OLIVEIRA tem que trazer o que ela pagou de outros postos
@@ -245,14 +249,15 @@ export default async function DespesasPagasPage({
           <label htmlFor="fornecedorId" className="text-foreground/60">
             Fornecedor
           </label>
-          <select id="fornecedorId" name="fornecedorId" defaultValue={fornecedorId ?? ""} className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20">
-            <option value="">Todos</option>
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorBusca
+            id="fornecedorId"
+            nome="fornecedorId"
+            itens={fornecedores}
+            valorInicial={fornecedorId ?? ""}
+            rotuloVazio="Todos os fornecedores"
+            placeholder="Digite pra buscar..."
+            className="w-64"
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="planoContaId" className="text-foreground/60">

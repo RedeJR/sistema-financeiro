@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   await exigirPermissao("EXTRATOS", "visualizar");
 
   const params = request.nextUrl.searchParams;
-  const postoId = params.get("postoId") || undefined;
+  const postoIds = params.getAll("postoId").filter(Boolean);
   const de = params.get("de");
   const ate = params.get("ate");
   const categoriaId = params.get("categoriaId");
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     return new Response("Categoria não encontrada.", { status: 400 });
   }
 
-  const blocos = await buscarRelatorioCampoExtrato({ categoriaId, postoId, dataInicio: dataUTC(de), dataFim: dataUTC(ate, true) });
+  const blocos = await buscarRelatorioCampoExtrato({ categoriaId, postoIds, dataInicio: dataUTC(de), dataFim: dataUTC(ate, true) });
 
   const cabecalho = ["Posto", "Data", "Valor", "Descrição"];
   const aoa: (string | number)[][] = [[`${categoria.nome} - ${de} a ${ate}`], cabecalho];

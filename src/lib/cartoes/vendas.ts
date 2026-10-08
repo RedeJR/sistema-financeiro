@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
 
 export type LinhaVendas = {
+  postoId: string;
+  posto: string;
   data: string; // YYYY-MM-DD (data da venda)
   adquirente: string;
   adquirenteId: string;
@@ -18,28 +20,30 @@ export type LinhaVendas = {
 // (a mesma pergunta que "Vamos pra Sul" levantava, mas sem misturar com a
 // reconciliação de Recebimentos).
 export async function buscarVendasCartoes(params: {
-  postoId: string;
+  postoIds: string[];
   adquirenteIds?: string[];
   dataInicio: Date;
   dataFim: Date;
 }): Promise<LinhaVendas[]> {
-  const { postoId, adquirenteIds, dataInicio, dataFim } = params;
+  const { postoIds, adquirenteIds, dataInicio, dataFim } = params;
 
   const transacoes = await prisma.transacaoCartao.findMany({
     where: {
-      postoId,
+      postoId: { in: postoIds },
       dataVenda: { gte: dataInicio, lte: dataFim },
       ...(adquirenteIds && adquirenteIds.length > 0 ? { adquirenteId: { in: adquirenteIds } } : {}),
     },
-    include: { adquirente: true },
+    include: { adquirente: true, posto: true },
   });
 
   const grupos = new Map<string, LinhaVendas>();
   for (const t of transacoes) {
     const data = t.dataVenda.toISOString().slice(0, 10);
     const modalidade = classificarModalidadeVenda(t.tipoVenda, t.adquirente.nome);
-    const chave = `${t.adquirenteId}|${data}|${modalidade}`;
+    const chave = `${t.postoId}|${t.adquirenteId}|${data}|${modalidade}`;
     const grupo = grupos.get(chave) ?? {
+      postoId: t.postoId,
+      posto: t.posto.nome,
       data,
       adquirente: t.adquirente.nome,
       adquirenteId: t.adquirenteId,
@@ -59,6 +63,7 @@ export async function buscarVendasCartoes(params: {
     .map((g) => ({ ...g, taxa: g.totalBruto - g.totalLiquido }))
     .sort(
       (a, b) =>
+        a.posto.localeCompare(b.posto) ||
         a.data.localeCompare(b.data) ||
         a.adquirente.localeCompare(b.adquirente) ||
         ORDEM_MODALIDADE_VENDA[a.modalidade] - ORDEM_MODALIDADE_VENDA[b.modalidade]

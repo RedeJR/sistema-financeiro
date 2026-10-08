@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda, ehVendaEmDinheiro, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
 import { MAQUININHAS_COM_VOUCHER } from "./vouchersDuplicados";
@@ -33,13 +34,14 @@ export type LinhaAReceber = {
 //  - base "recebimento": vendas cujo pagamento previsto cai dentro do período,
 //    de qualquer data de venda.
 export async function buscarVendasAReceber(params: {
-  postoId?: string;
+  postoId?: string | string[];
   adquirenteId?: string;
   dataInicio: Date;
   dataFim: Date;
   base: BaseAReceber;
 }): Promise<LinhaAReceber[]> {
   const { postoId, adquirenteId, dataInicio, dataFim, base } = params;
+  const postoIds = paraLista(postoId);
 
   const filtroBase =
     base === "venda"
@@ -57,7 +59,7 @@ export async function buscarVendasAReceber(params: {
       : { dataPagamento: { gte: dataInicio, lte: dataFim } };
   const where = {
     ...filtroBase,
-    ...(postoId ? { postoId } : {}),
+    ...emLista("postoId", postoIds),
     ...(adquirenteId ? { adquirenteId } : {}),
   };
 

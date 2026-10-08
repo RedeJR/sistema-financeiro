@@ -1,4 +1,5 @@
 import "server-only";
+import { paraLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 
 function dataUTC(iso: string): Date {
@@ -6,7 +7,7 @@ function dataUTC(iso: string): Date {
 }
 
 export type FiltrosDespesasPagas = {
-  postoId?: string;
+  postoId?: string | string[];
   // "1" = filtra pelo posto DONO da despesa (postoId puro); ausente/qualquer
   // outro valor = filtra por quem PAGOU (postoPagamentoId ?? postoId),
   // padrão já usado em todo o resto do sistema — ver checkbox em page.tsx.
@@ -22,6 +23,7 @@ export type FiltrosDespesasPagas = {
 export async function buscarDespesasPagas(filtros: FiltrosDespesasPagas) {
   const { postoId, postoDono, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
   const busca = q?.trim();
+  const postoIds = paraLista(postoId);
   return prisma.contaAPagar.findMany({
     where: {
       paga: true,
@@ -39,10 +41,14 @@ export async function buscarDespesasPagas(filtros: FiltrosDespesasPagas) {
       // Vai dentro de um AND (em vez de OR direto no objeto) porque "busca"
       // também usa OR mais abaixo — duas chaves OR no mesmo objeto se
       // sobrescreveriam (a segunda apagaria a primeira).
-      ...(postoId
+      ...(postoIds.length
         ? postoDono === "1"
-          ? { postoId }
-          : { AND: [{ OR: [{ postoPagamentoId: postoId }, { postoPagamentoId: null, postoId }] }] }
+          ? { postoId: { in: postoIds } }
+          : {
+              AND: [
+                { OR: [{ postoPagamentoId: { in: postoIds } }, { postoPagamentoId: null, postoId: { in: postoIds } }] },
+              ],
+            }
         : {}),
       ...(fornecedorId ? { fornecedorId } : {}),
       ...(planoContaId ? { planoContaId } : {}),

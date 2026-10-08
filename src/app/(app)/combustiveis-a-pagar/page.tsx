@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
@@ -45,7 +47,7 @@ export default async function CombustiveisAPagarPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    postoId?: string;
+    postoId?: string | string[];
     status?: string;
     de?: string;
     ate?: string;
@@ -70,6 +72,7 @@ export default async function CombustiveisAPagarPage({
   const semConta = await combustiveisNoExtratoSemConta();
 
   const { postoId, status, de, ate, q, erro } = await searchParams;
+  const postoIds = paraLista(postoId);
   const busca = q?.trim();
 
   // Essa tela só mostra o que está em aberto — o que já foi pago tem tela
@@ -80,7 +83,7 @@ export default async function CombustiveisAPagarPage({
       where: {
         combustivel: true,
         paga: false,
-        ...(postoId ? { postoId } : {}),
+        ...emLista("postoId", postoIds),
         ...(de || ate
           ? {
               dataVencimento: {
@@ -113,7 +116,9 @@ export default async function CombustiveisAPagarPage({
     .filter((c) => !status || c.status === status);
 
   const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoId || status || de || ate || busca);
+  const qsExportar = new URLSearchParams(Object.entries({ de, ate }).filter(([, v]) => v) as [string, string][]);
+  anexarLista(qsExportar, "postoId", postoIds);
+  const temFiltro = Boolean(postoIds.length || status || de || ate || busca);
 
   return (
     <div className="space-y-4">
@@ -128,9 +133,7 @@ export default async function CombustiveisAPagarPage({
             Relatório (PDF)
           </Link>
           <a
-            href={`/combustiveis-a-pagar/exportar?${new URLSearchParams(
-              Object.entries({ postoId, de, ate }).filter(([, v]) => v) as [string, string][]
-            ).toString()}`}
+            href={`/combustiveis-a-pagar/exportar?${qsExportar.toString()}`}
             className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
             Exportar (Excel)
@@ -198,19 +201,12 @@ export default async function CombustiveisAPagarPage({
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
           </label>
-          <select
-            id="postoId"
-            name="postoId"
-            defaultValue={postoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-          >
-            <option value="">Todos</option>
-            {postos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="status" className="text-foreground/60">
