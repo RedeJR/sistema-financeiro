@@ -141,7 +141,10 @@ export default async function DespesasPagasPage({
     // com o total do extrato (mesma lógica de /extratos/conciliacao), um dia
     // com débito categorizado "Despesas Pagas" no extrato mas zero despesa
     // cadastrada aparece aqui mesmo sem ter grupo nenhum na lista abaixo.
-    conferenciaTotalDiario({ postoId: postoIds, de, ate }),
+    // Sem data escolhida, o aviso começa em 01/09/2026 — pedido da usuária
+    // em 08/10/2026 ("tira os avisos da conciliação de despesas do mês 08").
+    // Escolhendo "Pago de", dá pra olhar um mês anterior de propósito.
+    conferenciaTotalDiario({ postoId: postoIds, de: de || "2026-09-01", ate }),
   ]);
   // Só o que falta lançar (extrato > despesas) — o caso que a usuária pediu
   // pra avisar. O outro sentido (despesa > extrato) já aparece como

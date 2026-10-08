@@ -606,6 +606,11 @@ export type CombustivelSemConta = {
 // um "desde sempre" que traria o histórico antigo (débito de combustível no
 // extrato categorizado sem vínculo de propósito, no fluxo de antes dessa
 // aba existir).
+// Piso fixo: pedido da usuária em 08/10/2026 ("tira esses avisos de
+// combustível do mês 09") — setembro já foi fechado/conferido, então só
+// avisa a partir de outubro.
+const COMBUSTIVEL_SEM_CONTA_A_PARTIR_DE = new Date("2026-10-01T00:00:00.000Z");
+
 export async function combustiveisNoExtratoSemConta(): Promise<CombustivelSemConta[]> {
   const [categoriaCombustiveis, desde] = await Promise.all([
     prisma.categoriaExtrato.findUnique({ where: { nome: "COMBUSTÍVEIS" } }),
@@ -621,7 +626,12 @@ export async function combustiveisNoExtratoSemConta(): Promise<CombustivelSemCon
       categoriaId: categoriaCombustiveis.id,
       contaAPagarId: null,
       valor: { lt: 0 },
-      data: { gte: desde._min.dataVencimento },
+      data: {
+        gte:
+          desde._min.dataVencimento > COMBUSTIVEL_SEM_CONTA_A_PARTIR_DE
+            ? desde._min.dataVencimento
+            : COMBUSTIVEL_SEM_CONTA_A_PARTIR_DE,
+      },
     },
     include: { posto: true, banco: true },
     orderBy: { data: "asc" },
