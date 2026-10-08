@@ -6,6 +6,7 @@ import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { listarMovimentacoes } from "@/lib/entrePostos/relatorios";
+import { rodarVinculoAutomaticoEntrePostos } from "@/lib/entrePostos/vinculo";
 import { excluirMovimentacao } from "./actions";
 
 function formatarData(d: Date): string {
@@ -28,6 +29,13 @@ export default async function EntrePostosPage({
 }) {
   const { postoId, de, ate } = await searchParams;
   const postoIds = paraLista(postoId);
+
+  // Vínculo automático com o extrato (idempotente; só liga o que é 1-pra-1
+  // sem dúvida — ver vinculo.ts). Só quem pode editar dispara: visualização
+  // não deve ter efeito colateral no banco.
+  if (await podeEditarModulo("ENTRE_POSTOS")) {
+    await rodarVinculoAutomaticoEntrePostos();
+  }
 
   const [postos, movimentacoes, podeEditar] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
