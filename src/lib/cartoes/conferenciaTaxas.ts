@@ -10,6 +10,9 @@ export type LinhaConferenciaTaxas = {
   modalidade: ModalidadeCartao;
   qtd: number;
   somaBruto: number;
+  somaTaxa: number; // taxa em R$ das vendas que já têm taxa/líquido no arquivo
+  somaLiquido: number;
+  qtdSemLiquido: number; // aprovadas, mas ainda sem líquido (a adquirente não liquidou) — entram no bruto, não na taxa
   prazoRealDias: number | null; // média, em dias corridos (dataPagamento − dataVenda)
   prazoCadastradoDias: number | null;
   taxaRealPct: number | null; // média, em % do bruto
@@ -54,7 +57,7 @@ export async function buscarConferenciaTaxas(params: {
   // apareceu no arquivo.
   const grupos = new Map<
     string,
-    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; qtd: number; somaBruto: number; prazos: number[]; taxasPct: number[] }
+    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; qtd: number; somaBruto: number; somaTaxa: number; somaBrutoComTaxa: number; somaLiquido: number; qtdSemLiquido: number; prazos: number[] }
   >();
 
   for (const t of transacoes) {
@@ -67,8 +70,11 @@ export async function buscarConferenciaTaxas(params: {
       tipoVenda: t.tipoVenda,
       qtd: 0,
       somaBruto: 0,
+      somaTaxa: 0,
+      somaBrutoComTaxa: 0,
+      somaLiquido: 0,
+      qtdSemLiquido: 0,
       prazos: [],
-      taxasPct: [],
     };
     grupo.qtd++;
     grupo.somaBruto += Number(t.valorBruto);
@@ -76,8 +82,11 @@ export async function buscarConferenciaTaxas(params: {
       const dias = Math.round((t.dataPagamento.getTime() - t.dataVenda.getTime()) / (1000 * 60 * 60 * 24));
       grupo.prazos.push(dias);
     }
-    if (t.taxaRs !== null && Number(t.valorBruto) > 0) {
-      grupo.taxasPct.push((Number(t.taxaRs) / Number(t.valorBruto)) * 100);
+    if (t.valorLiquido === null) grupo.qtdSemLiquido++;
+    else grupo.somaLiquido += Number(t.valorLiquido);
+    if (t.taxaRs !== null) {
+      grupo.somaTaxa += Number(t.taxaRs);
+      grupo.somaBrutoComTaxa += Number(t.valorBruto);
     }
     grupos.set(chave, grupo);
   }
@@ -98,9 +107,15 @@ export async function buscarConferenciaTaxas(params: {
       modalidade,
       qtd: g.qtd,
       somaBruto: g.somaBruto,
+      somaTaxa: g.somaTaxa,
+      somaLiquido: g.somaLiquido,
+      qtdSemLiquido: g.qtdSemLiquido,
       prazoRealDias: media(g.prazos),
       prazoCadastradoDias: taxaCartao ? taxaCartao[campos.prazo] : null,
-      taxaRealPct: media(g.taxasPct),
+      // Ponderada pelo valor (taxa total ÷ bruto total das vendas com taxa), igual a
+      // bruto − líquido ÷ bruto. A média simples dos % de cada venda (que era usada
+      // antes) pesava uma venda de R$ 5 igual a uma de R$ 500 e não fechava com a conta.
+      taxaRealPct: g.somaBrutoComTaxa > 0 ? (g.somaTaxa / g.somaBrutoComTaxa) * 100 : null,
       taxaCadastradaPct: taxaCartao && taxaCartao[campos.taxa] !== null ? Number(taxaCartao[campos.taxa]) : null,
       semTaxaCadastrada: !taxaCartao,
     });

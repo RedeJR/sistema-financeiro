@@ -42,6 +42,9 @@ export async function GET(request: NextRequest) {
     "Modalidade (arquivo)",
     "Qtd",
     "Bruto",
+    "Taxa R$",
+    "Líquido",
+    "Vendas sem líquido",
     "Prazo cadastrado (dias)",
     "Prazo real (dias)",
     "Taxa cadastrada (%)",
@@ -56,6 +59,9 @@ export async function GET(request: NextRequest) {
       l.tipoVenda,
       l.qtd,
       l.somaBruto,
+      l.somaTaxa,
+      l.somaLiquido,
+      l.qtdSemLiquido,
       l.semTaxaCadastrada ? "sem cadastro" : (l.prazoCadastradoDias ?? ""),
       l.prazoRealDias ?? "",
       l.semTaxaCadastrada ? "sem cadastro" : (l.taxaCadastradaPct ?? ""),
@@ -67,9 +73,11 @@ export async function GET(request: NextRequest) {
   planilha["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: cabecalho.length - 1 } }];
 
   for (let r = 2; r < aoa.length; r++) {
-    const celulaBruto = planilha[XLSX.utils.encode_cell({ r, c: 4 })];
-    if (celulaBruto && celulaBruto.t === "n") celulaBruto.z = FORMATO_MOEDA;
-    for (const c of [7, 8]) {
+    for (const c of [4, 5, 6]) {
+      const celulaMoeda = planilha[XLSX.utils.encode_cell({ r, c })];
+      if (celulaMoeda && celulaMoeda.t === "n") celulaMoeda.z = FORMATO_MOEDA;
+    }
+    for (const c of [10, 11]) {
       const celula = planilha[XLSX.utils.encode_cell({ r, c })];
       if (celula && celula.t === "n") celula.z = FORMATO_PCT;
     }
@@ -81,6 +89,9 @@ export async function GET(request: NextRequest) {
     { wch: 24 },
     { wch: 8 },
     { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 18 },
     { wch: 20 },
     { wch: 16 },
     { wch: 18 },

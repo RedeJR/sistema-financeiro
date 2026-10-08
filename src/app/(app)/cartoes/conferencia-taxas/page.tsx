@@ -178,6 +178,8 @@ export default async function ConferenciaTaxasPage({
                 <th className="px-4 py-1.5 text-left font-medium">Modalidade (arquivo)</th>
                 <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
                 <th className="px-4 py-1.5 text-right font-medium">Bruto</th>
+                <th className="px-4 py-1.5 text-right font-medium">Taxa R$</th>
+                <th className="px-4 py-1.5 text-right font-medium">Líquido</th>
                 <th className="px-4 py-1.5 text-right font-medium">Prazo cadastrado</th>
                 <th className="px-4 py-1.5 text-right font-medium">Prazo real (arquivo)</th>
                 <th className="px-4 py-1.5 text-right font-medium">Taxa cadastrada</th>
@@ -201,8 +203,15 @@ export default async function ConferenciaTaxasPage({
                     {varios && <td className="px-4 py-1.5">{l.posto}</td>}
                     <td className="px-4 py-1.5">{l.adquirente}</td>
                     <td className="px-4 py-1.5 text-foreground/70">{l.tipoVenda}</td>
-                    <td className="px-4 py-1.5 text-right">{l.qtd}</td>
+                    <td className="px-4 py-1.5 text-right">
+                      {l.qtd}
+                      {l.qtdSemLiquido > 0 && (
+                        <span className="block text-xs text-foreground/50">{l.qtdSemLiquido} sem líquido ainda</span>
+                      )}
+                    </td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.somaBruto)}</td>
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.somaTaxa)}</td>
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.somaLiquido)}</td>
                     {l.semTaxaCadastrada ? (
                       <td colSpan={4} className="px-4 py-1.5 text-center text-foreground/50">
                         Sem Taxas de Cartão cadastrada pra essa adquirente nesse posto

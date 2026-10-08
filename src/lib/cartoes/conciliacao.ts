@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { calcularAjustesAntecipacao } from "./antecipacoes";
+import { paraProximoDiaUtilSeNecessario } from "./normalizar";
 
 export type StatusConciliacao = "CONCILIADO" | "DIVERGENTE" | "PENDENTE";
 export type AgrupamentoConciliacao = "recebimento" | "adquirente";
@@ -25,6 +26,23 @@ export type LinhaConciliacao = {
 
 const TOLERANCIA = 0.05;
 
+// Arredondamento: cada venda tem centavos de diferença entre o que a adquirente
+// calcula e o que cai (ex: Stone dá +-R$ 1 a 3 num dia de 150 vendas). Tolerância
+// de 2 centavos por venda do dia (mínimo 5 centavos, teto R$ 20) pra não marcar
+// como divergente um dia que só tem arredondamento.
+function toleranciaDoDia(qtdVendas: number): number {
+  return Math.min(20, Math.max(TOLERANCIA, qtdVendas * 0.02));
+}
+
+// Recebimento previsto pra sábado/domingo/feriado cai no próximo dia útil (e o
+// extrato de fim de semana, como Pix, também entra no próximo dia útil — os dois
+// lados usam a mesma regra, então batem de qualquer forma) —
+// o banco só credita em dia útil. Sem isso o sábado ficava "pendente" e a
+// segunda "divergente" com o valor dos dois dias.
+function dataDeCredito(data: Date): string {
+  return paraProximoDiaUtilSeNecessario(data).toISOString().slice(0, 10);
+}
+
 // Stone não traz data de pagamento no arquivo — infere por regra fixa
 // (Pix D+0, Débito D+1, Crédito D+2, ver stone.ts). Todas as outras leem a
 // data (ou o prazo, no caso da Rede) direto do arquivo de cada venda.
@@ -32,9 +50,9 @@ function fontePrazoPorAdquirente(nome: string): "ARQUIVO" | "SISTEMA" {
   return nome === "STONE" ? "SISTEMA" : "ARQUIVO";
 }
 
-function calcularStatus(extratoTotal: number, diferenca: number): StatusConciliacao {
+function calcularStatus(extratoTotal: number, diferenca: number, qtdVendas = 0): StatusConciliacao {
   if (extratoTotal === 0) return "PENDENTE";
-  if (Math.abs(diferenca) <= TOLERANCIA) return "CONCILIADO";
+  if (Math.abs(diferenca) <= toleranciaDoDia(qtdVendas)) return "CONCILIADO";
   return "DIVERGENTE";
 }
 
@@ -95,7 +113,7 @@ export async function buscarConciliacaoCartoes(params: {
   const gruposEsperado = new Map<string, { adquirente: string; adquirenteId: string; data: string; qtd: number; soma: number }>();
   for (const t of transacoes) {
     if (!t.dataPagamento || t.valorLiquido === null) continue;
-    const data = t.dataPagamento.toISOString().slice(0, 10);
+    const data = dataDeCredito(t.dataPagamento);
     const chave = `${t.adquirenteId}|${data}`;
     const grupo = gruposEsperado.get(chave) ?? { adquirente: t.adquirente.nome, adquirenteId: t.adquirenteId, data, qtd: 0, soma: 0 };
     grupo.qtd++;
@@ -113,8 +131,9 @@ export async function buscarConciliacaoCartoes(params: {
     for (const a of ajustes) {
       if (adquirenteIdsEfetivos && adquirenteIdsEfetivos.length > 0 && !adquirenteIdsEfetivos.includes(a.adquirenteId)) continue;
       nomePorAdquirenteId.set(a.adquirenteId, a.adquirenteNome);
-      const chave = `${a.adquirenteId}|${a.data}`;
-      const grupo = gruposEsperado.get(chave) ?? { adquirente: a.adquirenteNome, adquirenteId: a.adquirenteId, data: a.data, qtd: 0, soma: 0 };
+      const dataAjuste = a.delta > 0 ? a.data : dataDeCredito(new Date(`${a.data}T00:00:00.000Z`));
+      const chave = `${a.adquirenteId}|${dataAjuste}`;
+      const grupo = gruposEsperado.get(chave) ?? { adquirente: a.adquirenteNome, adquirenteId: a.adquirenteId, data: dataAjuste, qtd: 0, soma: 0 };
       grupo.soma += a.delta;
       gruposEsperado.set(chave, grupo);
     }
@@ -162,7 +181,7 @@ export async function buscarConciliacaoCartoes(params: {
   for (const l of lancamentos) {
     const nomeAdquirente = categoriaIdParaNome.get(l.categoriaId ?? "");
     if (!nomeAdquirente) continue;
-    const data = l.data.toISOString().slice(0, 10);
+    const data = dataDeCredito(l.data);
     const chave = `${nomeAdquirente}|${data}`;
     const atual = nomeParaExtrato.get(chave) ?? { debito: 0, credito: 0 };
     if (l.tipoAdquirente === "DEBITO") atual.debito += Number(l.valor);
@@ -205,7 +224,7 @@ export async function buscarConciliacaoCartoes(params: {
       for (const l of lancamentosPix) {
         const nomeAdquirente = bancoIdParaAdquirenteNome.get(l.bancoId);
         if (!nomeAdquirente) continue;
-        const data = l.data.toISOString().slice(0, 10);
+        const data = dataDeCredito(l.data);
         const chave = `${nomeAdquirente}|${data}`;
         const atual = nomeParaExtrato.get(chave) ?? { debito: 0, credito: 0 };
         atual.credito += Number(l.valor);
@@ -250,7 +269,7 @@ export async function buscarConciliacaoCartoes(params: {
       extratoCredito: extrato.credito,
       extratoTotal,
       diferenca,
-      status: calcularStatus(extratoTotal, diferenca),
+      status: calcularStatus(extratoTotal, diferenca, esperadoGrupo?.qtd ?? 0),
     });
   }
 
@@ -279,7 +298,7 @@ export async function buscarConciliacaoCartoes(params: {
     const agrupadas = [...porGrupoDia.values()].map((g) => {
       const extratoTotal = g.extratoDebito + g.extratoCredito;
       const diferenca = extratoTotal - g.esperado;
-      return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca) };
+      return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca, g.qtdVendas) };
     });
     linhasDetalhadas = [...semGrupo, ...agrupadas];
   }
@@ -317,7 +336,7 @@ export async function buscarConciliacaoCartoes(params: {
     .map((g) => {
       const extratoTotal = g.extratoDebito + g.extratoCredito;
       const diferenca = extratoTotal - g.esperado;
-      return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca) };
+      return { ...g, extratoTotal, diferenca, status: calcularStatus(extratoTotal, diferenca, g.qtdVendas) };
     })
     .sort((a, b) => a.adquirente.localeCompare(b.adquirente));
 }
