@@ -764,3 +764,27 @@ model Sessao {
 
   @@map("sessoes")
 }
+
+// "De-para" da importação de despesas por planilha (Despesas Pagas > Importar):
+// o que a usuária escreve na planilha (ex: "GOOD", "FUNCIONÁRIO", "OUTRAS
+// DESPESAS OPE.") nem sempre é o nome cadastrado. Na primeira vez ela escolhe
+// o cadastro certo na tela de conferência e o sistema lembra pras próximas
+// importações. `texto` fica normalizado (maiúsculo, sem acento, espaços
+// únicos); `refId` aponta pro Posto, Fornecedor ou PlanoConta conforme o tipo
+// (sem FK porque o destino muda com o tipo).
+enum TipoApelidoImportacao {
+  POSTO
+  FORNECEDOR
+  PLANO_CONTA
+}
+
+model ApelidoImportacao {
+  id        String                @id @default(cuid())
+  tipo      TipoApelidoImportacao
+  texto     String
+  refId     String
+  createdAt DateTime              @default(now())
+
+  @@unique([tipo, texto])
+  @@map("apelidos_importacao")
+}
