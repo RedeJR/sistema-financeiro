@@ -46,6 +46,9 @@ export async function gerarOcorrenciasRecorrentesPendentes(): Promise<void> {
       numeroDocumento: ultima.numeroDocumento,
       valor: ultima.valor,
       descricao: ultima.descricao,
+      // O lembrete (ícone amarelo) vale pra série toda: sem copiar, só a primeira
+      // ocorrência ficava com ele e as geradas depois vinham sem.
+      observacao: ultima.observacao,
       recorrente: true as const,
       grupoRecorrenciaId: ultima.grupoRecorrenciaId!,
     };

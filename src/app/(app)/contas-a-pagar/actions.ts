@@ -327,6 +327,23 @@ export async function atualizarContaAPagar(
         dataVencimento: dataUTC(parsed.data.dataVencimento),
       },
     });
+
+    // Lembrete (observação) de conta mensal/parcelada vale pras SEGUINTES da
+    // mesma série ainda em aberto — senão ficava só na conta que foi editada.
+    // Só propaga quando o lembrete mudou; apagar o lembrete também propaga.
+    if ((atual.observacao ?? null) !== (parsed.data.observacao ?? null)) {
+      const grupo = atual.grupoRecorrenciaId
+        ? { grupoRecorrenciaId: atual.grupoRecorrenciaId }
+        : atual.grupoParcelamentoId
+          ? { grupoParcelamentoId: atual.grupoParcelamentoId }
+          : null;
+      if (grupo) {
+        await prisma.contaAPagar.updateMany({
+          where: { ...grupo, paga: false, id: { not: id }, dataVencimento: { gt: dataUTC(parsed.data.dataVencimento) } },
+          data: { observacao: parsed.data.observacao ?? null },
+        });
+      }
+    }
   } catch (e) {
     if (isForeignKeyConstraintError(e)) {
       return {
