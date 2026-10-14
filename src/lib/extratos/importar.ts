@@ -143,6 +143,11 @@ export async function importarExtratos(params: {
           },
           select: { postoId: true, bancoId: true, data: true, descricao: true, valor: true },
         });
+        // O valor do banco volta como Decimal (toString() tira os zeros: "127000.00"
+        // vira "127000") — por isso a chave usa toFixed(2) dos dois lados; sem isso,
+        // todo valor redondo (R$ 100,00, R$ 344,40) nunca batia e a reimportação de
+        // um dia já importado duplicava essas linhas.
+        //
         // Conta ocorrências, não só "já existe": duas saídas idênticas no MESMO
         // dia (ex: dois honorários de R$ 344,40) são lançamentos reais e vêm
         // as duas no mesmo arquivo — descartar a repetida do próprio arquivo
@@ -152,7 +157,7 @@ export async function importarExtratos(params: {
         // e banco com 1 → entra 1; arquivo com 2 e banco com 2 → entra 0).
         const jaNoBanco = new Map<string, number>();
         for (const e of existentes) {
-          const k = chaveSemFitid({ ...e, valor: e.valor.toString() });
+          const k = chaveSemFitid({ ...e, valor: Number(e.valor).toFixed(2) });
           jaNoBanco.set(k, (jaNoBanco.get(k) ?? 0) + 1);
         }
         const vistosNoArquivo = new Map<string, number>();

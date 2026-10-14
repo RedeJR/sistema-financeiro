@@ -295,7 +295,7 @@ export async function importarTransacoesCartao(params: {
           },
           select: { postoId: true, adquirenteId: true, dataVenda: true, horaVenda: true, valorBruto: true, tipoVenda: true },
         });
-        const jaExistem = new Set(existentes.map((e) => chaveSemIdentificador({ ...e, valorBruto: e.valorBruto.toString() })));
+        const jaExistem = new Set(existentes.map((e) => chaveSemIdentificador({ ...e, valorBruto: Number(e.valorBruto).toFixed(2) })));
         const vistosNoLote = new Set<string>();
         const semIdentificadorDuplicado = new Set(
           semIdentificador.filter((d) => {
