@@ -143,14 +143,25 @@ export async function importarExtratos(params: {
           },
           select: { postoId: true, bancoId: true, data: true, descricao: true, valor: true },
         });
-        const jaExistem = new Set(existentes.map((e) => chaveSemFitid({ ...e, valor: e.valor.toString() })));
-        const vistosNoLote = new Set<string>();
+        // Conta ocorrências, não só "já existe": duas saídas idênticas no MESMO
+        // dia (ex: dois honorários de R$ 344,40) são lançamentos reais e vêm
+        // as duas no mesmo arquivo — descartar a repetida do próprio arquivo
+        // sumia com um deles (caso Oliveira/Bradesco 02/10). Duplicata de
+        // verdade é o mesmo dia vindo de OUTRO arquivo/exportação: aí o banco
+        // já tem N ocorrências, e só entra o que passar disso (arquivo com 2
+        // e banco com 1 → entra 1; arquivo com 2 e banco com 2 → entra 0).
+        const jaNoBanco = new Map<string, number>();
+        for (const e of existentes) {
+          const k = chaveSemFitid({ ...e, valor: e.valor.toString() });
+          jaNoBanco.set(k, (jaNoBanco.get(k) ?? 0) + 1);
+        }
+        const vistosNoArquivo = new Map<string, number>();
         const duplicadas = new Set(
           semFitidConfiavel.filter((l) => {
             const k = chaveSemFitid(l);
-            if (jaExistem.has(k) || vistosNoLote.has(k)) return true;
-            vistosNoLote.add(k);
-            return false;
+            const n = (vistosNoArquivo.get(k) ?? 0) + 1;
+            vistosNoArquivo.set(k, n);
+            return n <= (jaNoBanco.get(k) ?? 0);
           })
         );
         linhasParaGravar = linhas.filter((l) => (l.fitid !== null && !fitidNaoConfiavel) || !duplicadas.has(l));
