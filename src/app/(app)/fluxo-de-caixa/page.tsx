@@ -11,6 +11,11 @@ function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Vendas importadas até antes disso contam como "importação atrasada".
+function limiteAtrasoISO(): string {
+  return new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+}
+
 function paraArray(v?: string | string[]): string[] {
   if (!v) return [];
   return Array.isArray(v) ? v : [v];
@@ -36,6 +41,11 @@ export default async function FluxoDeCaixaPage({
 
   const temFiltro = Boolean(postoIds.length || filtros.de || filtros.ate);
 
+  // Aviso: a média só usa vendas importadas — posto com importação atrasada
+  // (ou sem venda) calcula com o que tem, e a usuária precisa saber disso.
+  const limiteAtraso = limiteAtrasoISO();
+  const postosDefasados = (dias[0]?.linhas ?? []).filter((l) => !l.recebBaseAte || l.recebBaseAte < limiteAtraso);
+
   const qsAtual = new URLSearchParams();
   postoIds.forEach((id) => qsAtual.append("postoId", id));
   qsAtual.set("de", de);
@@ -49,7 +59,12 @@ export default async function FluxoDeCaixaPage({
         <BotaoImprimir />
       </div>
       <p className="text-sm text-foreground/60 print:hidden">
-        Saldo Inicial, Recebimentos e Despesas Extras são preenchidos manual. Combustíveis vem de{" "}
+        Débito/Pix e Crédito/Voucher são calculados sozinhos, em três camadas: dia que já passou e tem extrato
+        importado mostra o que realmente entrou (real); o resto é previsto = o que as vendas já importadas agendam
+        (com as antecipações cadastradas) + uma estimativa só do que ainda não foi importado (média por dia da
+        semana das últimas 4 semanas, no mesmo prazo em dias úteis) — passe o mouse no valor pra ver a composição.
+        Saldo Inicial, Outros recebimentos (Sem Parar,
+        Abastece Aí, Premmia, SAQPAY, antecipações...) e Despesas Extras são preenchidos manual. Combustíveis vem de{" "}
         <Link href="/combustiveis-a-pagar" className="underline">
           Combustíveis a Pagar
         </Link>{" "}
@@ -58,9 +73,15 @@ export default async function FluxoDeCaixaPage({
           Contas a Pagar
         </Link>{" "}
         — os dois somados pela data de vencimento. Só dias úteis: o que vence em sábado, domingo ou feriado
-        entra no próximo dia útil. Saldo Final = Saldo Inicial + Recebimentos − Combustíveis −
-        Despesas − Despesas Extras.
+        entra no próximo dia útil. Saldo Final = Saldo Inicial + Débito/Pix + Crédito/Voucher + Outros recebimentos −
+        Combustíveis − Despesas − Despesas Extras.
       </p>
+
+      {postosDefasados.length > 0 && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          Atenção — a previsão de recebimento usa só vendas importadas:{postosDefasados.map((l) => `${l.posto} (${l.recebBaseAte ? `até ${l.recebBaseAte.split("-").reverse().join("/")}` : "sem vendas"})`).join(", ")}.
+        </p>
+      )}
 
       <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
         <div className="flex flex-col gap-1">

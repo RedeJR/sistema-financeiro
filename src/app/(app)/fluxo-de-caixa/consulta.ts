@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ehDiaUtil, paraProximoDiaUtilSeNecessario } from "@/lib/cartoes/normalizar";
+import { previsaoDeRecebimentos } from "@/lib/fluxo/previsaoRecebimentos";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -39,6 +40,17 @@ export type LinhaFluxoCaixa = {
   posto: string;
   data: string;
   saldoInicial: number;
+  // Recebimentos automáticos (ver src/lib/fluxo/previsaoRecebimentos.ts) — não são
+  // gravados: dia passado com extrato = realizado; o resto = vendas importadas + estimativa.
+  recebDebitoPix: number;
+  recebCreditoVoucher: number;
+  recebFonte: "REALIZADO" | "PREVISTO";
+  recebDetalheDebitoPix: string;
+  recebDetalheCreditoVoucher: string;
+  recebBaseAte: string | null; // último dia com vendas importadas do posto
+  recebExtratoAte: string | null; // até quando há extrato completo do posto
+  // Manual: o que não está nas duas colunas acima (Sem Parar, Abastece Aí,
+  // Premmia, SAQPAY, dinheiro de antecipação...) — era o "Recebimentos" digitado.
   recebimentos: number;
   combustiveis: number;
   despesas: number;
@@ -107,7 +119,10 @@ export async function buscarFluxoCaixa(filtros: {
     manuaisPorChave.set(`${m.postoId}|${isoDeData(m.data)}`, m);
   }
 
-  return diasUteisEntre(de, ate).map((dia) => {
+  const diasUteis = diasUteisEntre(de, ate);
+  const previsoes = await previsaoDeRecebimentos({ postoIds: idsPostos, dias: diasUteis });
+
+  return diasUteis.map((dia) => {
     const linhas: LinhaFluxoCaixa[] = postos.map((posto) => {
       const manual = manuaisPorChave.get(`${posto.id}|${dia}`);
       const saldoInicial = manual ? Number(manual.saldoInicial) : 0;
@@ -115,12 +130,23 @@ export async function buscarFluxoCaixa(filtros: {
       const despesasExtras = manual ? Number(manual.despesasExtras) : 0;
       const combustiveis = somaContas.get(`${posto.id}|${dia}|true`) ?? 0;
       const despesas = somaContas.get(`${posto.id}|${dia}|false`) ?? 0;
-      const saldoFinal = saldoInicial + recebimentos - combustiveis - despesas - despesasExtras;
+      const previsao = previsoes.get(`${posto.id}|${dia}`);
+      const recebDebitoPix = previsao?.debitoPix ?? 0;
+      const recebCreditoVoucher = previsao?.creditoVoucher ?? 0;
+      const saldoFinal =
+        saldoInicial + recebDebitoPix + recebCreditoVoucher + recebimentos - combustiveis - despesas - despesasExtras;
       return {
         postoId: posto.id,
         posto: posto.nome,
         data: dia,
         saldoInicial,
+        recebDebitoPix,
+        recebCreditoVoucher,
+        recebFonte: previsao?.fonte ?? "PREVISTO",
+        recebDetalheDebitoPix: previsao?.detalheDebitoPix ?? "",
+        recebDetalheCreditoVoucher: previsao?.detalheCreditoVoucher ?? "",
+        recebBaseAte: previsao?.vendasAte ?? null,
+        recebExtratoAte: previsao?.extratoAte ?? null,
         recebimentos,
         combustiveis,
         despesas,

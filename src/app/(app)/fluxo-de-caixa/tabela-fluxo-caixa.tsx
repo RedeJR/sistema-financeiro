@@ -35,6 +35,20 @@ const classeInput =
 
 type CamposManuais = { saldoInicial: string; recebimentos: string; despesasExtras: string };
 
+// Valor automático + etiqueta de onde veio: "real" (entrou no extrato) ou "previsto"
+// (vendas importadas + estimativa). O texto de auditoria fica no tooltip.
+function CelulaRecebimento({ valor, fonte, detalhe }: { valor: number; fonte: LinhaFluxoCaixa["recebFonte"]; detalhe: string }) {
+  const real = fonte === "REALIZADO";
+  return (
+    <td className="px-3 py-1.5 text-right" title={detalhe}>
+      {formatarMoeda(valor)}
+      <span className={`ml-1 text-[10px] uppercase print:hidden ${real ? "text-emerald-700 dark:text-emerald-400" : "text-foreground/40"}`}>
+        {real ? "real" : "prev."}
+      </span>
+    </td>
+  );
+}
+
 // Uma linha por (posto, dia) — cada uma cuida sozinha da digitação dos seus
 // 3 campos (estado LOCAL, não da tabela inteira). Antes, digitar em QUALQUER
 // campo recalculava e re-renderizava TODAS as linhas de TODOS os dias a cada
@@ -61,7 +75,8 @@ const LinhaEditavel = memo(function LinhaEditavel({ linha, podeEditar, saldoInic
   }));
 
   const saldoInicialEfetivo = saldoInicialForcado ?? paraNumero(campos.saldoInicial);
-  const saldoFinal = saldoInicialEfetivo + paraNumero(campos.recebimentos) - linha.combustiveis - linha.despesas - paraNumero(campos.despesasExtras);
+  const saldoFinal =
+    saldoInicialEfetivo + linha.recebDebitoPix + linha.recebCreditoVoucher + paraNumero(campos.recebimentos) - linha.combustiveis - linha.despesas - paraNumero(campos.despesasExtras);
 
   // Avisa o pai a cada render (não só em onChange) porque o saldoFinal
   // também muda quando `saldoInicialForcado` chega de fora (encadeamento) —
@@ -99,6 +114,8 @@ const LinhaEditavel = memo(function LinhaEditavel({ linha, podeEditar, saldoInic
           />
         )}
       </td>
+      <CelulaRecebimento valor={linha.recebDebitoPix} fonte={linha.recebFonte} detalhe={linha.recebDetalheDebitoPix} />
+      <CelulaRecebimento valor={linha.recebCreditoVoucher} fonte={linha.recebFonte} detalhe={linha.recebDetalheCreditoVoucher} />
       <td className="px-3 py-1.5">
         <p className={podeEditar ? "hidden text-right print:block" : "text-right"}>{formatarMoeda(paraNumero(campos.recebimentos))}</p>
         {podeEditar && (
@@ -185,7 +202,9 @@ export function TabelaFluxoCaixa({ dias, podeEditar }: { dias: DiaFluxoCaixa[]; 
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Posto</th>
                     <th className="px-3 py-2 text-right font-medium">Saldo Inicial</th>
-                    <th className="px-3 py-2 text-right font-medium">Recebimentos</th>
+                    <th className="px-3 py-2 text-right font-medium">Débito/Pix (média)</th>
+                    <th className="px-3 py-2 text-right font-medium">Crédito/Voucher (média)</th>
+                    <th className="px-3 py-2 text-right font-medium">Outros recebimentos</th>
                     <th className="px-3 py-2 text-right font-medium">Combustíveis</th>
                     <th className="px-3 py-2 text-right font-medium">Despesas</th>
                     <th className="px-3 py-2 text-right font-medium">Despesas Extras</th>
@@ -211,7 +230,7 @@ export function TabelaFluxoCaixa({ dias, podeEditar }: { dias: DiaFluxoCaixa[]; 
                   })}
                   {dia.linhas.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-3 py-6 text-center text-foreground/50">
+                      <td colSpan={9} className="px-3 py-6 text-center text-foreground/50">
                         Nenhum posto pra mostrar nesse filtro.
                       </td>
                     </tr>
@@ -220,7 +239,7 @@ export function TabelaFluxoCaixa({ dias, podeEditar }: { dias: DiaFluxoCaixa[]; 
                 {dia.linhas.length > 0 && (
                   <tfoot>
                     <tr className="border-t border-black/10 bg-black/5 font-medium dark:border-white/15 dark:bg-white/5">
-                      <td className="px-3 py-2" colSpan={6}>
+                      <td className="px-3 py-2" colSpan={8}>
                         Saldo Final Rede
                       </td>
                       <td className="px-3 py-2 text-right">{formatarMoeda(totalDia)}</td>
