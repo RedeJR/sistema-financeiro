@@ -3,21 +3,40 @@ import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoTaxaCartao, excluirTaxaCartao } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
+import { paraLista } from "@/lib/filtro-multiplo";
+import { BotaoImprimir } from "./botao-imprimir";
 
 function fmtPct(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
   return `${Number(valor).toFixed(2).replace(".", ",")}%`;
 }
 
-export default async function TaxasCartaoPage() {
-  const [postos, taxas, podeEditar] = await Promise.all([
+export default async function TaxasCartaoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ postoId?: string | string[]; adquirenteId?: string | string[] }>;
+}) {
+  const filtros = await searchParams;
+  const postoIds = paraLista(filtros.postoId);
+  const adquirenteIds = paraLista(filtros.adquirenteId);
+
+  const [todosPostos, adquirentes, taxas, podeEditar] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+    prisma.adquirenteCartao.findMany({ orderBy: { nome: "asc" } }),
     prisma.taxaCartao.findMany({
+      where: adquirenteIds.length ? { adquirenteId: { in: adquirenteIds } } : {},
       include: { adquirente: true, domicilioBanco: true },
       orderBy: [{ adquirente: { nome: "asc" } }],
     }),
     podeEditarModulo("CADASTROS"),
   ]);
+  // Filtro de posto: só os escolhidos. Filtrando por adquirente, postos sem essa
+  // adquirente nem aparecem (senão sobraria uma tabela vazia por posto).
+  const postos = todosPostos.filter(
+    (p) => (!postoIds.length || postoIds.includes(p.id)) && (!adquirenteIds.length || taxas.some((t) => t.postoId === p.id))
+  );
+  const temFiltro = postoIds.length > 0 || adquirenteIds.length > 0;
 
   const taxasPorPosto = new Map<string, typeof taxas>();
   for (const t of taxas) {
@@ -33,6 +52,43 @@ export default async function TaxasCartaoPage() {
         contratado.
       </p>
 
+      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground/60">Posto</label>
+          <SeletorDropdown
+            nome="postoId"
+            rotuloTodos="Todos os postos"
+            selecionados={postoIds}
+            itens={todosPostos.map((p) => ({ id: p.id, nome: p.nome }))}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground/60">Adquirente</label>
+          <SeletorDropdown
+            nome="adquirenteId"
+            rotuloTodos="Todas as adquirentes"
+            selecionados={adquirenteIds}
+            itens={adquirentes.map((a) => ({ id: a.id, nome: a.nome }))}
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+        >
+          Filtrar
+        </button>
+        {temFiltro && (
+          <Link href="/cadastros/taxas-cartao" className="text-foreground/60 underline">
+            Limpar filtros
+          </Link>
+        )}
+        <div className="ml-auto">
+          <BotaoImprimir />
+        </div>
+      </form>
+
+      {postos.length === 0 && <p className="py-6 text-center text-sm text-foreground/50">Nenhuma taxa nesse filtro.</p>}
+
       {postos.map((posto) => {
         const lista = taxasPorPosto.get(posto.id) ?? [];
         return (
@@ -42,7 +98,7 @@ export default async function TaxasCartaoPage() {
               {podeEditar && (
                 <Link
                   href={`/cadastros/taxas-cartao/novo?postoId=${posto.id}`}
-                  className="text-xs text-foreground/60 underline"
+                  className="text-xs text-foreground/60 underline print:hidden"
                 >
                   + Nova taxa
                 </Link>
@@ -62,7 +118,7 @@ export default async function TaxasCartaoPage() {
                     <th className="px-4 py-1.5 text-left font-medium">Grupo</th>
                     <th className="px-4 py-1.5 text-left font-medium">Observação</th>
                     <th className="px-4 py-1.5 text-left font-medium">Status</th>
-                    {podeEditar && <th className="px-4 py-1.5 text-right font-medium">Ações</th>}
+                    {podeEditar && <th className="px-4 py-1.5 text-right font-medium print:hidden">Ações</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -116,7 +172,7 @@ export default async function TaxasCartaoPage() {
                         </span>
                       </td>
                       {podeEditar && (
-                        <td className="px-4 py-1.5">
+                        <td className="px-4 py-1.5 print:hidden">
                           <div className="flex items-center justify-end gap-1">
                             <Link
                               href={`/cadastros/taxas-cartao/${t.id}/editar`}
