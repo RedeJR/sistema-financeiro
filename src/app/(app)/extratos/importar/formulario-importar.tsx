@@ -5,7 +5,8 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { useFormKey } from "@/hooks/use-form-key";
-import { importarExtratosAction, type ImportarState } from "../actions";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { importarExtratosAction, cancelarImportacao, type ImportarState } from "../actions";
 
 type Opcao = { id: string; nome: string };
 
@@ -17,12 +18,17 @@ const ROTULO_STATUS: Record<string, { texto: string; classe: string }> = {
   erro: { texto: "erro", classe: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400" },
 };
 
-export function FormularioImportar({ postos, bancos }: { postos: Opcao[]; bancos: Opcao[] }) {
+export function FormularioImportar({ postos, bancos, canceladas }: { postos: Opcao[]; bancos: Opcao[]; canceladas?: number }) {
   const [state, formAction] = useActionState<ImportarState, FormData>(importarExtratosAction, null);
   const formKey = useFormKey(state);
 
   return (
     <div className="max-w-2xl space-y-6">
+      {canceladas !== undefined && (
+        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950/40 dark:text-green-400">
+          Importação cancelada: {canceladas} lançamento{canceladas === 1 ? "" : "s"} apagado{canceladas === 1 ? "" : "s"}.
+        </p>
+      )}
       <form key={formKey} action={formAction} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
@@ -103,7 +109,7 @@ export function FormularioImportar({ postos, bancos }: { postos: Opcao[]; bancos
             href="/extratos"
             className="rounded-md px-4 py-2 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
           >
-            Voltar
+            Cancelar
           </Link>
         </div>
       </form>
@@ -132,9 +138,22 @@ export function FormularioImportar({ postos, bancos }: { postos: Opcao[]; bancos
               </li>
             ))}
           </ul>
-          <Link href="/extratos" className="inline-block text-sm text-foreground underline">
-            Ver lançamentos importados →
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/extratos" className="inline-block text-sm text-foreground underline">
+              Ver lançamentos importados →
+            </Link>
+            {state.importacaoId && state.resultados.some((r) => (r.gravados ?? 0) > 0) && (
+              <form action={cancelarImportacao}>
+                <input type="hidden" name="importacaoId" value={state.importacaoId} />
+                <ConfirmSubmitButton
+                  confirmMessage="Cancelar a importação? Os lançamentos que ela gravou serão apagados (o que já existia não é tocado)."
+                  className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+                >
+                  Cancelar importação
+                </ConfirmSubmitButton>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>

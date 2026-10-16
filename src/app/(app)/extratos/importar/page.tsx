@@ -2,8 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { FormularioImportar } from "./formulario-importar";
 
-export default async function ImportarExtratoPage() {
+export default async function ImportarExtratoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cancelada?: string }>;
+}) {
   await exigirPermissao("EXTRATOS", "editar");
+  const { cancelada } = await searchParams;
 
   const [postos, bancos] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -18,7 +23,7 @@ export default async function ImportarExtratoPage() {
         de cada lançamento automaticamente, e você revisa depois em Conciliação de Extratos. Lançamentos
         repetidos (mesmo dia, descrição e valor) não duplicam se o mesmo extrato for enviado de novo.
       </p>
-      <FormularioImportar postos={postos} bancos={bancos} />
+      <FormularioImportar postos={postos} bancos={bancos} canceladas={cancelada !== undefined ? Number(cancelada) || 0 : undefined} />
     </div>
   );
 }

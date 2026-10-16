@@ -21,6 +21,9 @@ export async function importarExtratos(params: {
   bancoId: string;
   arquivos: { nome: string; buffer: Buffer }[];
   usuarioId: string;
+  // Identifica esta rodada de importação (ver LancamentoExtrato.importacaoId) — é o que
+  // deixa "Cancelar importação" desfazer só o que ela inseriu.
+  importacaoId?: string;
   // Opcional: alguns bancos devolvem um período diferente do que foi pedido
   // na hora de baixar o extrato (ex: filtrar por um dia e vir vários) — em
   // vez de importar tudo que veio no arquivo, restringe só ao período que a
@@ -29,7 +32,7 @@ export async function importarExtratos(params: {
   de?: Date;
   ate?: Date;
 }): Promise<ResultadoArquivo[]> {
-  const { postoId, bancoId, arquivos, usuarioId, de, ate } = params;
+  const { postoId, bancoId, arquivos, usuarioId, importacaoId, de, ate } = params;
 
   const banco = await prisma.banco.findUnique({ where: { id: bancoId } });
   if (!banco) {
@@ -97,6 +100,7 @@ export async function importarExtratos(params: {
           tipoAdquirente: sugestao?.tipoAdquirente ?? null,
           observacao: null,
           arquivoOrigem: arq.nome,
+          importacaoId: importacaoId ?? null,
           importadoPorId: usuarioId,
         };
       });

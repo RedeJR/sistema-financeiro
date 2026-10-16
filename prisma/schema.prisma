@@ -393,6 +393,10 @@ model LancamentoExtrato {
   tipoAdquirente TipoLancamentoAdquirente? // só preenchido quando categoria.tipo == ADQUIRENTE
   observacao     String?
   arquivoOrigem  String
+  // Identifica a rodada de importação que gravou a linha — é o que permite
+  // "Cancelar importação" desfazer só o que AQUELA importação inseriu (linhas que
+  // já existiam, de outras importações, não são tocadas). Linhas antigas: null.
+  importacaoId   String?
   importadoPorId String?
   importadoPor   Usuario?                  @relation(fields: [importadoPorId], references: [id], onDelete: SetNull)
 
@@ -460,6 +464,7 @@ model LancamentoExtrato {
   // mesmo arquivo, ou um banco onde o FITID realmente é único por transação
   // — nesse caso data+valor bater também é automático, não muda nada).
   @@unique([postoId, bancoId, fitid, data, valor])
+  @@index([importacaoId])
   @@map("lancamentos_extrato")
 }
 

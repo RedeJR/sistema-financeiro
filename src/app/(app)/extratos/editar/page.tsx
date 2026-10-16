@@ -9,7 +9,7 @@ import { buscarLancamentosExtrato, contribuicoesPorCategoria, type FiltrosExtrat
 import { LinhaEditavel } from "../linha-editavel";
 import { DivisaoLancamento } from "../divisao-lancamento";
 import { GrupoRepetido } from "../grupo-repetido";
-import { reatribuirLancamentos, excluirLancamentosEmMassa, atualizarCategoriaEmMassa } from "../actions";
+import { cancelarImportacao, excluirLancamentosEmMassa, atualizarCategoriaEmMassa } from "../actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -19,8 +19,8 @@ const ROTA = "/extratos/editar";
 
 const MENSAGENS_ERRO: Record<string, string> = {
   "nenhum-selecionado": "Selecione ao menos um lançamento antes de aplicar a mudança.",
-  "nada-pra-mudar": "Escolha um novo Posto ou um novo Banco pra aplicar.",
-  "duplicado-apos-mudanca": "Um ou mais lançamentos selecionados já existem no Posto/Banco de destino — confira antes de tentar de novo.",
+  "importacao-com-vinculos":
+    "Não dá pra cancelar a importação: alguns lançamentos dela já foram ligados a uma despesa, divididos ou vinculados a um empréstimo entre postos. Desfaça esses vínculos primeiro (ou exclua os lançamentos um a um).",
   "sem-categoria-em-massa": "Escolha uma categoria no bloco do dia antes de salvar.",
 };
 
@@ -156,14 +156,14 @@ export default async function EditarExtratosPage({
   searchParams,
 }: {
   searchParams: Promise<
-    FiltrosExtratos & { erro?: string; gravados?: string; duplicados?: string; foraDoPeriodo?: string }
+    FiltrosExtratos & { erro?: string; gravados?: string; duplicados?: string; foraDoPeriodo?: string; importacao?: string }
   >;
 }) {
   await exigirPermissao("EXTRATOS", "visualizar");
   const podeEditar = await podeEditarModulo("EXTRATOS");
 
   const filtros = await searchParams;
-  const { postoId, bancoId, categoria, de, ate, arquivo, erro, gravados, duplicados, foraDoPeriodo } = filtros;
+  const { postoId, bancoId, categoria, de, ate, arquivo, erro, gravados, duplicados, foraDoPeriodo, importacao } = filtros;
   const postoIds = paraLista(postoId);
 
   const [resultado, postos, bancos, categorias] = await Promise.all([
@@ -176,9 +176,12 @@ export default async function EditarExtratosPage({
   const { lancamentos, total, totalSemCategoria, totalSemDescricaoObrigatoria, somaValor, pagina, totalPaginas } =
     resultado;
   const temFiltro = Boolean(postoIds.length || bancoId || categoria || de || ate || arquivo);
+  // "Cancelar importação" só aparece logo depois de importar (a URL traz o id da rodada)
+  // e enquanto ainda houver linha dela no banco.
+  const linhasDaImportacao = importacao ? await prisma.lancamentoExtrato.count({ where: { importacaoId: importacao } }) : 0;
   const grupos = agruparPorDia(lancamentos);
 
-  const qsSemPagina = construirQuery(filtros, ["pagina", "erro", "gravados", "duplicados", "foraDoPeriodo"]);
+  const qsSemPagina = construirQuery(filtros, ["pagina", "erro", "gravados", "duplicados", "foraDoPeriodo", "importacao"]);
   const linkPagina = (p: number) => `${ROTA}?${qsSemPagina}${qsSemPagina ? "&" : ""}pagina=${p}`;
 
   // URL completa da visão atual (filtros + página) — as ações em massa usam
@@ -233,6 +236,17 @@ export default async function EditarExtratosPage({
             ? ` · ${foraDoPeriodo} fora do período selecionado (não importado)`
             : ""}
           . Revise as categorias abaixo e clique em &quot;Concluir revisão&quot; quando terminar.
+          {podeEditar && importacao && linhasDaImportacao > 0 && (
+            <form action={cancelarImportacao} className="mt-2">
+              <input type="hidden" name="importacaoId" value={importacao} />
+              <ConfirmSubmitButton
+                confirmMessage={`Cancelar a importação? Os ${linhasDaImportacao} lançamentos que ela acabou de gravar serão apagados (o que já existia de outras importações não é tocado).`}
+                className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                Cancelar importação ({linhasDaImportacao} lançamento{linhasDaImportacao === 1 ? "" : "s"})
+              </ConfirmSubmitButton>
+            </form>
+          )}
         </div>
       )}
 
@@ -351,59 +365,14 @@ export default async function EditarExtratosPage({
       {podeEditar && (
         <form
           id={FORM_REATRIBUIR}
-          action={reatribuirLancamentos}
+          action={excluirLancamentosEmMassa}
           className="flex flex-wrap items-end gap-3 rounded-lg border border-black/10 p-3 text-sm dark:border-white/15"
         >
           <input type="hidden" name="voltarPara" value={urlAtual} />
           <p className="w-full text-foreground/60">
-            Selecione lançamentos abaixo pra corrigir Posto e/ou Banco em lote, ou excluir em massa. Pra
+            Selecione lançamentos abaixo pra excluir em massa. Pra
             categorizar em massa, marque os lançamentos e use o seletor no cabeçalho de cada dia.
           </p>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="novoPostoId" className="text-foreground/60">
-              Mudar Posto para
-            </label>
-            <select
-              id="novoPostoId"
-              name="novoPostoId"
-              form={FORM_REATRIBUIR}
-              defaultValue=""
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-            >
-              <option value="">(não mudar)</option>
-              {postos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="novoBancoId" className="text-foreground/60">
-              Mudar Banco para
-            </label>
-            <select
-              id="novoBancoId"
-              name="novoBancoId"
-              form={FORM_REATRIBUIR}
-              defaultValue=""
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
-            >
-              <option value="">(não mudar)</option>
-              {bancos.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            form={FORM_REATRIBUIR}
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
-          >
-            Aplicar às selecionadas
-          </button>
           <ConfirmSubmitButton
             form={FORM_REATRIBUIR}
             formAction={excluirLancamentosEmMassa}
