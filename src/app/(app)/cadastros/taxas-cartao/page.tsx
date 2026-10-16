@@ -18,19 +18,20 @@ function fmtPct(valor: unknown): string {
 // paisagem, que é onde cabe a tabela inteira.
 const CSS_TABELA = `
 .tabela-taxas { table-layout: fixed; width: 100%; }
-.tabela-taxas th, .tabela-taxas td { overflow-wrap: anywhere; vertical-align: top; }
-.tabela-taxas th:nth-child(1) { width: 9%; } .tabela-taxas th:nth-child(2) { width: 8%; }
-.tabela-taxas th:nth-child(3) { width: 10%; } .tabela-taxas th:nth-child(4) { width: 9%; }
+.tabela-taxas th, .tabela-taxas td { padding-left: 8px !important; padding-right: 8px !important; vertical-align: top; }
+.tabela-taxas th:nth-child(9), .tabela-taxas td:nth-child(9) { overflow-wrap: anywhere; }
+.tabela-taxas th:nth-child(1) { width: 10%; } .tabela-taxas th:nth-child(2) { width: 8%; }
+.tabela-taxas th:nth-child(3) { width: 10%; } .tabela-taxas th:nth-child(4) { width: 8%; }
 .tabela-taxas th:nth-child(5) { width: 7%; } .tabela-taxas th:nth-child(6) { width: 8%; }
-.tabela-taxas th:nth-child(7) { width: 8%; } .tabela-taxas th:nth-child(8) { width: 6%; }
-.tabela-taxas th:nth-child(9) { width: 15%; } .tabela-taxas th:nth-child(10) { width: 6%; }
-.tabela-taxas th:nth-child(11) { width: 14%; }
+.tabela-taxas th:nth-child(7) { width: 11%; } .tabela-taxas th:nth-child(8) { width: 5%; }
+.tabela-taxas th:nth-child(9) { width: 10%; } .tabela-taxas th:nth-child(10) { width: 6%; }
+.tabela-taxas th:nth-child(11) { width: 17%; }
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
   .tabela-taxas th:nth-child(1) { width: 10%; } .tabela-taxas th:nth-child(2) { width: 9%; }
-  .tabela-taxas th:nth-child(3) { width: 11%; } .tabela-taxas th:nth-child(4) { width: 10%; }
+  .tabela-taxas th:nth-child(3) { width: 11%; } .tabela-taxas th:nth-child(4) { width: 9%; }
   .tabela-taxas th:nth-child(5) { width: 8%; } .tabela-taxas th:nth-child(6) { width: 9%; }
-  .tabela-taxas th:nth-child(7) { width: 9%; } .tabela-taxas th:nth-child(8) { width: 7%; }
+  .tabela-taxas th:nth-child(7) { width: 11%; } .tabela-taxas th:nth-child(8) { width: 6%; }
   .tabela-taxas th:nth-child(9) { width: 20%; } .tabela-taxas th:nth-child(10) { width: 7%; }
   .tabela-taxas th, .tabela-taxas td { padding: 3px 4px !important; }
 }
@@ -131,7 +132,7 @@ export default async function TaxasCartaoPage({
               )}
             </div>
             <div className="overflow-x-auto print:overflow-visible">
-              <table className="tabela-taxas min-w-[1000px] w-full text-sm print:min-w-0 print:text-[10px]">
+              <table className="tabela-taxas min-w-[1060px] w-full text-sm print:min-w-0 print:text-[10px]">
                 <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
                   <tr>
                     <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
@@ -202,7 +203,7 @@ export default async function TaxasCartaoPage({
                           <div className="flex flex-wrap items-center justify-end gap-1">
                             <Link
                               href={`/cadastros/taxas-cartao/${t.id}/editar`}
-                              className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                              className="rounded-md px-2 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
                             >
                               Editar
                             </Link>
@@ -210,7 +211,7 @@ export default async function TaxasCartaoPage({
                               <input type="hidden" name="id" value={t.id} />
                               <button
                                 type="submit"
-                                className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                                className="rounded-md px-2 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
                               >
                                 {t.ativo ? "Desativar" : "Ativar"}
                               </button>
