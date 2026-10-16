@@ -148,6 +148,14 @@ export async function importarTransacoesCartao(params: {
         create: { nome: definicao.nomeExibicao },
       });
 
+      // Linhas que o parser manda pra outra adquirente (ex: parceiros da Cielo -> ALELO/NAIP).
+      const idsPorNome = new Map<string, string>([[definicao.nomeExibicao, adquirente.id]]);
+      for (const nomeDestino of new Set(linhas.map((l) => l.adquirenteDestino).filter((n): n is string => !!n))) {
+        const dest = await prisma.adquirenteCartao.upsert({ where: { nome: nomeDestino }, update: {}, create: { nome: nomeDestino } });
+        idsPorNome.set(nomeDestino, dest.id);
+      }
+      const dedupeSemTipo = new Set<DadoTransacao>();
+
       let semPostoReconhecido = 0;
       let postosIgnoradosLinhas = 0;
       const idsPostosIgnorados = new Set(todosPostos.filter((p) => POSTOS_IGNORADOS.includes(p.nome.toUpperCase())).map((p) => p.id));
@@ -176,9 +184,9 @@ export async function importarTransacoesCartao(params: {
           postosIgnoradosLinhas++;
           continue;
         }
-        todosDados.push({
+        const dadoLinha: DadoTransacao = {
           postoId: postoIdLinha,
-          adquirenteId: adquirente.id,
+          adquirenteId: idsPorNome.get(l.adquirenteDestino ?? definicao.nomeExibicao)!,
           dataVenda: l.dataVenda,
           horaVenda: l.horaVenda,
           tipoVenda: l.tipoVenda,
@@ -188,7 +196,9 @@ export async function importarTransacoesCartao(params: {
           dataPagamento: l.dataPagamento,
           identificadorExterno: l.identificadorExterno,
           arquivoOrigem: arq.nome,
-        });
+        };
+        todosDados.push(dadoLinha);
+        if (l.dedupePorHorario) dedupeSemTipo.add(dadoLinha);
       }
 
       if (definicao.multiPosto === false && deslocamento === 0) {
@@ -208,7 +218,37 @@ export async function importarTransacoesCartao(params: {
         }
       }
 
-      const dados = limite ? todosDados.slice(deslocamento, deslocamento + limite) : todosDados;
+      let dados = limite ? todosDados.slice(deslocamento, deslocamento + limite) : todosDados;
+
+      // Venda que já existe no mesmo posto/dia/hora/valor (ex: NAIP vinda do relatório da
+      // própria NAIP, com outro tipo e por isso outro identificador) não entra de novo.
+      const marcadas = dados.filter((d) => dedupeSemTipo.has(d));
+      if (marcadas.length > 0) {
+        const chaveVenda = (postoIdX: string, data: Date, hora: string, bruto: string | number) =>
+          `${postoIdX}|${data.toISOString()}|${hora}|${Number(bruto).toFixed(2)}`;
+        const existentes = await prisma.transacaoCartao.findMany({
+          where: {
+            adquirente: { nome: { in: ["ALELO", "NAIP"] } },
+            OR: marcadas.map((d) => ({ postoId: d.postoId, dataVenda: d.dataVenda, horaVenda: d.horaVenda, valorBruto: d.valorBruto })),
+          },
+          select: { postoId: true, dataVenda: true, horaVenda: true, valorBruto: true },
+        });
+        const restantes = new Map<string, number>();
+        for (const e of existentes) {
+          const k = chaveVenda(e.postoId, e.dataVenda, e.horaVenda, Number(e.valorBruto));
+          restantes.set(k, (restantes.get(k) ?? 0) + 1);
+        }
+        dados = dados.filter((d) => {
+          if (!dedupeSemTipo.has(d)) return true;
+          const k = chaveVenda(d.postoId, d.dataVenda, d.horaVenda, d.valorBruto);
+          const n = restantes.get(k) ?? 0;
+          if (n > 0) {
+            restantes.set(k, n - 1);
+            return false;
+          }
+          return true;
+        });
+      }
 
       // Relatório de vendas sem líquido (Pluxee, VR): o parser deixa
       // líquido = bruto; aqui aplica a taxa cadastrada pro posto em Taxas de
@@ -248,6 +288,7 @@ export async function importarTransacoesCartao(params: {
           ])
         );
         for (const d of dados) {
+          if (d.adquirenteId !== adquirente.id) continue; // parceiros (ALELO/NAIP) têm regra própria
           const cadastro = porPosto.get(d.postoId);
           const ajuste = cadastro && calcularAjusteAntecipacao(d, definicao.nomeExibicao, cadastro);
           if (ajuste) Object.assign(d, ajuste);

@@ -10,6 +10,8 @@
 // linha que "Data da venda" e cai no erro "cabeçalho não encontrado".
 import type { ArquivoEntrada, LinhaTransacao } from "../tipos";
 import {
+  paraProximoDiaUtilSeNecessario,
+  prazoParaDataPagamento,
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
@@ -21,6 +23,71 @@ import {
 } from "../normalizar";
 
 const MAX_LINHAS_PREAMBULO = 40;
+
+// Relatório "Vendas Detalhado - Parceiros" da Cielo (vouchers capturados na maquininha):
+// não traz líquido nem data de pagamento — só bruto, forma de pagamento e Parceiro. Parceiro
+// "Alelo" cobre DUAS operadoras com regras diferentes (confirmado nos relatórios da própria
+// Alelo/NAIP, set/2026): forma "Auto" = ALELO (5%, pagamento em 30 dias); forma "Débito à
+// vista" = NAIP (cartões Multi Saldo/Multi Limite — 3,5%, pagamento 2 dias CORRIDOS depois,
+// empurrado pro próximo dia útil: sex→seg, sáb→seg, ter→qui). Exceção conhecida: alguns
+// cartões Alelo de outro produto também vêm como "Débito à vista" (3,6%, ~15 dias) — o
+// relatório da Cielo não permite distinguir; são vendas pequenas e raras. Os demais
+// parceiros (Pluxee, Ticket...) têm relatório próprio e não são importados daqui.
+const TAXA_ALELO = 0.05;
+const TAXA_NAIP = 0.035;
+const PRAZO_ALELO_DIAS = 30;
+const PRAZO_NAIP_DIAS_CORRIDOS = 2;
+
+function proximoPagamentoNaip(dataVenda: Date): Date {
+  const d = new Date(dataVenda);
+  d.setUTCDate(d.getUTCDate() + PRAZO_NAIP_DIAS_CORRIDOS);
+  return paraProximoDiaUtilSeNecessario(d);
+}
+
+function parseCieloParceiros(linhas: string[][]): LinhaTransacao[] {
+  const cabecalho = linhas[0];
+  const idx = (nome: string) => cabecalho.indexOf(nome);
+  const iData = idx("Data da venda");
+  const iHora = idx("Hora da venda");
+  const iForma = idx("Forma de pagamento");
+  const iBruto = idx("Valor bruto");
+  const iStatus = idx("Status da venda");
+  const iParceiro = idx("Parceiro");
+  const iAutorizacao = idx("Código de autorização");
+
+  const resultado: LinhaTransacao[] = [];
+  for (const linha of linhas.slice(1)) {
+    if (linha.length < 2) continue;
+    if (iStatus >= 0 && linha[iStatus]?.trim().toLowerCase() !== "aprovada") continue;
+    if (linha[iParceiro]?.trim().toLowerCase() !== "alelo") continue;
+
+    const dataVenda = paraData(linha[iData]);
+    const valorBruto = paraValorDecimal(linha[iBruto]);
+    if (!dataVenda || valorBruto === null) continue;
+
+    const horaVenda = paraHoraSimples(linha[iHora]);
+    const tipoVenda = (iForma >= 0 ? linha[iForma]?.trim() : "") || "—";
+    const ehNaip =
+      tipoVenda
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "") === "debito a vista";
+    const taxa = Math.round(Number(valorBruto) * (ehNaip ? TAXA_NAIP : TAXA_ALELO) * 100) / 100;
+    resultado.push({
+      dataVenda,
+      horaVenda,
+      tipoVenda,
+      valorBruto,
+      taxaRs: taxa.toFixed(2),
+      valorLiquido: (Number(valorBruto) - taxa).toFixed(2),
+      dataPagamento: ehNaip ? proximoPagamentoNaip(dataVenda) : prazoParaDataPagamento(dataVenda, PRAZO_ALELO_DIAS),
+      identificadorExterno: identificadorComposto(iAutorizacao >= 0 ? linha[iAutorizacao] : null, dataVenda, horaVenda, valorBruto, tipoVenda),
+      adquirenteDestino: ehNaip ? "NAIP" : "ALELO",
+      dedupePorHorario: true,
+    });
+  }
+  return resultado;
+}
 
 export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
   const texto = decodificarTexto(arq.buffer);
@@ -40,6 +107,7 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
   }
 
   const linhas = dividirLinhasCsv(linhasBrutas.slice(indiceHeader).join("\n"));
+  if (linhas[0].includes("Parceiro") && !linhas[0].includes("Valor líquido")) return parseCieloParceiros(linhas);
   const cabecalho = linhas[0];
   const idx = (nome: string) => cabecalho.indexOf(nome);
 

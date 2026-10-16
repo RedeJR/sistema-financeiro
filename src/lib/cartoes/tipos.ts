@@ -21,6 +21,12 @@ export type LinhaTransacao = {
   // identificador de transação nesse arquivo (cai no dedupe por data+hora+
   // valor+tipo, ver TransacaoCartao no schema).
   identificadorExterno: string | null;
+  // Formato multi-adquirente (relatório de parceiros da Cielo): a linha vai pra OUTRA
+  // adquirente que não a do parser (ex: ALELO, NAIP).
+  adquirenteDestino?: string;
+  // Mesma venda pode já existir vinda de outro relatório com outro tipo (ex: NAIP no
+  // relatório da própria NAIP) — pula se já houver venda do mesmo posto, dia, hora e valor.
+  dedupePorHorario?: boolean;
 };
 
 export type ArquivoEntrada = { nome: string; buffer: Buffer };

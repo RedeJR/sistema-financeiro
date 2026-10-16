@@ -50,9 +50,21 @@ function fontePrazoPorAdquirente(nome: string): "ARQUIVO" | "SISTEMA" {
   return nome === "STONE" ? "SISTEMA" : "ARQUIVO";
 }
 
-function calcularStatus(extratoTotal: number, diferenca: number, qtdVendas = 0): StatusConciliacao {
+// Alelo e NAIP descontam uma tarifa de R$ 1,22 por dia do repasse (aba "Outras Transações" do
+// relatório delas; o relatório da Cielo não traz) — e em fim de semana/feriado ela se acumula
+// (segunda = 3). Diferença NEGATIVA que é só 1 a 4 tarifas inteiras conta como conciliada.
+const TARIFA_VOUCHER = 1.22;
+function ehSoTarifaDeVoucher(adquirenteNome: string, diferenca: number): boolean {
+  if (adquirenteNome !== "ALELO" && adquirenteNome !== "NAIP") return false;
+  if (diferenca >= 0) return false;
+  const n = Math.round(-diferenca / TARIFA_VOUCHER);
+  return n >= 1 && n <= 4 && Math.abs(-diferenca - n * TARIFA_VOUCHER) <= 0.03;
+}
+
+function calcularStatus(extratoTotal: number, diferenca: number, qtdVendas = 0, adquirenteNome = ""): StatusConciliacao {
   if (extratoTotal === 0) return "PENDENTE";
   if (Math.abs(diferenca) <= toleranciaDoDia(qtdVendas)) return "CONCILIADO";
+  if (ehSoTarifaDeVoucher(adquirenteNome, diferenca)) return "CONCILIADO";
   return "DIVERGENTE";
 }
 
@@ -269,7 +281,7 @@ export async function buscarConciliacaoCartoes(params: {
       extratoCredito: extrato.credito,
       extratoTotal,
       diferenca,
-      status: calcularStatus(extratoTotal, diferenca, esperadoGrupo?.qtd ?? 0),
+      status: calcularStatus(extratoTotal, diferenca, esperadoGrupo?.qtd ?? 0, nome),
     });
   }
 
