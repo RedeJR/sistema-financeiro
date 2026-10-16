@@ -18,7 +18,7 @@ export default async function CadastrosLayout({ children }: { children: React.Re
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Cadastros</h1>
-        <nav className="mt-3 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/15">
+        <nav className="mt-3 flex flex-wrap gap-1 border-b border-black/10 print:hidden dark:border-white/15">
           {SUBMENU.map((item) => (
             <Link
               key={item.href}
