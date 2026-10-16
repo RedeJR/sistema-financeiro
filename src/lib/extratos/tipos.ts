@@ -13,6 +13,9 @@ export type LancamentoParseado = {
   // que (data, descrição, valor) quando disponível. Ausente pra fontes que
   // não trazem isso.
   fitid?: string;
+  // Número do documento do lançamento (CHECKNUM do OFX): em PIX, boleto e depósito é único por
+  // transação; em tarifa/rendimento é um número de lote (repete de verdade).
+  documento?: string;
 };
 
 export type ParserBanco = (buffer: Buffer, nomeArquivo: string) => Promise<LancamentoParseado[]>;

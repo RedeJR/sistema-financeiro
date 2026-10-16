@@ -133,6 +133,7 @@ export function FormularioImportar({ postos, bancos, canceladas }: { postos: Opc
                       ? ` · ${r.foraDoPeriodo} fora do período selecionado`
                       : ""}
                     {r.deHoje ? ` · ${r.deHoje} de hoje (dia ainda aberto, não importado)` : ""}
+                    {r.repetidasNoArquivo ? ` · ${r.repetidasNoArquivo} repetida(s) no próprio arquivo (ignoradas)` : ""}
                   </span>
                 )}
                 {r.mensagem && <span className="text-foreground/60">{r.mensagem}</span>}

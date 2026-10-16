@@ -14,6 +14,7 @@ export type ResultadoArquivo = {
   duplicados?: number;
   foraDoPeriodo?: number;
   deHoje?: number; // lançamentos do dia de hoje (dia ainda aberto) — não são importados
+  repetidasNoArquivo?: number; // a mesma transação veio 2x no próprio arquivo (exportação duplicada do banco)
   mensagem?: string;
 };
 
@@ -64,7 +65,24 @@ export async function importarExtratos(params: {
   for (const arq of arquivos) {
     try {
       const lancamentos = await parseOfx(arq.buffer, arq.nome);
-      const semLinhaControle = lancamentos.filter((l) => !l.linhaControle);
+      // Arquivo exportado em duplicidade pelo banco (visto no Sul América, 15–16/10/2026): a MESMA
+      // transação aparece duas vezes, com FITID diferente mas o mesmo número de documento
+      // (CHECKNUM). Transação real repetida (dois PIX iguais no dia) tem documento diferente —
+      // conferido em todos os extratos do Bradesco. Tarifa e rendimento usam número de lote, que
+      // repete de verdade, então ficam de fora dessa regra.
+      const vistosPorDocumento = new Set<string>();
+      let repetidasNoArquivo = 0;
+      const semLinhaControle = lancamentos.filter((l) => {
+        if (l.linhaControle) return false;
+        if (!l.documento || /^(TARIFA|RENTAB)/i.test(l.descricao)) return true;
+        const k = `${l.data.toISOString()}|${l.descricao}|${l.valor.toFixed(2)}|${l.documento}`;
+        if (vistosPorDocumento.has(k)) {
+          repetidasNoArquivo++;
+          return false;
+        }
+        vistosPorDocumento.add(k);
+        return true;
+      });
 
       if (semLinhaControle.length === 0) {
         resultados.push({
@@ -201,6 +219,7 @@ export async function importarExtratos(params: {
         duplicados: linhas.length - gravado.count,
         foraDoPeriodo,
         deHoje,
+        repetidasNoArquivo,
       });
     } catch (err) {
       resultados.push({

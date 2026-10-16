@@ -130,6 +130,8 @@ export const parseOfx: ParserBanco = async (buffer) => {
     // string vazia colidiria com outra na constraint de unicidade.
     const fitidBruto = extrairCampo(bloco, "FITID");
     const fitid = fitidBruto ? fitidBruto : undefined;
+    const documentoBruto = extrairCampo(bloco, "CHECKNUM");
+    const documento = documentoBruto ? documentoBruto : undefined;
 
     // Linha de saldo (ex: Banco do Brasil manda "Saldo Anterior"/"Saldo do
     // dia" como se fossem STMTTRN): sem FITID de verdade e valor zerado —
@@ -143,6 +145,7 @@ export const parseOfx: ParserBanco = async (buffer) => {
       saldoExtrato: null, // OFX não traz saldo por lançamento, só do período
       linhaControle,
       fitid,
+      documento,
     });
   }
 
