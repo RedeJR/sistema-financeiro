@@ -85,10 +85,12 @@ export async function importarExtratosAction(
   const gravados = resultados.reduce((s, r) => s + (r.gravados ?? 0), 0);
   const duplicados = resultados.reduce((s, r) => s + (r.duplicados ?? 0), 0);
   const foraDoPeriodo = resultados.reduce((s, r) => s + (r.foraDoPeriodo ?? 0), 0);
+  const deHoje = resultados.reduce((s, r) => s + (r.deHoje ?? 0), 0);
 
   const qs = new URLSearchParams({ postoId, bancoId, gravados: String(gravados), duplicados: String(duplicados) });
   if (gravados > 0) qs.set("importacao", importacaoId);
   if (foraDoPeriodo > 0) qs.set("foraDoPeriodo", String(foraDoPeriodo));
+  if (deHoje > 0) qs.set("deHoje", String(deHoje));
   for (const a of arquivosBuffer) qs.append("arquivo", a.nome);
 
   redirect(`${ROTA_EDITAR}?${qs.toString()}`);

@@ -156,14 +156,14 @@ export default async function EditarExtratosPage({
   searchParams,
 }: {
   searchParams: Promise<
-    FiltrosExtratos & { erro?: string; gravados?: string; duplicados?: string; foraDoPeriodo?: string; importacao?: string }
+    FiltrosExtratos & { erro?: string; gravados?: string; duplicados?: string; foraDoPeriodo?: string; importacao?: string; deHoje?: string }
   >;
 }) {
   await exigirPermissao("EXTRATOS", "visualizar");
   const podeEditar = await podeEditarModulo("EXTRATOS");
 
   const filtros = await searchParams;
-  const { postoId, bancoId, categoria, de, ate, arquivo, erro, gravados, duplicados, foraDoPeriodo, importacao } = filtros;
+  const { postoId, bancoId, categoria, de, ate, arquivo, erro, gravados, duplicados, foraDoPeriodo, importacao, deHoje } = filtros;
   const postoIds = paraLista(postoId);
 
   const [resultado, postos, bancos, categorias] = await Promise.all([
@@ -181,7 +181,7 @@ export default async function EditarExtratosPage({
   const linhasDaImportacao = importacao ? await prisma.lancamentoExtrato.count({ where: { importacaoId: importacao } }) : 0;
   const grupos = agruparPorDia(lancamentos);
 
-  const qsSemPagina = construirQuery(filtros, ["pagina", "erro", "gravados", "duplicados", "foraDoPeriodo", "importacao"]);
+  const qsSemPagina = construirQuery(filtros, ["pagina", "erro", "gravados", "duplicados", "foraDoPeriodo", "importacao", "deHoje"]);
   const linkPagina = (p: number) => `${ROTA}?${qsSemPagina}${qsSemPagina ? "&" : ""}pagina=${p}`;
 
   // URL completa da visão atual (filtros + página) — as ações em massa usam
@@ -235,6 +235,7 @@ export default async function EditarExtratosPage({
           {foraDoPeriodo && foraDoPeriodo !== "0"
             ? ` · ${foraDoPeriodo} fora do período selecionado (não importado)`
             : ""}
+          {deHoje && deHoje !== "0" ? ` · ${deHoje} de hoje (dia ainda aberto, não importado)` : ""}
           . Revise as categorias abaixo e clique em &quot;Concluir revisão&quot; quando terminar.
           {podeEditar && importacao && linhasDaImportacao > 0 && (
             <form action={cancelarImportacao} className="mt-2">

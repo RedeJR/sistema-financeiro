@@ -21,7 +21,8 @@ export default async function ImportarExtratoPage({
       <p className="text-sm text-foreground/60">
         Escolha o posto e o banco, e envie o(s) arquivo(s) do extrato — o sistema já sugere a categoria
         de cada lançamento automaticamente, e você revisa depois em Conciliação de Extratos. Lançamentos
-        repetidos (mesmo dia, descrição e valor) não duplicam se o mesmo extrato for enviado de novo.
+        repetidos (mesmo dia, descrição e valor) não duplicam se o mesmo extrato for enviado de novo. Lançamentos
+        de hoje não são importados (o dia ainda está aberto) — só até ontem.
       </p>
       <FormularioImportar postos={postos} bancos={bancos} canceladas={cancelada !== undefined ? Number(cancelada) || 0 : undefined} />
     </div>

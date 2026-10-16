@@ -13,8 +13,16 @@ export type ResultadoArquivo = {
   gravados?: number;
   duplicados?: number;
   foraDoPeriodo?: number;
+  deHoje?: number; // lançamentos do dia de hoje (dia ainda aberto) — não são importados
   mensagem?: string;
 };
+
+// Data de hoje no Brasil (meia-noite UTC dessa data) — o servidor roda em UTC, e depois das
+// 21h o "hoje" UTC já seria amanhã.
+function hojeNoBrasil(): Date {
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  return new Date(`${iso}T00:00:00.000Z`);
+}
 
 export async function importarExtratos(params: {
   postoId: string;
@@ -70,8 +78,12 @@ export async function importarExtratos(params: {
       }
 
       const dentroDoPeriodo = (data: Date) => (!de || data >= de) && (!ate || data <= ate);
-      const validos = semLinhaControle.filter((l) => dentroDoPeriodo(l.data));
-      const foraDoPeriodo = semLinhaControle.length - validos.length;
+      // Dia de hoje fica de fora (pedido da usuária, 16/10/2026): o extrato do dia ainda está aberto,
+      // então importar agora traria um dia pela metade. Amanhã o arquivo completo entra.
+      const hoje = hojeNoBrasil();
+      const deHoje = semLinhaControle.filter((l) => l.data >= hoje).length;
+      const validos = semLinhaControle.filter((l) => l.data < hoje && dentroDoPeriodo(l.data));
+      const foraDoPeriodo = semLinhaControle.length - validos.length - deHoje;
 
       if (validos.length === 0) {
         resultados.push({
@@ -80,7 +92,8 @@ export async function importarExtratos(params: {
           gravados: 0,
           duplicados: 0,
           foraDoPeriodo,
-          mensagem: "Nenhum lançamento do arquivo cai no período selecionado.",
+          deHoje,
+          mensagem: deHoje > 0 && foraDoPeriodo === 0 ? "Só há lançamentos de hoje (dia ainda aberto) — nada importado." : "Nenhum lançamento do arquivo cai no período selecionado.",
         });
         continue;
       }
@@ -187,6 +200,7 @@ export async function importarExtratos(params: {
         gravados: gravado.count,
         duplicados: linhas.length - gravado.count,
         foraDoPeriodo,
+        deHoje,
       });
     } catch (err) {
       resultados.push({
