@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 export type LinhaPlanilha = {
   linha: number; // número da linha na planilha (cabeçalho = 1)
   posto: string; // POSTO PAGADOR, como escrito
+  postoDespesa: string; // POSTO DA DESPESA (opcional); vazio = fornecedor-posto ou o próprio pagador
   data: string | null; // YYYY-MM-DD
   valor: number | null;
   fornecedor: string;
@@ -29,6 +30,11 @@ export function normalizarTexto(s: unknown): string {
 const CABECALHOS: Record<string, keyof Omit<LinhaPlanilha, "linha" | "erros">> = {
   "POSTO PAGADOR": "posto",
   POSTO: "posto",
+  "POSTO DA DESPESA": "postoDespesa",
+  "POSTO DESPESA": "postoDespesa",
+  "POSTO DONO": "postoDespesa",
+  "POSTO DONO DA DESPESA": "postoDespesa",
+  "POSTO DE DESTINO": "postoDespesa",
   DATA: "data",
   VALOR: "valor",
   FORNECEDOR: "fornecedor",
@@ -99,6 +105,7 @@ export function lerPlanilhaDespesas(buffer: Buffer): LinhaPlanilha[] {
     resultado.push({
       linha: idxCabecalho + 2 + i,
       posto: String(pega("posto") ?? "").trim(),
+      postoDespesa: String(pega("postoDespesa") ?? "").trim(),
       data,
       valor: valor !== null && valor > 0 ? valor : null,
       fornecedor: String(pega("fornecedor") ?? "").trim(),
@@ -170,6 +177,7 @@ export type LinhaPreview = {
   valor: number | null;
   descricao: string;
   postoTexto: string;
+  postoDespesaTexto: string;
   fornecedorTexto: string;
   planoTexto: string;
   bancoTexto: string;
@@ -195,6 +203,7 @@ export type LinhaParaImportar = {
   valor: number;
   descricao: string;
   postoTexto: string;
+  postoDespesaTexto: string;
   fornecedorTexto: string;
   planoTexto: string;
   bancoTexto: string;

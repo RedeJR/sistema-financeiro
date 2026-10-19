@@ -29,6 +29,7 @@ export async function GET() {
     { header: "DESCRIÇÃO", key: "descricao", width: 52 },
     { header: "PLANO DE CONTAS", key: "plano", width: 28 },
     { header: "BANCO", key: "banco", width: 22 },
+    { header: "POSTO DA DESPESA", key: "postoDespesa", width: 24 },
   ];
   const cab = ws.getRow(1);
   cab.font = { bold: true, color: { argb: "FFFFFFFF" }, name: "Arial", size: 10 };
@@ -55,6 +56,7 @@ export async function GET() {
     ws.getCell(r, 4).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$B$2:$B$${Math.max(2, fornecedores.length + 1)}`] };
     ws.getCell(r, 6).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$C$2:$C$${Math.max(2, nomesPlanos.length + 1)}`] };
     ws.getCell(r, 7).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$D$2:$D${Math.max(2, bancos.length + 1)}`] };
+    ws.getCell(r, 8).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$A$2:$A${Math.max(2, postos.length + 1)}`] };
     ws.getCell(r, 2).numFmt = "dd/mm/yyyy";
     ws.getCell(r, 3).numFmt = "#,##0.00";
   }
@@ -69,6 +71,7 @@ export async function GET() {
     "FORNECEDOR: quem recebeu. Se for outro posto (ex: POSTO AVEIRO), a despesa fica no posto dele e sai do caixa do posto pagador.",
     "DESCRIÇÃO: texto livre (ex: RETIRADO DO CAIXA REF. SEGURANÇA - CARLOS).",
     "PLANO DE CONTAS: a conta do plano de contas (ex: DESPESA POSTO).",
+    "POSTO DA DESPESA (opcional): o posto a quem a despesa pertence, quando é diferente de quem pagou. Em branco = o próprio POSTO PAGADOR (ou o posto do FORNECEDOR, se o fornecedor for um posto).",
     "BANCO (opcional): de onde saiu o pagamento (ex: BRADESCO, ITAÚ). Em branco = saída do caixa em DINHEIRO.",
     "",
     "As colunas têm lista suspensa (aba Listas), mas dá pra digitar. Nome diferente do cadastro não é problema:",

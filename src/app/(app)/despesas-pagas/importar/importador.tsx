@@ -99,6 +99,7 @@ export function ImportadorDespesas({
       valor: l.valor!,
       descricao: l.descricao,
       postoTexto: l.postoTexto,
+      postoDespesaTexto: l.postoDespesaTexto,
       fornecedorTexto: l.fornecedorTexto,
       planoTexto: l.planoTexto,
       bancoTexto: l.bancoTexto,
@@ -274,6 +275,7 @@ export function ImportadorDespesas({
                             </option>
                           ))}
                         </select>
+                        {l.postoDespesaTexto && <span className="mt-0.5 block text-[10px] text-foreground/40">planilha: {l.postoDespesaTexto}</span>}
                       </td>
                       <td className="px-2 py-1.5">
                         <SeletorBusca

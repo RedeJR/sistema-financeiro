@@ -89,7 +89,8 @@ export async function analisarPlanilha(formData: FormData): Promise<ResultadoAna
     const banco: Resolucao = l.banco ? resolverNome(l.banco, bancos, apBanco) : { id: dinheiro?.id ?? null, origem: dinheiro ? "exato" : null };
     // O fornecedor às vezes é outro posto ("POSTO AVEIRO", "GUAIPÁ"): a despesa é
     // DAQUELE posto, paga com o caixa do posto pagador. Senão o dono é o próprio pagador.
-    const dono = resolverNome(l.fornecedor, postos, apPosto, { inverso: true });
+    // Coluna POSTO DA DESPESA, quando preenchida, manda; senão vale a regra acima.
+    const dono = resolverNome(l.postoDespesa || l.fornecedor, postos, apPosto, { inverso: true });
 
     let duplicada: LinhaPreview["duplicada"] = null;
     if (l.data && l.valor !== null && pagador.id) {
@@ -116,12 +117,13 @@ export async function analisarPlanilha(formData: FormData): Promise<ResultadoAna
       valor: l.valor,
       descricao: l.descricao,
       postoTexto: l.posto,
+      postoDespesaTexto: l.postoDespesa,
       fornecedorTexto: l.fornecedor,
       planoTexto: l.plano,
       bancoTexto: l.banco,
       postoPagadorId: pagador.id,
       postoPagadorOrigem: pagador.origem,
-      postoDonoId: dono.id ?? pagador.id,
+      postoDonoId: l.postoDespesa ? dono.id : (dono.id ?? pagador.id),
       fornecedorId: forn.id,
       fornecedorOrigem: forn.origem,
       planoContaId: plano.id,
@@ -219,7 +221,7 @@ export async function importarDespesas(linhas: LinhaParaImportar[]): Promise<Res
     if (l.postoDonoId !== l.postoPagadorId) {
       candidatos.push({
         tipo: "POSTO" as const,
-        texto: normalizarTexto(l.fornecedorTexto),
+        texto: normalizarTexto(l.postoDespesaTexto || l.fornecedorTexto),
         refId: l.postoDonoId,
         nome: nomePosto.get(l.postoDonoId),
       });
