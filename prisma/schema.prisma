@@ -781,6 +781,7 @@ enum TipoApelidoImportacao {
   POSTO
   FORNECEDOR
   PLANO_CONTA
+  BANCO
 }
 
 model ApelidoImportacao {

@@ -6,7 +6,7 @@ import { ImportadorDespesas } from "./importador";
 export default async function ImportarDespesasPage() {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
 
-  const [postos, fornecedores, grupos] = await Promise.all([
+  const [postos, fornecedores, grupos, bancos] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.grupoPlanoConta.findMany({
@@ -14,6 +14,7 @@ export default async function ImportarDespesasPage() {
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],
       include: { contas: { where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } } },
     }),
+    prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
 
   return (
@@ -36,11 +37,12 @@ export default async function ImportarDespesasPage() {
         </div>
       </div>
       <p className="max-w-3xl text-sm text-foreground/60">
-        Envie a planilha com as saídas em dinheiro do mês (todos os postos num arquivo só). O sistema mostra o que
-        entendeu, avisa o que já está lançado e só grava o que você confirmar. As despesas entram como pagas no banco
-        DINHEIRO, do mesmo jeito que uma despesa avulsa feita à mão.
+        Envie a planilha de despesas pagas do mês (todos os postos num arquivo só). O sistema mostra o que entendeu,
+        avisa o que já está lançado e só grava o que você confirmar. Entram como pagas no banco da coluna BANCO; se a
+        coluna ficar em branco (saída do caixa), entram em DINHEIRO — do mesmo jeito que uma despesa avulsa feita à mão.
       </p>
       <ImportadorDespesas
+        bancos={bancos}
         postos={postos}
         fornecedores={fornecedores}
         planos={grupos.flatMap((g) => g.contas.map((c) => ({ id: c.id, nome: c.nome, grupo: g.nome })))}

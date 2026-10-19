@@ -22,17 +22,19 @@ function formatarData(iso: string | null): string {
 }
 
 function incompleta(l: Linha): boolean {
-  return l.erros.length > 0 || !l.postoPagadorId || !l.postoDonoId || !l.fornecedorId || !l.planoContaId;
+  return l.erros.length > 0 || !l.postoPagadorId || !l.postoDonoId || !l.fornecedorId || !l.planoContaId || !l.bancoId;
 }
 
 export function ImportadorDespesas({
   postos,
   fornecedores,
   planos,
+  bancos,
 }: {
   postos: Opcao[];
   fornecedores: Opcao[];
   planos: OpcaoPlano[];
+  bancos: Opcao[];
 }) {
   const [arquivo, setArquivo] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<Linha[]>([]);
@@ -62,7 +64,7 @@ export function ImportadorDespesas({
       setArquivo(r.arquivo);
       setLinhas(
         r.linhas.map((l) => {
-          const pronta = l.erros.length === 0 && l.postoPagadorId && l.fornecedorId && l.planoContaId && !l.duplicada;
+          const pronta = l.erros.length === 0 && l.postoPagadorId && l.fornecedorId && l.planoContaId && l.bancoId && !l.duplicada;
           return { ...l, importar: Boolean(pronta), viuSugestao: false };
         })
       );
@@ -87,7 +89,7 @@ export function ImportadorDespesas({
   const repetidas = linhas.filter((l) => l.duplicada?.onde === "arquivo").length;
   const incompletas = linhas.filter(incompleta).length;
   const aConfirmar = linhas.filter(
-    (l) => !incompleta(l) && !l.viuSugestao && (l.postoPagadorOrigem === "sugerido" || l.fornecedorOrigem === "sugerido" || l.planoOrigem === "sugerido")
+    (l) => !incompleta(l) && !l.viuSugestao && (l.postoPagadorOrigem === "sugerido" || l.fornecedorOrigem === "sugerido" || l.planoOrigem === "sugerido" || l.bancoOrigem === "sugerido")
   ).length;
 
   function confirmar() {
@@ -99,10 +101,12 @@ export function ImportadorDespesas({
       postoTexto: l.postoTexto,
       fornecedorTexto: l.fornecedorTexto,
       planoTexto: l.planoTexto,
+      bancoTexto: l.bancoTexto,
       postoPagadorId: l.postoPagadorId!,
       postoDonoId: l.postoDonoId!,
       fornecedorId: l.fornecedorId!,
       planoContaId: l.planoContaId!,
+      bancoId: l.bancoId!,
     }));
     setErro(null);
     iniciarGravacao(async () => {
@@ -121,7 +125,7 @@ export function ImportadorDespesas({
     <div className="space-y-4">
       {resultado && (
         <div className="rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-900 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-          <p className="font-medium">{resultado.criadas} despesa(s) lançada(s) como pagas em DINHEIRO.</p>
+          <p className="font-medium">{resultado.criadas} despesa(s) lançada(s) como pagas.</p>
           <Link
             className="underline"
             href={`/despesas-pagas?de=${resultado.menorData}&ate=${resultado.maiorData}`}
@@ -205,6 +209,7 @@ export function ImportadorDespesas({
                   <th className="px-2 py-1.5 text-left font-medium">Posto da despesa</th>
                   <th className="min-w-56 px-2 py-1.5 text-left font-medium">Fornecedor</th>
                   <th className="min-w-48 px-2 py-1.5 text-left font-medium">Plano de contas</th>
+                  <th className="min-w-36 px-2 py-1.5 text-left font-medium">Banco</th>
                   <th className="min-w-56 px-2 py-1.5 text-left font-medium">Descrição</th>
                   <th className="px-2 py-1.5 text-right font-medium">Valor</th>
                   <th className="min-w-48 px-2 py-1.5 text-left font-medium">Situação</th>
@@ -218,7 +223,7 @@ export function ImportadorDespesas({
                     : l.duplicada
                       ? "bg-amber-50/70 dark:bg-amber-950/20"
                       : "";
-                  const sugerido = !l.viuSugestao && (l.fornecedorOrigem === "sugerido" || l.planoOrigem === "sugerido" || l.postoPagadorOrigem === "sugerido");
+                  const sugerido = !l.viuSugestao && (l.fornecedorOrigem === "sugerido" || l.planoOrigem === "sugerido" || l.postoPagadorOrigem === "sugerido" || l.bancoOrigem === "sugerido");
                   return (
                     <tr key={l.linha} className={`border-t border-black/5 align-top dark:border-white/10 ${fundo}`}>
                       <td className="px-2 py-1.5">
@@ -299,6 +304,21 @@ export function ImportadorDespesas({
                           ))}
                         </select>
                         <span className="mt-0.5 block text-[10px] text-foreground/40">planilha: {l.planoTexto || "—"}</span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          value={l.bancoId ?? ""}
+                          onChange={(e) => atualizar(l.linha, { bancoId: e.target.value || null, bancoOrigem: "exato", viuSugestao: true })}
+                          className={campo}
+                        >
+                          <option value="">— escolha —</option>
+                          {bancos.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.nome}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="mt-0.5 block text-[10px] text-foreground/40">planilha: {l.bancoTexto || "— (dinheiro)"}</span>
                       </td>
                       <td className="px-2 py-1.5">
                         <input

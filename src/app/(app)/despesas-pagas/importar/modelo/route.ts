@@ -8,10 +8,11 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
 
-  const [postos, fornecedores, planos] = await Promise.all([
+  const [postos, fornecedores, planos, bancos] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
     prisma.planoConta.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
+    prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
   ]);
   const nomesPlanos = [...new Set(planos.map((p) => p.nome))];
 
@@ -27,6 +28,7 @@ export async function GET() {
     { header: "FORNECEDOR", key: "fornecedor", width: 38 },
     { header: "DESCRIÇÃO", key: "descricao", width: 52 },
     { header: "PLANO DE CONTAS", key: "plano", width: 28 },
+    { header: "BANCO", key: "banco", width: 22 },
   ];
   const cab = ws.getRow(1);
   cab.font = { bold: true, color: { argb: "FFFFFFFF" }, name: "Arial", size: 10 };
@@ -36,10 +38,13 @@ export async function GET() {
   listas.getCell("A1").value = "POSTOS";
   listas.getCell("B1").value = "FORNECEDORES";
   listas.getCell("C1").value = "PLANO DE CONTAS";
-  for (const c of ["A1", "B1", "C1"]) listas.getCell(c).font = { bold: true, name: "Arial", size: 10 };
+  listas.getCell("D1").value = "BANCOS";
+  for (const c of ["A1", "B1", "C1", "D1"]) listas.getCell(c).font = { bold: true, name: "Arial", size: 10 };
   postos.forEach((p, i) => (listas.getCell(i + 2, 1).value = p.nome));
   fornecedores.forEach((f, i) => (listas.getCell(i + 2, 2).value = f.nome));
   nomesPlanos.forEach((n, i) => (listas.getCell(i + 2, 3).value = n));
+  bancos.forEach((b, i) => (listas.getCell(i + 2, 4).value = b.nome));
+  listas.getColumn(4).width = 26;
   listas.getColumn(1).width = 26;
   listas.getColumn(2).width = 50;
   listas.getColumn(3).width = 32;
@@ -49,6 +54,7 @@ export async function GET() {
     ws.getCell(r, 1).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$A$2:$A$${Math.max(2, postos.length + 1)}`] };
     ws.getCell(r, 4).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$B$2:$B$${Math.max(2, fornecedores.length + 1)}`] };
     ws.getCell(r, 6).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$C$2:$C$${Math.max(2, nomesPlanos.length + 1)}`] };
+    ws.getCell(r, 7).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Listas!$D$2:$D${Math.max(2, bancos.length + 1)}`] };
     ws.getCell(r, 2).numFmt = "dd/mm/yyyy";
     ws.getCell(r, 3).numFmt = "#,##0.00";
   }
@@ -63,11 +69,12 @@ export async function GET() {
     "FORNECEDOR: quem recebeu. Se for outro posto (ex: POSTO AVEIRO), a despesa fica no posto dele e sai do caixa do posto pagador.",
     "DESCRIÇÃO: texto livre (ex: RETIRADO DO CAIXA REF. SEGURANÇA - CARLOS).",
     "PLANO DE CONTAS: a conta do plano de contas (ex: DESPESA POSTO).",
+    "BANCO (opcional): de onde saiu o pagamento (ex: BRADESCO, ITAÚ). Em branco = saída do caixa em DINHEIRO.",
     "",
     "As colunas têm lista suspensa (aba Listas), mas dá pra digitar. Nome diferente do cadastro não é problema:",
     "o sistema mostra o que não reconheceu, você escolhe o cadastro certo uma vez e ele lembra nas próximas planilhas.",
     "",
-    "Exemplo de linha:  CANTAREIRA | 02/09/2026 | 1700 | POSTO AVEIRO | RETIRADO DO CAIXA REF. SEGURANÇA AVEIRO - CARLOS | DESPESA POSTO",
+    "Exemplo de linha:  CANTAREIRA | 02/09/2026 | 1700 | POSTO AVEIRO | RETIRADO DO CAIXA REF. SEGURANÇA AVEIRO - CARLOS | DESPESA POSTO | (banco em branco = dinheiro)",
   ];
   texto.forEach((t, i) => {
     const c = ajuda.getCell(i + 1, 1);

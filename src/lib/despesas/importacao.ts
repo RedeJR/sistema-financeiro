@@ -13,6 +13,7 @@ export type LinhaPlanilha = {
   fornecedor: string;
   descricao: string;
   plano: string;
+  banco: string; // BANCO (opcional); vazio = DINHEIRO
   erros: string[]; // problemas do próprio arquivo (data/valor inválidos...)
 };
 
@@ -34,6 +35,10 @@ const CABECALHOS: Record<string, keyof Omit<LinhaPlanilha, "linha" | "erros">> =
   DESCRICAO: "descricao",
   "PLANO DE CONTAS": "plano",
   PLANO: "plano",
+  BANCO: "banco",
+  "BANCO PAGAMENTO": "banco",
+  "BANCO DE PAGAMENTO": "banco",
+  "BANCO DO PAGAMENTO": "banco",
 };
 
 function paraDataISO(v: unknown): string | null {
@@ -99,6 +104,7 @@ export function lerPlanilhaDespesas(buffer: Buffer): LinhaPlanilha[] {
       fornecedor: String(pega("fornecedor") ?? "").trim(),
       descricao: String(pega("descricao") ?? "").trim(),
       plano: String(pega("plano") ?? "").trim(),
+      banco: String(pega("banco") ?? "").trim(),
       erros,
     });
   });
@@ -166,6 +172,7 @@ export type LinhaPreview = {
   postoTexto: string;
   fornecedorTexto: string;
   planoTexto: string;
+  bancoTexto: string;
   postoPagadorId: string | null;
   postoPagadorOrigem: Resolucao["origem"];
   postoDonoId: string | null;
@@ -173,6 +180,8 @@ export type LinhaPreview = {
   fornecedorOrigem: Resolucao["origem"];
   planoContaId: string | null;
   planoOrigem: Resolucao["origem"];
+  bancoId: string | null;
+  bancoOrigem: Resolucao["origem"];
   erros: string[];
   // "sistema" = já existe despesa paga do mesmo posto pagador, data e valor;
   // "arquivo" = linha igual a outra do próprio arquivo. Pode ser real ou erro —
@@ -188,8 +197,10 @@ export type LinhaParaImportar = {
   postoTexto: string;
   fornecedorTexto: string;
   planoTexto: string;
+  bancoTexto: string;
   postoPagadorId: string;
   postoDonoId: string;
   fornecedorId: string;
   planoContaId: string;
+  bancoId: string;
 };
