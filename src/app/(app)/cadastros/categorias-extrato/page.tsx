@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoCategoriaExtrato, excluirCategoriaExtrato } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export default async function CategoriasExtratoPage() {
   const [categorias, podeEditar] = await Promise.all([
@@ -13,7 +14,7 @@ export default async function CategoriasExtratoPage() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="text-sm text-foreground/60">
         Categorias usadas pra classificar linhas de extrato bancário na
         conciliação (não é o plano de contas contábil — veja{" "}
@@ -30,30 +31,30 @@ export default async function CategoriasExtratoPage() {
         {podeEditar && (
           <Link
             href="/cadastros/categorias-extrato/novo"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
           >
             + Nova categoria
           </Link>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
-              <th className="px-4 py-2 text-left font-medium">Ordem</th>
-              <th className="px-4 py-2 text-left font-medium">Nome</th>
-              <th className="px-4 py-2 text-left font-medium">Tipo</th>
-              <th className="px-4 py-2 text-left font-medium">Status</th>
-              {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
+              <th className="px-4 py-2.5 text-left">Ordem</th>
+              <th className="px-4 py-2.5 text-left">Nome</th>
+              <th className="px-4 py-2.5 text-left">Tipo</th>
+              <th className="px-4 py-2.5 text-left">Status</th>
+              {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
             {categorias.map((c) => (
               <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
                 <td className="px-4 py-2 text-foreground/50">{c.ordem}</td>
-                <td className="px-4 py-2">{c.nome}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3">{c.nome}</td>
+                <td className="px-4 py-3">
                   <span
                     className={
                       c.tipo === "ADQUIRENTE" || c.tipo === "VOUCHER"
@@ -64,7 +65,7 @@ export default async function CategoriasExtratoPage() {
                     {c.tipo === "ADQUIRENTE" ? "Adquirente" : c.tipo === "VOUCHER" ? "Voucher" : "Padrão"}
                   </span>
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3">
                   <span
                     className={
                       c.ativo
@@ -76,11 +77,11 @@ export default async function CategoriasExtratoPage() {
                   </span>
                 </td>
                 {podeEditar && (
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Link
                         href={`/cadastros/categorias-extrato/${c.id}/editar`}
-                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                        className={BOTAO_EDITAR}
                       >
                         Editar
                       </Link>

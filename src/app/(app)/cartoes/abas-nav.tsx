@@ -7,7 +7,7 @@ export function AbasNav({ abas }: { abas: { href: string; label: string }[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="mt-4 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/15">
+    <nav className="mt-4 flex flex-wrap gap-1 border-b border-black/10 print:hidden dark:border-white/15">
       {abas.map((aba) => {
         const ativa = pathname.startsWith(aba.href);
         return (

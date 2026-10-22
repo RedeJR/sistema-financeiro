@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarLancamentosExtrato, contribuicoesPorCategoria, type FiltrosExtratos } from "./consulta";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -128,32 +129,32 @@ export default async function ExtratosPage({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Conciliação de Extratos</h1>
+        <h1 className={TITULO_PAGINA}>Conciliação de Extratos</h1>
         <div className="flex gap-2">
           <Link
             href="/extratos/conciliacao"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Conciliação
           </Link>
           <Link
             href="/extratos/fechamento"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Fechamento
           </Link>
           <Link
             href="/extratos/relatorios"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Relatórios
           </Link>
           {podeEditar && (
             <Link
               href="/extratos/importar"
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
             >
               + Importar extrato
             </Link>
@@ -161,7 +162,7 @@ export default async function ExtratosPage({
         </div>
       </div>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -181,7 +182,7 @@ export default async function ExtratosPage({
             id="bancoId"
             name="bancoId"
             defaultValue={bancoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             {bancos.map((b) => (
@@ -199,7 +200,7 @@ export default async function ExtratosPage({
             id="categoria"
             name="categoria"
             defaultValue={categoria ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todas</option>
             <option value="sem">Sem categoria (revisar)</option>
@@ -220,7 +221,7 @@ export default async function ExtratosPage({
             type="date"
             name="de"
             defaultValue={de ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -232,17 +233,17 @@ export default async function ExtratosPage({
             type="date"
             name="ate"
             defaultValue={ate ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/extratos" className="text-foreground/60 underline">
+          <Link href="/extratos" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}

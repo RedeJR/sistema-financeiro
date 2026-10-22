@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
 import { gerarFechamento, MESES_PT } from "@/lib/extratos/fechamento";
+import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 
 function formatarNumero(v: number): string {
   if (Math.round(v * 100) === 0) return "";
@@ -45,9 +46,9 @@ export default async function FechamentoPage({
   }).toString();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Fechamento</h1>
+        <h1 className={TITULO_PAGINA}>Fechamento</h1>
         <Link href="/extratos" className="text-sm text-foreground/60 underline">
           ← Voltar pra Conciliação de Extratos
         </Link>
@@ -57,7 +58,7 @@ export default async function FechamentoPage({
         acumulado. Lançamentos sem categoria ficam de fora da soma.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -67,7 +68,7 @@ export default async function FechamentoPage({
             name="postoId"
             defaultValue={postoId ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="" disabled>
               Escolha um posto
@@ -88,7 +89,7 @@ export default async function FechamentoPage({
             name="bancoId"
             defaultValue={bancoId ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="" disabled>
               Escolha um banco
@@ -110,7 +111,7 @@ export default async function FechamentoPage({
             name="mes"
             defaultValue={mesValor}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -129,7 +130,7 @@ export default async function FechamentoPage({
         </div>
         <button
           type="submit"
-          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
         >
           Gerar
         </button>
@@ -146,7 +147,7 @@ export default async function FechamentoPage({
             </p>
             <Link
               href={`/extratos/fechamento/exportar?${qs}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -162,19 +163,19 @@ export default async function FechamentoPage({
             </p>
           )}
 
-          <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+          <div className={`${CARTAO} overflow-x-auto`}>
             <table className="w-full text-sm">
-              <thead className="bg-black/5 dark:bg-white/5">
+              <thead className={CABECALHO_TABELA}>
                 <tr>
-                  <th className="sticky left-0 bg-black/5 px-3 py-2 text-left font-medium dark:bg-white/5">
+                  <th className="sticky left-0 bg-black/5 px-3 py-2.5 text-left dark:bg-white/5">
                     Dia
                   </th>
                   {resultado.categorias.map((c) => (
-                    <th key={c.id} className="px-3 py-2 text-right font-medium whitespace-nowrap">
+                    <th key={c.id} className="px-3 py-2.5 text-right whitespace-nowrap">
                       {c.nome}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Saldo</th>
+                  <th className="px-3 py-2.5 text-right whitespace-nowrap">Saldo</th>
                 </tr>
               </thead>
               <tbody>

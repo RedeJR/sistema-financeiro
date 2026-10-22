@@ -11,6 +11,7 @@ import {
   type FiltrosRelatorio,
 } from "./consulta";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -74,9 +75,9 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-semibold">Relatórios</h1>
+        <h1 className={TITULO_PAGINA}>Relatórios</h1>
         <BotaoImprimir />
       </div>
       <div className="hidden print:block">
@@ -160,7 +161,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
               type="date"
               name="de"
               defaultValue={filtros.de ?? ""}
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+              className={CAMPO}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -172,7 +173,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
               type="date"
               name="ate"
               defaultValue={filtros.ate ?? ""}
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+              className={CAMPO}
             />
           </div>
         </div>
@@ -199,12 +200,12 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
           <input type="hidden" name="statusEnviado" value="1" />
           <button
             type="submit"
-            className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={BOTAO_PRIMARIO}
           >
             Filtrar
           </button>
           {temFiltro && (
-            <Link href="/relatorios" className="text-foreground/60 underline">
+            <Link href="/relatorios" className="self-center text-foreground/60 underline">
               Limpar filtros
             </Link>
           )}
@@ -228,18 +229,18 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                <thead className={CABECALHO_TABELA}>
                   <tr>
                     {/* A dimensão usada pra agrupar já está no cabeçalho do
                         bloco acima — não repete como coluna. */}
-                    {ordem !== "vencimento" && <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>}
-                    {ordem !== "posto" && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
-                    <th className="px-4 py-1.5 text-left font-medium">Fornecedor</th>
+                    {ordem !== "vencimento" && <th className="px-4 py-2.5 text-left">Vencimento</th>}
+                    {ordem !== "posto" && <th className="px-4 py-2.5 text-left">Posto</th>}
+                    <th className="px-4 py-2.5 text-left">Fornecedor</th>
                     {ordem !== "planoConta" && (
-                      <th className="px-4 py-1.5 text-left font-medium">Plano de contas</th>
+                      <th className="px-4 py-2.5 text-left">Plano de contas</th>
                     )}
-                    <th className="px-4 py-1.5 text-left font-medium">Descrição</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor</th>
+                    <th className="px-4 py-2.5 text-left">Descrição</th>
+                    <th className="px-4 py-2.5 text-right">Valor</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -254,14 +255,14 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
                         <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
                       )}
                       {ordem !== "posto" && (
-                        <td className="px-4 py-1.5">
+                        <td className="px-4 py-3">
                           {(l.postoPagamento ?? l.posto).nome}
                           {l.postoPagamentoId && (
                             <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
                           )}
                         </td>
                       )}
-                      <td className="px-4 py-1.5">
+                      <td className="px-4 py-3">
                         {l.fornecedor.nome}
                         {/* Nessa visão o cabeçalho do grupo já é quem pagou —
                             só falta dizer de quem é a despesa quando for de

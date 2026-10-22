@@ -103,12 +103,12 @@ export default async function VincularMovimentacaoPage({ params }: { params: Pro
   const { origemCandidatos, destinoCandidatos } = await sugerirCandidatosVinculo(id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <Link href="/entre-postos" className="text-sm text-foreground/60 underline">
           ← Voltar pra Movimentações
         </Link>
-        <h2 className="text-lg font-medium">
+        <h2 className="text-lg font-bold tracking-tight">
           Vincular ao extrato — {mov.tipo === "EMPRESTIMO" ? "Empréstimo" : "Devolução"} de {formatarMoeda(Number(mov.valor))} em{" "}
           {formatarData(mov.data)}
         </h2>

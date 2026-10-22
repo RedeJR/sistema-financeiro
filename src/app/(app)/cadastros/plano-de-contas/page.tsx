@@ -8,6 +8,7 @@ import {
   excluirPlanoConta,
 } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { BOTAO_EDITAR } from "@/lib/estilo";
 
 function Status({ ativo }: { ativo: boolean }) {
   return (
@@ -39,7 +40,7 @@ export default async function PlanoDeContasPage({
   const totalContas = grupos.reduce((soma, g) => soma + g.contas.length, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {erro === "grupo-com-contas" && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-400">
           Não é possível excluir um grupo que ainda tem contas — exclua ou
@@ -74,7 +75,7 @@ export default async function PlanoDeContasPage({
             </Link>
             <Link
               href="/cadastros/plano-de-contas/grupos/novo"
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
             >
               + Novo grupo
             </Link>
@@ -144,16 +145,16 @@ export default async function PlanoDeContasPage({
                   {grupo.contas.map((conta) => (
                     <tr key={conta.id} className="border-t border-black/5 dark:border-white/5">
                       <td className="px-4 py-2 text-foreground/50">{conta.codigo ?? "—"}</td>
-                      <td className="px-4 py-2">{conta.nome}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">{conta.nome}</td>
+                      <td className="px-4 py-3">
                         <Status ativo={conta.ativo} />
                       </td>
                       {podeEditar && (
-                        <td className="px-4 py-2">
+                        <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
                             <Link
                               href={`/cadastros/plano-de-contas/contas/${conta.id}/editar`}
-                              className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                              className={BOTAO_EDITAR}
                             >
                               Editar
                             </Link>

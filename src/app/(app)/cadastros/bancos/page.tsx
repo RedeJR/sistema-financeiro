@@ -4,6 +4,7 @@ import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoBanco, excluirBanco } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
+import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export default async function BancosPage({
   searchParams,
@@ -17,7 +18,7 @@ export default async function BancosPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <ErroFormulario mensagem={erro === "em-uso" ? "Não é possível excluir: esse banco está em uso." : null} />
       <div className="flex items-center justify-between">
         <p className="text-sm text-foreground/60">
@@ -27,29 +28,29 @@ export default async function BancosPage({
         {podeEditar && (
           <Link
             href="/cadastros/bancos/novo"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
           >
             + Novo banco
           </Link>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
-              <th className="px-4 py-2 text-left font-medium">Nome</th>
-              <th className="px-4 py-2 text-left font-medium">Código no arquivo</th>
-              <th className="px-4 py-2 text-left font-medium">Status</th>
-              {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
+              <th className="px-4 py-2.5 text-left">Nome</th>
+              <th className="px-4 py-2.5 text-left">Código no arquivo</th>
+              <th className="px-4 py-2.5 text-left">Status</th>
+              {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
             {bancos.map((b) => (
               <tr key={b.id} className="border-t border-black/10 dark:border-white/10">
-                <td className="px-4 py-2">{b.nome}</td>
+                <td className="px-4 py-3">{b.nome}</td>
                 <td className="px-4 py-2 font-mono text-xs text-foreground/70">{b.codigoArquivo}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3">
                   <span
                     className={
                       b.ativo
@@ -61,11 +62,11 @@ export default async function BancosPage({
                   </span>
                 </td>
                 {podeEditar && (
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Link
                         href={`/cadastros/bancos/${b.id}/editar`}
-                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                        className={BOTAO_EDITAR}
                       >
                         Editar
                       </Link>

@@ -4,6 +4,7 @@ import { exigirPermissao, exigirUsuario, podeEditarModulo } from "@/lib/auth";
 import { formatarCpf } from "@/lib/cpf";
 import { alternarAtivoUsuario, excluirUsuario } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 
 const MENSAGENS_ERRO: Record<string, string> = {
   "auto-desativar": "Você não pode desativar seu próprio usuário.",
@@ -26,33 +27,33 @@ export default async function UsuariosPage({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {erro && MENSAGENS_ERRO[erro] && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-400">
           {MENSAGENS_ERRO[erro]}
         </p>
       )}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Usuários</h1>
+        <h1 className={TITULO_PAGINA}>Usuários</h1>
         {podeEditar && (
           <Link
             href="/usuarios/novo"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
           >
             + Novo usuário
           </Link>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
-              <th className="px-4 py-2 text-left font-medium">Nome</th>
-              <th className="px-4 py-2 text-left font-medium">CPF</th>
-              <th className="px-4 py-2 text-left font-medium">Módulos liberados</th>
-              <th className="px-4 py-2 text-left font-medium">Status</th>
-              {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
+              <th className="px-4 py-2.5 text-left">Nome</th>
+              <th className="px-4 py-2.5 text-left">CPF</th>
+              <th className="px-4 py-2.5 text-left">Módulos liberados</th>
+              <th className="px-4 py-2.5 text-left">Status</th>
+              {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -61,12 +62,12 @@ export default async function UsuariosPage({
               const souEu = u.id === usuarioLogado.id;
               return (
                 <tr key={u.id} className="border-t border-black/10 dark:border-white/10">
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     {u.nome} {souEu && <span className="text-xs text-foreground/40">(você)</span>}
                   </td>
                   <td className="px-4 py-2 text-foreground/70">{formatarCpf(u.cpf)}</td>
                   <td className="px-4 py-2 text-foreground/70">{modulosComAcesso}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <span
                       className={
                         u.ativo
@@ -78,11 +79,11 @@ export default async function UsuariosPage({
                     </span>
                   </td>
                   {podeEditar && (
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <Link
                           href={`/usuarios/${u.id}/editar`}
-                          className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                          className={BOTAO_EDITAR}
                         >
                           Editar
                         </Link>

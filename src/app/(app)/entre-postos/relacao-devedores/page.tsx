@@ -1,5 +1,6 @@
 import { formatarMoeda } from "@/lib/dinheiro";
 import { calcularRelacaoDevedores, calcularSaldoLiquidoPorPosto } from "@/lib/entrePostos/relatorios";
+import { CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T23:59:59.999Z`);
@@ -23,13 +24,13 @@ export default async function RelacaoDevedoresPage({
   const hojeISO = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="text-sm text-foreground/60">
         Saldo em aberto de cada relação de empréstimo — só aparece quem ainda deve, líquido de todas as
         devoluções já lançadas. Relações totalmente quitadas somem daqui sozinhas.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="ate" className="text-foreground/60">
             Saldo até
@@ -40,7 +41,7 @@ export default async function RelacaoDevedoresPage({
             name="ate"
             defaultValue={ate ?? ""}
             max={hojeISO}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
@@ -65,13 +66,13 @@ export default async function RelacaoDevedoresPage({
               <col style={{ width: "18%" }} />
               <col />
             </colgroup>
-            <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-1.5 text-left font-medium">Posto</th>
-                <th className="px-4 py-1.5 text-right font-medium">É credor (a receber)</th>
-                <th className="px-4 py-1.5 text-right font-medium">Deve (a pagar)</th>
-                <th className="px-4 py-1.5 text-right font-medium">Saldo líquido</th>
-                <th className="px-4 py-1.5 text-left font-medium">Situação</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-right">É credor (a receber)</th>
+                <th className="px-4 py-2.5 text-right">Deve (a pagar)</th>
+                <th className="px-4 py-2.5 text-right">Saldo líquido</th>
+                <th className="px-4 py-2.5 text-left">Situação</th>
               </tr>
             </thead>
             <tbody>
@@ -80,7 +81,7 @@ export default async function RelacaoDevedoresPage({
                   key={p.postoId}
                   className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}
                 >
-                  <td className="px-4 py-1.5">{p.postoNome}</td>
+                  <td className="px-4 py-3">{p.postoNome}</td>
                   <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(p.credor)}</td>
                   <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(p.devedor)}</td>
                   <td
@@ -98,11 +99,11 @@ export default async function RelacaoDevedoresPage({
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                <td className="px-4 py-1.5" colSpan={3}>
+                <td className="px-4 py-3" colSpan={3}>
                   Verificação (soma dos saldos líquidos — deve dar zero)
                 </td>
                 <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(somaLiquidos)}</td>
-                <td className="px-4 py-1.5" />
+                <td className="px-4 py-3" />
               </tr>
             </tfoot>
           </table>
@@ -129,14 +130,14 @@ export default async function RelacaoDevedoresPage({
                       key={c.postoId}
                       className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}
                     >
-                      <td className="px-4 py-1.5">{c.postoNome}</td>
+                      <td className="px-4 py-3">{c.postoNome}</td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(c.saldo)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                    <td className="px-4 py-1.5">Total {b.postoNome}</td>
+                    <td className="px-4 py-3">Total {b.postoNome}</td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(b.total)}</td>
                   </tr>
                 </tfoot>

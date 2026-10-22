@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { FormularioCombustivel } from "../formulario-combustivel";
 import { criarCombustivelAPagar } from "../actions";
+import { TITULO_PAGINA } from "@/lib/estilo";
 
 export default async function NovoCombustivelPage() {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "editar");
@@ -13,12 +14,12 @@ export default async function NovoCombustivelPage() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <Link href="/combustiveis-a-pagar" className="text-sm text-foreground/60 underline">
           ← Voltar
         </Link>
-        <h1 className="text-2xl font-semibold">Novo combustível a pagar</h1>
+        <h1 className={TITULO_PAGINA}>Novo combustível a pagar</h1>
       </div>
       <FormularioCombustivel postos={postos} fornecedores={fornecedores} action={criarCombustivelAPagar} />
     </div>

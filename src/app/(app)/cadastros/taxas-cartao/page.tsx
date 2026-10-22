@@ -6,6 +6,7 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { paraLista } from "@/lib/filtro-multiplo";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 function fmtPct(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
@@ -79,7 +80,7 @@ export default async function TaxasCartaoPage({
         contratado.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label className="text-foreground/60">Posto</label>
           <SeletorDropdown
@@ -100,12 +101,12 @@ export default async function TaxasCartaoPage({
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/cadastros/taxas-cartao" className="text-foreground/60 underline">
+          <Link href="/cadastros/taxas-cartao" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -133,25 +134,25 @@ export default async function TaxasCartaoPage({
             </div>
             <div className="overflow-x-auto print:overflow-visible">
               <table className="tabela-taxas min-w-[1060px] w-full text-sm print:min-w-0 print:text-[10px]">
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                <thead className={CABECALHO_TABELA}>
                   <tr>
-                    <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Débito</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Crédito à vista</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Crédito parcelado</th>
-                    <th className="px-4 py-1.5 text-right font-medium">PIX</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Crédito pré-pago</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Domicílio</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Grupo</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Observação</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Status</th>
-                    {podeEditar && <th className="px-4 py-1.5 text-right font-medium print:hidden">Ações</th>}
+                    <th className="px-4 py-2.5 text-left">Adquirente</th>
+                    <th className="px-4 py-2.5 text-right">Débito</th>
+                    <th className="px-4 py-2.5 text-right">Crédito à vista</th>
+                    <th className="px-4 py-2.5 text-right">Crédito parcelado</th>
+                    <th className="px-4 py-2.5 text-right">PIX</th>
+                    <th className="px-4 py-2.5 text-right">Crédito pré-pago</th>
+                    <th className="px-4 py-2.5 text-left">Domicílio</th>
+                    <th className="px-4 py-2.5 text-left">Grupo</th>
+                    <th className="px-4 py-2.5 text-left">Observação</th>
+                    <th className="px-4 py-2.5 text-left">Status</th>
+                    {podeEditar && <th className="px-4 py-2.5 text-right print:hidden">Ações</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {lista.map((t) => (
                     <tr key={t.id} className="border-t border-black/5 dark:border-white/10">
-                      <td className="px-4 py-1.5">{t.adquirente.nome}</td>
+                      <td className="px-4 py-3">{t.adquirente.nome}</td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaDebito)}
                         {t.taxaDebito !== null && (
@@ -187,7 +188,7 @@ export default async function TaxasCartaoPage({
                       <td className="px-4 py-1.5 text-foreground/70">{t.domicilioBanco?.nome ?? "—"}</td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.grupoConciliacao ?? "—"}</td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.observacao ?? "—"}</td>
-                      <td className="px-4 py-1.5">
+                      <td className="px-4 py-3">
                         <span
                           className={
                             t.ativo

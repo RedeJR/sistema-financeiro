@@ -6,6 +6,7 @@ import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarRelatorioCampoExtrato, listarCategoriasRelatorioExtrato } from "@/lib/extratos/relatorioCampos";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -56,9 +57,9 @@ export default async function RelatoriosExtratosPage({
   anexarLista(qsBase, "postoId", postoIds);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           {nomeCategoria} — {postoNome ?? "Todos os postos"} — {de} a {ate}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
@@ -69,7 +70,7 @@ export default async function RelatoriosExtratosPage({
           <Link href="/extratos" className="text-sm text-foreground/60 underline">
             ← Voltar pra Conciliação de Extratos
           </Link>
-          <h1 className="text-2xl font-semibold">Relatórios</h1>
+          <h1 className={TITULO_PAGINA}>Relatórios</h1>
         </div>
       </div>
 
@@ -78,7 +79,7 @@ export default async function RelatoriosExtratosPage({
         posto, no formato da planilha de receitas extras do fechamento.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="categoriaId" className="text-foreground/60">
             Campo
@@ -87,7 +88,7 @@ export default async function RelatoriosExtratosPage({
             id="categoriaId"
             name="categoriaId"
             defaultValue={categoriaId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             {categorias.map((c) => (
               <option key={c.id} value={c.id}>
@@ -117,7 +118,7 @@ export default async function RelatoriosExtratosPage({
             name="de"
             defaultValue={de ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -130,17 +131,17 @@ export default async function RelatoriosExtratosPage({
             name="ate"
             defaultValue={ate ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/extratos/relatorios" className="text-foreground/60 underline">
+          <Link href="/extratos/relatorios" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -148,7 +149,7 @@ export default async function RelatoriosExtratosPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/extratos/relatorios/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -174,11 +175,11 @@ export default async function RelatoriosExtratosPage({
                   <col style={{ width: "16%" }} />
                   <col />
                 </colgroup>
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                <thead className={CABECALHO_TABELA}>
                   <tr>
-                    <th className="px-4 py-1.5 text-left font-medium">Data</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Descrição</th>
+                    <th className="px-4 py-2.5 text-left">Data</th>
+                    <th className="px-4 py-2.5 text-right">Valor</th>
+                    <th className="px-4 py-2.5 text-left">Descrição</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -195,9 +196,9 @@ export default async function RelatoriosExtratosPage({
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                    <td className="px-4 py-1.5">Total</td>
+                    <td className="px-4 py-3">Total</td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(b.total)}</td>
-                    <td className="px-4 py-1.5" />
+                    <td className="px-4 py-3" />
                   </tr>
                 </tfoot>
               </table>

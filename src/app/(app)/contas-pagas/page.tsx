@@ -10,6 +10,7 @@ import {
   agruparPorPosto,
 } from "@/app/(app)/relatorios/consulta";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
 
 // Mesma tela do botão "Relatório (imprimir / PDF)" de Contas a Pagar (pedido
 // da usuária) — reaproveita a consulta e o agrupamento de lá (buscarRelatorio
@@ -80,9 +81,9 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-semibold">Contas Pagas</h1>
+        <h1 className={TITULO_PAGINA}>Contas Pagas</h1>
         <BotaoImprimir />
       </div>
       <div className="hidden print:block">
@@ -135,7 +136,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
               type="date"
               name="de"
               defaultValue={filtros.de ?? ""}
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+              className={CAMPO}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -147,7 +148,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
               type="date"
               name="ate"
               defaultValue={filtros.ate ?? ""}
-              className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+              className={CAMPO}
             />
           </div>
         </div>
@@ -185,12 +186,12 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
 
           <button
             type="submit"
-            className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={BOTAO_PRIMARIO}
           >
             Filtrar
           </button>
           {temFiltro && (
-            <Link href="/contas-pagas" className="text-foreground/60 underline">
+            <Link href="/contas-pagas" className="self-center text-foreground/60 underline">
               Limpar filtros
             </Link>
           )}
@@ -224,18 +225,18 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
             </colgroup>
             <thead className="bg-black/[0.04] dark:bg-white/[0.05]">
               <tr>
-                <th className="px-4 py-1.5 text-left font-medium">Vencimento</th>
-                <th className="px-4 py-1.5 text-left font-medium">Posto</th>
-                <th className="px-4 py-1.5 text-left font-medium">Fornecedor</th>
-                <th className="px-4 py-1.5 text-left font-medium">Plano de contas</th>
-                <th className="px-4 py-1.5 text-left font-medium">Descrição</th>
-                <th className="px-4 py-1.5 text-right font-medium">Valor</th>
+                <th className="px-4 py-2.5 text-left">Vencimento</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-left">Fornecedor</th>
+                <th className="px-4 py-2.5 text-left">Plano de contas</th>
+                <th className="px-4 py-2.5 text-left">Descrição</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
               </tr>
             </thead>
             {grupos.map((g) => (
               <tbody key={g.chave}>
                 <tr className="border-t border-black/10 bg-blue-950/10 font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
-                  <td className="px-4 py-1.5" colSpan={5}>
+                  <td className="px-4 py-3" colSpan={5}>
                     {g.subtitulo ? `${g.subtitulo} / ${g.titulo}` : g.titulo} — {g.linhas.length} conta
                     {g.linhas.length === 1 ? "" : "s"}
                   </td>
@@ -249,13 +250,13 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
                     }`}
                   >
                     <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
-                    <td className="px-4 py-1.5">
+                    <td className="px-4 py-3">
                       {(l.postoPagamento ?? l.posto).nome}
                       {l.postoPagamentoId && (
                         <span className="block text-xs text-foreground/50">despesa de {l.posto.nome}</span>
                       )}
                     </td>
-                    <td className="px-4 py-1.5">{l.fornecedor.nome}</td>
+                    <td className="px-4 py-3">{l.fornecedor.nome}</td>
                     <td className="px-4 py-1.5 text-foreground/70">
                       {l.planoConta.grupo.nome} / {l.planoConta.nome}
                     </td>

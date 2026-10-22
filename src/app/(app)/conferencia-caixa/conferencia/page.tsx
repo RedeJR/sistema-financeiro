@@ -4,6 +4,7 @@ import { paraLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarConferenciasCaixa, type StatusConferenciaCaixa } from "@/lib/conferenciaCaixa";
+import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function formatarDataHora(d: Date): string {
   return d.toLocaleString("pt-BR", { timeZone: "UTC" });
@@ -23,8 +24,8 @@ const ROTULO_STATUS: Record<StatusConferenciaCaixa, string> = {
 
 const COR_STATUS: Record<StatusConferenciaCaixa, string> = {
   PENDENTE: "bg-black/10 text-foreground/60 dark:bg-white/10",
-  CONFERIDO: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400",
-  DIVERGENTE: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400",
+  CONFERIDO: "bg-[#E7F6EC] text-[#14693A] dark:bg-green-900/40 dark:text-green-400",
+  DIVERGENTE: "bg-[#FDECEC] text-[#A12727] dark:bg-red-900/40 dark:text-red-400",
 };
 
 export default async function HistoricoConferenciaCaixaPage({
@@ -42,13 +43,13 @@ export default async function HistoricoConferenciaCaixaPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="text-sm text-foreground/60">
         Caixas já marcados como conferido ou divergente na aba Relatório de Caixa. &quot;Rever&quot; volta
         pro relatório com o posto e o período preenchidos, pra pesquisar aquele caixa de novo.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -68,7 +69,7 @@ export default async function HistoricoConferenciaCaixaPage({
             id="status"
             name="status"
             defaultValue={statusFiltro ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             <option value="CONFERIDO">Conferido</option>
@@ -77,12 +78,12 @@ export default async function HistoricoConferenciaCaixaPage({
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {(postoIds.length || statusFiltro) && (
-          <Link href="/conferencia-caixa/conferencia" className="text-foreground/60 underline">
+          <Link href="/conferencia-caixa/conferencia" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -95,16 +96,16 @@ export default async function HistoricoConferenciaCaixaPage({
       )}
 
       {linhas.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-1.5 text-left font-medium">Posto</th>
-                <th className="px-4 py-1.5 text-left font-medium">Início</th>
-                <th className="px-4 py-1.5 text-left font-medium">Fim</th>
-                <th className="px-4 py-1.5 text-right font-medium">Valor total</th>
-                <th className="px-4 py-1.5 text-left font-medium">Status</th>
-                <th className="px-4 py-1.5 text-left font-medium"></th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-left">Início</th>
+                <th className="px-4 py-2.5 text-left">Fim</th>
+                <th className="px-4 py-2.5 text-right">Valor total</th>
+                <th className="px-4 py-2.5 text-left">Status</th>
+                <th className="px-4 py-2.5 text-left"></th>
               </tr>
             </thead>
             <tbody>
@@ -117,16 +118,16 @@ export default async function HistoricoConferenciaCaixaPage({
                 });
                 return (
                   <tr key={l.id} className="border-t border-black/5 dark:border-white/10">
-                    <td className="px-4 py-1.5">{l.posto}</td>
+                    <td className="px-4 py-3">{l.posto}</td>
                     <td className="px-4 py-1.5 whitespace-nowrap">{formatarDataHora(l.inicio)}</td>
                     <td className="px-4 py-1.5 whitespace-nowrap">{formatarDataHora(l.fim)}</td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valorTotal)}</td>
-                    <td className="px-4 py-1.5">
+                    <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs ${COR_STATUS[l.status]}`}>
                         {ROTULO_STATUS[l.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-1.5">
+                    <td className="px-4 py-3">
                       <Link
                         href={`/conferencia-caixa/relatorio?${qsRever.toString()}`}
                         className="text-foreground/70 underline"

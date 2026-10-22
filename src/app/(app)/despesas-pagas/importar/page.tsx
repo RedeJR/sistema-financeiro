@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { ImportadorDespesas } from "./importador";
+import { BOTAO_SECUNDARIO, TITULO_PAGINA } from "@/lib/estilo";
 
 export default async function ImportarDespesasPage() {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
@@ -18,19 +19,19 @@ export default async function ImportarDespesasPage() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Importar despesas de caixa</h1>
+        <h1 className={TITULO_PAGINA}>Importar despesas de caixa</h1>
         <div className="flex gap-2">
           <a
             href="/despesas-pagas/importar/modelo"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Baixar modelo da planilha
           </a>
           <Link
             href="/despesas-pagas"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Voltar
           </Link>

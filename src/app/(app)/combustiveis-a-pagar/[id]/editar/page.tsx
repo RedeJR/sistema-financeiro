@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { FormularioCombustivel } from "../../formulario-combustivel";
 import { atualizarCombustivelAPagar } from "../../actions";
+import { TITULO_PAGINA } from "@/lib/estilo";
 
 function paraDataInput(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -26,11 +27,11 @@ export default async function EditarCombustivelPage({
 
   if (conta.paga) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Link href="/combustiveis-a-pagar" className="text-sm text-foreground/60 underline">
           ← Voltar
         </Link>
-        <h1 className="text-2xl font-semibold">Editar combustível a pagar</h1>
+        <h1 className={TITULO_PAGINA}>Editar combustível a pagar</h1>
         <p className="text-sm text-foreground/60">
           Essa conta já foi baixada automaticamente pela conciliação com o extrato — não dá mais pra
           editar por aqui.
@@ -47,7 +48,7 @@ export default async function EditarCombustivelPage({
         <Link href="/combustiveis-a-pagar" className="text-sm text-foreground/60 underline">
           ← Voltar
         </Link>
-        <h1 className="text-2xl font-semibold">Editar combustível a pagar</h1>
+        <h1 className={TITULO_PAGINA}>Editar combustível a pagar</h1>
       </div>
       <FormularioCombustivel
         action={acaoComId}

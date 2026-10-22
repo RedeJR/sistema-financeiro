@@ -5,6 +5,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarRelatorioCaixa } from "@/lib/cartoes/relatorio";
 import { BotaoImprimir } from "./botao-imprimir";
 import { registrarConferenciaCaixa } from "./actions";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -51,9 +52,9 @@ export default async function RelatorioCaixaPage({
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           Relatório de Caixa — {postoNome ?? ""} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
@@ -70,7 +71,7 @@ export default async function RelatorioCaixaPage({
             name="postoId"
             defaultValue={postoId ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="" disabled>
               Escolha um posto
@@ -92,7 +93,7 @@ export default async function RelatorioCaixaPage({
             name="inicio"
             defaultValue={inicio ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -105,17 +106,17 @@ export default async function RelatorioCaixaPage({
             name="fim"
             defaultValue={fim ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/conferencia-caixa/relatorio" className="text-foreground/60 underline">
+          <Link href="/conferencia-caixa/relatorio" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -152,7 +153,7 @@ export default async function RelatorioCaixaPage({
             )}
             <Link
               href={`/conferencia-caixa/relatorio/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Baixar (Excel)
             </Link>
@@ -185,13 +186,13 @@ export default async function RelatorioCaixaPage({
               Resumo por adquirente
             </div>
             <table className="w-full text-sm">
-              <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+              <thead className={CABECALHO_TABELA}>
                 <tr>
-                  <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                  <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
-                  <th className="px-4 py-1.5 text-right font-medium">Valor bruto</th>
-                  <th className="px-4 py-1.5 text-right font-medium">Taxa</th>
-                  <th className="px-4 py-1.5 text-right font-medium">Valor líquido</th>
+                  <th className="px-4 py-2.5 text-left">Adquirente</th>
+                  <th className="px-4 py-2.5 text-right">Qtd</th>
+                  <th className="px-4 py-2.5 text-right">Valor bruto</th>
+                  <th className="px-4 py-2.5 text-right">Taxa</th>
+                  <th className="px-4 py-2.5 text-right">Valor líquido</th>
                 </tr>
               </thead>
               <tbody>
@@ -200,7 +201,7 @@ export default async function RelatorioCaixaPage({
                     key={r.adquirente}
                     className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}
                   >
-                    <td className="px-4 py-1.5">{r.adquirente}</td>
+                    <td className="px-4 py-3">{r.adquirente}</td>
                     <td className="px-4 py-1.5 text-right">{r.qtd}</td>
                     <td className="px-4 py-1.5 text-right">{formatarMoeda(r.totalBruto)}</td>
                     <td className="px-4 py-1.5 text-right">{formatarMoeda(r.totalTaxa)}</td>
@@ -209,8 +210,8 @@ export default async function RelatorioCaixaPage({
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                  <td className="px-4 py-1.5">Total geral</td>
+                <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
+                  <td className="px-4 py-3">Total geral</td>
                   <td className="px-4 py-1.5 text-right">{relatorio.linhas.length}</td>
                   <td className="px-4 py-1.5 text-right">{formatarMoeda(relatorio.totalBruto)}</td>
                   <td colSpan={2}></td>
@@ -227,11 +228,11 @@ export default async function RelatorioCaixaPage({
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-black/[0.02] dark:bg-white/[0.02]">
                   <tr>
-                    <th className="px-4 py-1.5 text-left font-medium">Data</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Hora</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Modalidade</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor bruto</th>
+                    <th className="px-4 py-2.5 text-left">Data</th>
+                    <th className="px-4 py-2.5 text-left">Hora</th>
+                    <th className="px-4 py-2.5 text-left">Adquirente</th>
+                    <th className="px-4 py-2.5 text-left">Modalidade</th>
+                    <th className="px-4 py-2.5 text-right">Valor bruto</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -242,7 +243,7 @@ export default async function RelatorioCaixaPage({
                     >
                       <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.dataVenda)}</td>
                       <td className="px-4 py-1.5 whitespace-nowrap">{l.horaVenda || "—"}</td>
-                      <td className="px-4 py-1.5">{l.adquirente}</td>
+                      <td className="px-4 py-3">{l.adquirente}</td>
                       <td className="px-4 py-1.5 text-foreground/70">{l.tipoVenda}</td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valorBruto)}</td>
                     </tr>

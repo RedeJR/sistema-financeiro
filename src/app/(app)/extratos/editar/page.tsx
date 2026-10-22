@@ -13,6 +13,7 @@ import { cancelarImportacao, excluirLancamentosEmMassa, atualizarCategoriaEmMass
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 
 const FORM_REATRIBUIR = "form-reatribuir-lancamentos";
 const ROTA = "/extratos/editar";
@@ -190,25 +191,25 @@ export default async function EditarExtratosPage({
   const urlAtual = `${ROTA}${qsAtual ? `?${qsAtual}` : ""}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <Link href="/extratos" className="text-sm text-foreground/60 underline">
             ← Voltar pro resumo
           </Link>
-          <h1 className="text-2xl font-semibold">Editar lançamentos</h1>
+          <h1 className={TITULO_PAGINA}>Editar lançamentos</h1>
         </div>
         <div className="flex gap-2">
           <Link
             href="/extratos/fechamento"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Fechamento
           </Link>
           {podeEditar && (
             <Link
               href="/extratos/importar"
-              className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
             >
               + Importar extrato
             </Link>
@@ -218,7 +219,7 @@ export default async function EditarExtratosPage({
               um jeito de confirmar "terminei" mesmo fora do fluxo de import. */}
           <Link
             href="/extratos"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
           >
             Concluir revisão →
           </Link>
@@ -252,7 +253,7 @@ export default async function EditarExtratosPage({
         </div>
       )}
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -272,7 +273,7 @@ export default async function EditarExtratosPage({
             id="bancoId"
             name="bancoId"
             defaultValue={bancoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             {bancos.map((b) => (
@@ -290,7 +291,7 @@ export default async function EditarExtratosPage({
             id="categoria"
             name="categoria"
             defaultValue={categoria ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todas</option>
             <option value="sem">Sem categoria (revisar)</option>
@@ -311,7 +312,7 @@ export default async function EditarExtratosPage({
             type="date"
             name="de"
             defaultValue={de ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -323,17 +324,17 @@ export default async function EditarExtratosPage({
             type="date"
             name="ate"
             defaultValue={ate ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href={ROTA} className="text-foreground/60 underline">
+          <Link href={ROTA} className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -386,27 +387,27 @@ export default async function EditarExtratosPage({
         </form>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
               {podeEditar && (
-                <th className="px-4 py-2 text-left font-medium">
+                <th className="px-4 py-2.5 text-left">
                   <SelecionarTodos formId={FORM_REATRIBUIR} />
                 </th>
               )}
-              <th className="px-4 py-2 text-left font-medium">Posto</th>
-              <th className="px-4 py-2 text-left font-medium">Banco</th>
-              <th className="px-4 py-2 text-left font-medium">Descrição</th>
-              <th className="px-4 py-2 text-right font-medium">Valor</th>
-              <th className="px-4 py-2 text-left font-medium">Categoria / Observação</th>
+              <th className="px-4 py-2.5 text-left">Posto</th>
+              <th className="px-4 py-2.5 text-left">Banco</th>
+              <th className="px-4 py-2.5 text-left">Descrição</th>
+              <th className="px-4 py-2.5 text-right">Valor</th>
+              <th className="px-4 py-2.5 text-left">Categoria / Observação</th>
             </tr>
           </thead>
           <tbody>
             {grupos.map((g) => (
               <Fragment key={g.chave}>
                 <tr className="border-t border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.04]">
-                  <td colSpan={podeEditar ? 6 : 5} className="px-4 py-1.5">
+                  <td colSpan={podeEditar ? 6 : 5} className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-foreground/70">
                         {formatarData(g.data)} — {g.itens.length} lançamento{g.itens.length === 1 ? "" : "s"} —
@@ -476,12 +477,12 @@ export default async function EditarExtratosPage({
                   ) : (
                     <tr key={u.item.id} className="border-t border-black/10 dark:border-white/10 align-top">
                       {podeEditar && (
-                        <td className="px-4 py-2">
+                        <td className="px-4 py-3">
                           <input type="checkbox" name="ids" value={u.item.id} form={FORM_REATRIBUIR} />
                         </td>
                       )}
-                      <td className="px-4 py-2">{u.item.posto.nome}</td>
-                      <td className="px-4 py-2">{u.item.banco.nome}</td>
+                      <td className="px-4 py-3">{u.item.posto.nome}</td>
+                      <td className="px-4 py-3">{u.item.banco.nome}</td>
                       <td className="px-4 py-2 text-foreground/70">{u.item.descricao}</td>
                       <td
                         className={`px-4 py-2 text-right whitespace-nowrap ${
@@ -490,7 +491,7 @@ export default async function EditarExtratosPage({
                       >
                         {formatarMoeda(u.item.valor.toString())}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">
                         {u.item.divisoes.length > 0 ? (
                           <div className="text-foreground/70">
                             {u.item.divisoes.map((d, i) => (

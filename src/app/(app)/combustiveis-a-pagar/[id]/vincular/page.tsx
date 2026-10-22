@@ -5,6 +5,7 @@ import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarCandidatosCombustivel, buscarVinculadosCombustivel } from "@/lib/combustiveis/vinculo";
 import { vincularCombustivel, desvincularCombustivel } from "../../actions";
+import { CAMPO, CARTAO } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -61,7 +62,7 @@ export default async function VincularCombustivelPage({
   if (mostrarTodasCategorias) qs.set("todasCategorias", "1");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <Link href="/combustiveis-a-pagar" className="text-sm text-foreground/60 underline">
           ← Voltar pra Combustíveis a Pagar
@@ -132,7 +133,7 @@ export default async function VincularCombustivelPage({
         </div>
       )}
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">
             Buscar extrato de
@@ -142,7 +143,7 @@ export default async function VincularCombustivelPage({
             type="date"
             name="de"
             defaultValue={isoDe(dataInicio)}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -154,7 +155,7 @@ export default async function VincularCombustivelPage({
             type="date"
             name="ate"
             defaultValue={isoDe(dataFim)}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <label className="flex items-center gap-1.5 pb-1.5 text-foreground/70">
@@ -201,7 +202,7 @@ export default async function VincularCombustivelPage({
         {candidatos.length > 0 && (
           <button
             type="submit"
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
           >
             Vincular selecionados
           </button>

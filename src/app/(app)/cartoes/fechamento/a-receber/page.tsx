@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { agruparEmBlocos, buscarVendasAReceber, formatarPeriodoVendas, type BaseAReceber } from "@/lib/cartoes/aReceber";
 import { BotaoImprimir } from "../botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -49,9 +50,9 @@ export default async function VendasAReceberPage({
   const descricaoBase = base === "venda" ? "vendas do período ainda não recebidas" : "vendas com recebimento previsto no período";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           Valores a receber — {postoNome ?? "Todos os postos"} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">
@@ -64,7 +65,7 @@ export default async function VendasAReceberPage({
         pagas até o último dia dele. Por data de recebimento: vendas cujo pagamento previsto cai dentro do período.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -112,12 +113,12 @@ export default async function VendasAReceberPage({
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/cartoes/fechamento/a-receber" className="text-foreground/60 underline">
+          <Link href="/cartoes/fechamento/a-receber" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -125,7 +126,7 @@ export default async function VendasAReceberPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/cartoes/fechamento/a-receber/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -153,11 +154,11 @@ export default async function VendasAReceberPage({
                 {p.posto}
               </div>
               <table className="w-full text-sm">
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                <thead className={CABECALHO_TABELA}>
                   <tr>
-                    <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor Bruto</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Período</th>
+                    <th className="px-4 py-2.5 text-left">Adquirente</th>
+                    <th className="px-4 py-2.5 text-right">Valor Bruto</th>
+                    <th className="px-4 py-2.5 text-left">Período</th>
                   </tr>
                 </thead>
                 {p.blocos.map((bloco) => (
@@ -169,13 +170,13 @@ export default async function VendasAReceberPage({
                     </tr>
                     {bloco.linhas.map((l) => (
                       <tr key={l.rotulo} className="border-t border-black/5 dark:border-white/10">
-                        <td className="px-4 py-1.5">{l.rotulo}</td>
+                        <td className="px-4 py-3">{l.rotulo}</td>
                         <td className="px-4 py-1.5 text-right whitespace-nowrap">{l.bruto === 0 ? "—" : formatarMoeda(l.bruto)}</td>
                         <td className="px-4 py-1.5 whitespace-nowrap">{l.de && l.ate ? formatarPeriodoVendas(l.de, l.ate) : ""}</td>
                       </tr>
                     ))}
                     <tr className="border-t border-black/10 font-semibold dark:border-white/10">
-                      <td className="px-4 py-1.5">Total {bloco.titulo.toLowerCase()}</td>
+                      <td className="px-4 py-3">Total {bloco.titulo.toLowerCase()}</td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(bloco.total)}</td>
                       <td />
                     </tr>
@@ -183,7 +184,7 @@ export default async function VendasAReceberPage({
                 ))}
                 <tfoot>
                   <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                    <td className="px-4 py-1.5">Total {p.posto}</td>
+                    <td className="px-4 py-3">Total {p.posto}</td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(p.total)}</td>
                     <td />
                   </tr>
@@ -197,7 +198,7 @@ export default async function VendasAReceberPage({
               <table className="w-full text-sm">
                 <tbody>
                   <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">
-                    <td className="px-4 py-1.5">Total geral</td>
+                    <td className="px-4 py-3">Total geral</td>
                     <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral)}</td>
                     <td />
                   </tr>

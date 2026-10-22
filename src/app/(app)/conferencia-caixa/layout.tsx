@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { AbasNav } from "../cartoes/abas-nav";
+import { TITULO_PAGINA } from "@/lib/estilo";
 import { exigirPermissao } from "@/lib/auth";
 
 const ABAS = [
@@ -13,18 +14,8 @@ export default async function ConferenciaCaixaLayout({ children }: { children: R
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Conferência de Caixa</h1>
-        <nav className="mt-3 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/15">
-          {ABAS.map((aba) => (
-            <Link
-              key={aba.href}
-              href={aba.href}
-              className="rounded-t-md px-3 py-2 text-sm text-foreground/70 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
-            >
-              {aba.label}
-            </Link>
-          ))}
-        </nav>
+        <h1 className={TITULO_PAGINA}>Conferência de Caixa</h1>
+        <AbasNav abas={ABAS} />
       </div>
       {children}
     </div>

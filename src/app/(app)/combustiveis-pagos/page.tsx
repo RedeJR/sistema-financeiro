@@ -3,6 +3,7 @@ import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
+import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 
 function formatarData(d: Date | null): string {
   return d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
@@ -56,8 +57,8 @@ export default async function CombustiveisPagosPage({
   const temFiltro = Boolean(postoIds.length || fornecedorIds.length || de || ate);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Combustíveis Pagos</h1>
+    <div className="space-y-6">
+      <h1 className={TITULO_PAGINA}>Combustíveis Pagos</h1>
 
       <p className="text-sm text-foreground/60">
         Combustíveis já baixados pela conciliação automática — ver{" "}
@@ -67,7 +68,7 @@ export default async function CombustiveisPagosPage({
         pro que ainda está em aberto.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -99,7 +100,7 @@ export default async function CombustiveisPagosPage({
             type="date"
             name="de"
             defaultValue={de ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -111,17 +112,17 @@ export default async function CombustiveisPagosPage({
             type="date"
             name="ate"
             defaultValue={ate ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/combustiveis-pagos" className="text-foreground/60 underline">
+          <Link href="/combustiveis-pagos" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -131,25 +132,25 @@ export default async function CombustiveisPagosPage({
         {contas.length} conta{contas.length === 1 ? "" : "s"} — total {formatarMoeda(total)}
       </p>
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
-              <th className="px-4 py-2 text-left font-medium">Posto</th>
-              <th className="px-4 py-2 text-left font-medium">Data de descarga</th>
-              <th className="px-4 py-2 text-left font-medium">Data de pagamento</th>
-              <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
-              <th className="px-4 py-2 text-right font-medium">Valor</th>
-              <th className="px-4 py-2 text-left font-medium">Descrição</th>
+              <th className="px-4 py-2.5 text-left">Posto</th>
+              <th className="px-4 py-2.5 text-left">Data de descarga</th>
+              <th className="px-4 py-2.5 text-left">Data de pagamento</th>
+              <th className="px-4 py-2.5 text-left">Fornecedor</th>
+              <th className="px-4 py-2.5 text-right">Valor</th>
+              <th className="px-4 py-2.5 text-left">Descrição</th>
             </tr>
           </thead>
           <tbody>
             {contas.map((c) => (
               <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
-                <td className="px-4 py-2">{c.posto.nome}</td>
+                <td className="px-4 py-3">{c.posto.nome}</td>
                 <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataDescarga)}</td>
                 <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataPagamento)}</td>
-                <td className="px-4 py-2">{c.fornecedor.nome}</td>
+                <td className="px-4 py-3">{c.fornecedor.nome}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}</td>
                 <td className="px-4 py-2 text-foreground/70">{c.descricao ?? "—"}</td>
               </tr>

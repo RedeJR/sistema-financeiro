@@ -5,6 +5,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { statusDiarioPorPosto } from "@/lib/conciliacao";
 import { GraficoBarras } from "@/components/ui/grafico-barras";
 import { FaixaStatusDiario } from "@/components/ui/faixa-status-diario";
+import { BOTAO_SECUNDARIO, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
 
 // "Hoje" no fuso de armazenamento (datas de vencimento são gravadas como
 // UTC meia-noite, ver ContaAPagar no schema) — pega o dia corrente nesse
@@ -122,8 +123,8 @@ export default async function Home({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Sistema Financeiro</h1>
+      <div className="space-y-6">
+        <h1 className={TITULO_PAGINA}>Sistema Financeiro</h1>
         <p className="text-foreground/70">
           Conciliação de extratos bancários e contas a pagar. Comece pelos
           Cadastros — é a base que os outros módulos vão usar.
@@ -139,7 +140,7 @@ export default async function Home({
       {podeVerContasAPagar && (
         <section className="space-y-3 rounded-xl border border-black/10 p-4 dark:border-white/15">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-medium">Contas a Pagar do dia</h2>
+            <h2 className="text-lg font-bold tracking-tight">Contas a Pagar do dia</h2>
             <form className="flex items-center gap-2 text-sm">
               <label htmlFor="data" className="text-foreground/60">
                 Data
@@ -149,11 +150,11 @@ export default async function Home({
                 type="date"
                 name="data"
                 defaultValue={dataSelecionada}
-                className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                className={CAMPO}
               />
               <button
                 type="submit"
-                className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                className={`${BOTAO_SECUNDARIO} font-medium`}
               >
                 Ver
               </button>
@@ -187,7 +188,7 @@ export default async function Home({
       {podeVerConciliacao && (
         <section className="space-y-3 rounded-xl border border-black/10 p-4 dark:border-white/15">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-medium">Conciliação — Despesas x Extrato</h2>
+            <h2 className="text-lg font-bold tracking-tight">Conciliação — Despesas x Extrato</h2>
             <form className="flex flex-wrap items-end gap-2 text-sm">
               <div className="flex flex-col gap-1">
                 <label htmlFor="concPostoId" className="text-foreground/60">
@@ -197,7 +198,7 @@ export default async function Home({
                   id="concPostoId"
                   name="concPostoId"
                   defaultValue={concPostoId ?? ""}
-                  className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                  className={CAMPO}
                 >
                   <option value="">Todos (por posto)</option>
                   {postosConciliacao.map((p) => (
@@ -215,7 +216,7 @@ export default async function Home({
                   id="concBancoId"
                   name="concBancoId"
                   defaultValue={concBancoId ?? ""}
-                  className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                  className={CAMPO}
                 >
                   <option value="">Todos</option>
                   {bancosConciliacao.map((b) => (
@@ -234,7 +235,7 @@ export default async function Home({
                   type="date"
                   name="concDe"
                   defaultValue={concDeSelecionada}
-                  className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                  className={CAMPO}
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -246,12 +247,12 @@ export default async function Home({
                   type="date"
                   name="concAte"
                   defaultValue={concAteSelecionada}
-                  className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                  className={CAMPO}
                 />
               </div>
               <button
                 type="submit"
-                className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                className={`${BOTAO_SECUNDARIO} font-medium`}
               >
                 Ver
               </button>
