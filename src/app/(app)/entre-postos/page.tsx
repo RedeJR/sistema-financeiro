@@ -108,7 +108,7 @@ export default async function EntrePostosPage({
         {podeEditar && (
           <Link
             href="/entre-postos/novo"
-            className="ml-auto rounded-md bg-foreground px-4 py-1.5 font-medium text-background hover:opacity-90"
+            className="ml-auto rounded-md bg-blue-700 px-4 py-1.5 font-semibold text-white hover:bg-blue-800"
           >
             + Nova movimentação
           </Link>

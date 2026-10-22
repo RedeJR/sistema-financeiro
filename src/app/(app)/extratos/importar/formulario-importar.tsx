@@ -93,7 +93,7 @@ export function FormularioImportar({ postos, bancos, canceladas }: { postos: Opc
             accept=".ofx,.qfx"
             multiple
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-background dark:border-white/20"
+            className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-700 file:px-3 file:py-1.5 file:text-white dark:border-white/20"
           />
           <p className="text-xs text-foreground/50">
             Formato OFX (extensão .ofx ou .qfx) — é a opção de exportação que praticamente todo banco

@@ -172,7 +172,7 @@ export function FormularioDespesaAvulsa({
                 type="button"
                 disabled={criandoFornecedor}
                 onClick={handleCriarFornecedor}
-                className="rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
+                className="rounded-md bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
               >
                 {criandoFornecedor ? "Salvando..." : "Adicionar fornecedor"}
               </button>

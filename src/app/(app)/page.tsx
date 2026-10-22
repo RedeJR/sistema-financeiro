@@ -131,7 +131,7 @@ export default async function Home({
         </p>
         <Link
           href="/cadastros"
-          className="inline-block rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+          className="inline-block rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
         >
           Ir para Cadastros →
         </Link>

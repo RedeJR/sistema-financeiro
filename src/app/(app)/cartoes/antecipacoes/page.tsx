@@ -89,7 +89,7 @@ export default async function AntecipacoesPage({
         {podeEditar && (
           <Link
             href="/cartoes/antecipacoes/novo"
-            className="ml-auto rounded-md bg-foreground px-4 py-3 font-medium text-background hover:opacity-90"
+            className="ml-auto rounded-md bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800"
           >
             + Nova antecipação
           </Link>

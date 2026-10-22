@@ -27,7 +27,7 @@ export function FormularioEsqueciSenha() {
       <ErroFormulario mensagem={state?.error} />
       <SubmitButton
         pendingLabel="Enviando..."
-        className="w-full rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+        className="w-full rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
       >
         Enviar link de recuperação
       </SubmitButton>

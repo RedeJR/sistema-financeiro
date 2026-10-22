@@ -153,7 +153,7 @@ export function ImportadorDespesas({
         <button
           type="submit"
           disabled={lendo}
-          className="rounded-md bg-foreground px-4 py-2 font-medium text-background hover:opacity-90 disabled:opacity-60"
+          className="rounded-md bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
         >
           {lendo ? "Lendo..." : "Ler planilha"}
         </button>
@@ -186,7 +186,7 @@ export function ImportadorDespesas({
               type="button"
               onClick={confirmar}
               disabled={gravando || marcadas.length === 0}
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+              className="rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
             >
               {gravando ? "Lançando..." : `Lançar ${marcadas.length} selecionada(s) — ${formatarMoeda(totalMarcado)}`}
             </button>

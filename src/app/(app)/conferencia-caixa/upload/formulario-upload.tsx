@@ -118,7 +118,7 @@ export function FormularioUpload({ postos }: { postos: Opcao[] }) {
             accept=".csv,.xlsx,.xls"
             multiple
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-background dark:border-white/20"
+            className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-700 file:px-3 file:py-1.5 file:text-white dark:border-white/20"
           />
           <p className="text-xs text-foreground/50">
             Pode selecionar vários arquivos de uma vez, de adquirentes diferentes — o sistema tenta
@@ -134,7 +134,7 @@ export function FormularioUpload({ postos }: { postos: Opcao[] }) {
           <button
             type="submit"
             disabled={processando}
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60"
+            className="rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
           >
             {processando ? "Importando..." : "Importar"}
           </button>

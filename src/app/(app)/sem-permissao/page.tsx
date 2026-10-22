@@ -8,7 +8,7 @@ export default function SemPermissaoPage() {
         Você não tem permissão pra acessar esse módulo. Fale com quem cuida
         dos usuários do sistema pra liberar o acesso, se precisar.
       </p>
-      <Link href="/" className="mt-6 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90">
+      <Link href="/" className="mt-6 rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
         Voltar ao início
       </Link>
     </div>
