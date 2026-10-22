@@ -32,7 +32,7 @@ export function GruposMenu({ grupos }: { grupos: GrupoMenu[] }) {
               type="button"
               onClick={() => setPinado((atual) => (atual === grupo.label ? null : grupo.label))}
               aria-expanded={aberto}
-              className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm text-foreground/80 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground/85 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
             >
               {grupo.label}
               <span className={`text-xs text-foreground/40 transition-transform ${aberto ? "rotate-90" : ""}`}>
@@ -40,15 +40,15 @@ export function GruposMenu({ grupos }: { grupos: GrupoMenu[] }) {
               </span>
             </button>
             {aberto && (
-              <div className="ml-3 flex flex-col gap-0.5 border-l border-blue-200 py-0.5 pl-3 dark:border-blue-900/50">
+              <div className="ml-3 flex flex-col gap-0.5 border-l border-black/10 py-0.5 pl-3 dark:border-white/10">
                 {grupo.itens.map((item) =>
                   item.disponivel ? (
                     <Link
                       key={item.valor}
                       href={item.href}
-                      className={`rounded-md px-3 py-1.5 text-sm hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10 ${
+                      className={`rounded-lg px-3 py-1.5 text-sm hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10 ${
                         pathname.startsWith(item.href)
-                          ? "bg-black/5 font-medium text-foreground dark:bg-white/10"
+                          ? "bg-[#EAF1FF] font-semibold text-blue-700 hover:bg-[#EAF1FF] hover:text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"
                           : "text-foreground/70"
                       }`}
                     >

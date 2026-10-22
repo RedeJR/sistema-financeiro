@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, Arial, sans-serif;
 }
 
 /* Relatórios impressos/salvos como PDF (ver botao-imprimir.tsx): fonte

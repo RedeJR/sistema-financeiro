@@ -11,7 +11,7 @@ export function BotaoVerDescricao({ id, descricao }: { id: string; descricao: st
       <input type="checkbox" id={`desc-${id}`} className="toggle-desc sr-only" />
       <label
         htmlFor={`desc-${id}`}
-        className="cursor-pointer rounded-md border border-black/15 px-2 py-1 text-xs whitespace-nowrap text-foreground/70 hover:bg-black/5 print:hidden dark:border-white/20 dark:hover:bg-white/10"
+        className="cursor-pointer rounded-lg border border-black/15 bg-white px-2.5 py-1 text-[12.5px] whitespace-nowrap text-foreground/70 hover:bg-black/5 print:hidden dark:border-white/20 dark:bg-transparent dark:hover:bg-white/10"
       >
         <span className="rotulo-ver">Ver descrição</span>
         <span className="rotulo-ocultar">Ocultar descrição</span>
