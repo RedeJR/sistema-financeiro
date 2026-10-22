@@ -32,6 +32,9 @@ type Props = {
   // URL da lista de onde a usuária veio, com o filtro aplicado — volta pra
   // lá depois de salvar. Ver actions.ts (criarDespesaAvulsa).
   voltarPara?: string;
+  // Modo edição de despesa paga: ação já amarrada ao id + valores atuais.
+  action?: (prev: ActionState, formData: FormData) => Promise<ActionState>;
+  valoresIniciais?: Record<string, string>;
 };
 
 const campoSelect =
@@ -45,10 +48,12 @@ export function FormularioDespesaAvulsa({
   sugestaoPlanoContaPorFornecedor = {},
   bancoPadraoPorPosto = {},
   voltarPara,
+  action,
+  valoresIniciais,
 }: Props) {
-  const [state, formAction] = useActionState<ActionState, FormData>(criarDespesaAvulsa, null);
+  const [state, formAction] = useActionState<ActionState, FormData>(action ?? criarDespesaAvulsa, null);
   const formKey = useFormKey(state);
-  const v = state?.values;
+  const v = state?.values ?? valoresIniciais;
 
   // Fornecedor: lista local + cadastro rápido sem sair da tela — mesmo
   // mecanismo do formulário de Contas a Pagar.

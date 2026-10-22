@@ -138,3 +138,89 @@ export async function desfazerPagamento(formData: FormData) {
   revalidatePath("/conferencia-diaria");
   revalidatePath("/extratos/conciliacao");
 }
+
+// Edita uma despesa JÁ PAGA (botão amarelo "Editar" em Despesas Pagas), sem
+// precisar desfazer o pagamento. Se mudar algo que o motor de conciliação usa
+// pra casar com o extrato (valor, data, banco ou posto que pagou), solta o
+// vínculo com o lançamento do extrato — senão ficaria ligado a um lançamento
+// que não bate mais; a conciliação religa sozinha na próxima rodada.
+export async function atualizarDespesaPaga(
+  id: string,
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await exigirPermissao("DESPESAS_PAGAS", "editar");
+
+  const parsed = schemaAvulsa.safeParse({
+    postoId: formData.get("postoId"),
+    fornecedorId: formData.get("fornecedorId"),
+    planoContaId: formData.get("planoContaId"),
+    bancoId: formData.get("bancoId"),
+    dataPagamento: formData.get("dataPagamento"),
+    postoPagamentoId: formData.get("postoPagamentoId"),
+    numeroDocumento: formData.get("numeroDocumento"),
+    descricao: formData.get("descricao"),
+    valor: formData.get("valor"),
+  });
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+      values: valoresDoFormulario(formData),
+    };
+  }
+
+  const atual = await prisma.contaAPagar.findUnique({ where: { id } });
+  if (!atual || !atual.paga) {
+    return { error: "Essa despesa não está mais paga — nada a editar aqui.", values: valoresDoFormulario(formData) };
+  }
+
+  const dataPagamento = dataUTC(parsed.data.dataPagamento);
+  // Dono = pagador não precisa de postoPagamentoId (null = "mesmo posto").
+  const postoPagamentoId =
+    parsed.data.postoPagamentoId && parsed.data.postoPagamentoId !== parsed.data.postoId ? parsed.data.postoPagamentoId : null;
+
+  const mudouParaConciliacao =
+    Number(atual.valor).toFixed(2) !== Number(parsed.data.valor).toFixed(2) ||
+    atual.dataPagamento?.getTime() !== dataPagamento.getTime() ||
+    atual.bancoPagamentoId !== parsed.data.bancoId ||
+    (atual.postoPagamentoId ?? atual.postoId) !== (postoPagamentoId ?? parsed.data.postoId);
+
+  try {
+    await prisma.$transaction([
+      ...(mudouParaConciliacao
+        ? [prisma.lancamentoExtrato.updateMany({ where: { contaAPagarId: id }, data: { contaAPagarId: null } })]
+        : []),
+      prisma.contaAPagar.update({
+        where: { id },
+        data: {
+          postoId: parsed.data.postoId,
+          fornecedorId: parsed.data.fornecedorId,
+          planoContaId: parsed.data.planoContaId,
+          numeroDocumento: parsed.data.numeroDocumento,
+          descricao: parsed.data.descricao,
+          valor: parsed.data.valor,
+          dataPagamento,
+          bancoPagamentoId: parsed.data.bancoId,
+          postoPagamentoId,
+          // Avulsa nasce com emissão = vencimento = pagamento; mantém assim.
+          ...(atual.avulsa ? { dataEmissao: dataPagamento, dataVencimento: dataPagamento } : {}),
+        },
+      }),
+    ]);
+  } catch (e) {
+    if (isForeignKeyConstraintError(e)) {
+      return {
+        error: "Posto, fornecedor, conta do plano de contas ou banco inválido.",
+        values: valoresDoFormulario(formData),
+      };
+    }
+    throw e;
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/contas-a-pagar");
+  revalidatePath("/conferencia-diaria");
+  revalidatePath("/extratos/conciliacao");
+  const voltarPara = formData.get("voltarPara");
+  redirect(typeof voltarPara === "string" && voltarPara ? voltarPara : ROTA);
+}
