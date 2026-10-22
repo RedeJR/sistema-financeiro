@@ -7,10 +7,10 @@ import { FormularioDespesaAvulsa } from "../formulario-despesa-avulsa";
 export default async function NovaDespesaAvulsaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ voltarPara?: string }>;
+  searchParams: Promise<{ voltarPara?: string; postoId?: string; bancoId?: string; dataPagamento?: string }>;
 }) {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
-  const { voltarPara } = await searchParams;
+  const { voltarPara, postoId, bancoId, dataPagamento } = await searchParams;
 
   const [postos, fornecedores, grupos, bancos, sugestaoPlanoConta] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -46,6 +46,12 @@ export default async function NovaDespesaAvulsaPage({
           sugestaoPlanoContaPorFornecedor={sugestaoPlanoConta}
           bancoPadraoPorPosto={bancoPadraoPorPosto(postos, bancos)}
           voltarPara={voltarPara}
+          // Vindo de um grupo da lista: já traz posto (pagador), banco e dia do grupo.
+          valoresIniciais={{
+            ...(postoId ? { postoId } : {}),
+            ...(bancoId ? { bancoId } : {}),
+            ...(dataPagamento && /^\d{4}-\d{2}-\d{2}$/.test(dataPagamento) ? { dataPagamento } : {}),
+          }}
         />
       )}
     </div>

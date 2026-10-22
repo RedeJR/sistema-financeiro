@@ -390,14 +390,22 @@ export default async function DespesasPagasPage({
                       href={verMais}
                       className="rounded-md border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
                     >
-                      Ver mais +
+                      Ver extrato
                     </Link>
                   )}
                   </span>
                 </span>
                 <span className="text-right text-sm font-semibold whitespace-nowrap">{formatarMoeda(g.total)}</span>
-                <span />
-                <span />
+                <span className="col-span-2 text-right">
+                  {podeEditar && (
+                    <Link
+                      href={`/despesas-pagas/nova?${new URLSearchParams({ postoId: g.postoId, ...(g.bancoId ? { bancoId: g.bancoId } : {}), dataPagamento: g.data.toISOString().slice(0, 10) }).toString()}&${qsVoltarPara}`}
+                      className="rounded-md bg-foreground px-2 py-1 text-xs font-medium whitespace-nowrap text-background hover:opacity-90"
+                    >
+                      + Despesa avulsa
+                    </Link>
+                  )}
+                </span>
               </div>
               {podeEditar && (
                 <details className="group">
