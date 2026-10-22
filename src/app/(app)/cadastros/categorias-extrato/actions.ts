@@ -18,7 +18,7 @@ const schema = z.object({
     .trim()
     .min(1, "Informe o nome da categoria.")
     .transform((v) => v.toUpperCase()),
-  tipo: z.enum(["ADQUIRENTE", "PADRAO"]),
+  tipo: z.enum(["ADQUIRENTE", "VOUCHER", "PADRAO"]),
   ordem: z.coerce.number().int().default(0),
 });
 
