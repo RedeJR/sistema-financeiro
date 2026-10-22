@@ -3,12 +3,11 @@ import { Suspense } from "react";
 import { usuarioAtual } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { ProximosDias } from "@/components/painel/proximos-dias";
+import { carregarInicioComSnapshot, type InicioPronto } from "@/lib/painel/snapshot";
 import {
-  carregarInicio,
   carregarRapido,
   hojeNoBrasil,
   horaNoBrasil,
-  type DadosInicio,
   type PermissoesInicio,
   type RapidoInicio,
 } from "@/lib/painel/inicio";
@@ -67,6 +66,9 @@ const ROTULO_CELULA: Record<string, string> = {
   "falta-despesa": "Falta despesa",
   "sem-atividade": "Sem movimento",
 };
+// O cálculo pesado pode levar vários segundos no primeiro acesso do dia.
+export const maxDuration = 60;
+
 const COR_ALERTA = { ruim: "bg-[#D14343]", atencao: "bg-[#E0A100]", ok: "bg-[#1F9D55]" } as const;
 
 // Esqueleto enquanto um bloco lento carrega (a previsão de recebimento, os extratos e as vendas
@@ -83,8 +85,8 @@ function Esqueleto({ altura = "h-40", className = "" }: { altura?: string; class
 
 // ---------------- blocos lentos (cada um espera sua parte dos dados) ----------------
 
-async function KpisRecebimento({ lento, rapido, rotuloDia }: { lento: Promise<DadosInicio>; rapido: RapidoInicio; rotuloDia: string }) {
-  const dados = await lento;
+async function KpisRecebimento({ lento, rapido, rotuloDia }: { lento: Promise<InicioPronto>; rapido: RapidoInicio; rotuloDia: string }) {
+  const { dados } = await lento;
   const receber = dados.receber;
   if (!receber) return null;
   const resultado = rapido.pagarNoDia ? receber.total - rapido.pagarNoDia.total : null;
@@ -118,8 +120,8 @@ async function KpisRecebimento({ lento, rapido, rotuloDia }: { lento: Promise<Da
   );
 }
 
-async function CartaoProximosDias({ lento, perm }: { lento: Promise<DadosInicio>; perm: PermissoesInicio }) {
-  const dados = await lento;
+async function CartaoProximosDias({ lento, perm }: { lento: Promise<InicioPronto>; perm: PermissoesInicio }) {
+  const { dados } = await lento;
   return (
     <section className={`${CARTAO} min-w-0 flex-[999_1_560px] space-y-4 p-5`}>
       <h2 className="text-[17px] font-bold tracking-tight">Próximos dias úteis{perm.contas && perm.fluxo ? " — a pagar x a receber" : ""}</h2>
@@ -137,8 +139,8 @@ async function CartaoProximosDias({ lento, perm }: { lento: Promise<DadosInicio>
   );
 }
 
-async function CartaoAtencao({ lento }: { lento: Promise<DadosInicio> }) {
-  const dados = await lento;
+async function CartaoAtencao({ lento }: { lento: Promise<InicioPronto> }) {
+  const { dados, atualizadoEm } = await lento;
   return (
     <section className={`${CARTAO} min-w-0 flex-[1_1_340px] p-5`}>
       <h2 className="mb-1 text-[17px] font-bold tracking-tight">Precisa da sua atenção</h2>
@@ -158,6 +160,12 @@ async function CartaoAtencao({ lento }: { lento: Promise<DadosInicio> }) {
           </div>
         ))}
       </div>
+      <p className="mt-2 border-t border-black/5 pt-3 text-xs text-foreground/50 dark:border-white/10">
+        Atualizado às {new Date(atualizadoEm).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })} ·{" "}
+        <Link href="/?atualizar=1" className="font-semibold text-blue-700 dark:text-blue-300">
+          atualizar agora
+        </Link>
+      </p>
     </section>
   );
 }
@@ -169,13 +177,13 @@ async function CartaoSituacao({
   rotuloDia,
   podeVerConciliacao,
 }: {
-  lento: Promise<DadosInicio>;
+  lento: Promise<InicioPronto>;
   perm: PermissoesInicio;
   hoje: Date;
   rotuloDia: string;
   podeVerConciliacao: boolean;
 }) {
-  const dados = await lento;
+  const { dados } = await lento;
   if (dados.situacao.length === 0) return null;
   return (
     <section className={`${CARTAO} space-y-3 p-5`}>
@@ -225,10 +233,10 @@ async function CartaoSituacao({
                       <span className="inline-flex gap-[3px]">
                         {s.celulas.map((c) => (
                           <span
-                            key={c.data.toISOString()}
+                            key={c.data}
                             className="size-4 rounded"
                             style={{ background: COR_CELULA[c.status] }}
-                            title={`${formatarDataExibicao(c.data.toISOString().slice(0, 10))} — ${ROTULO_CELULA[c.status]}`}
+                            title={`${formatarDataExibicao(c.data)} — ${ROTULO_CELULA[c.status]}`}
                           />
                         ))}
                       </span>
@@ -253,9 +261,9 @@ async function CartaoSituacao({
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string }>;
+  searchParams: Promise<{ data?: string; atualizar?: string }>;
 }) {
-  const { data } = await searchParams;
+  const { data, atualizar } = await searchParams;
   const hoje = hojeNoBrasil();
   const dataValida = data && /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : null;
   const dataRef = dataValida ? dataUTC(dataValida) : hoje;
@@ -279,7 +287,7 @@ export default async function Home({
   // começa a carregar agora e chega por blocos, sem travar a tela.
   const rapido = await carregarRapido({ dataRef, perm });
   // Só depois de a parte rápida estar pronta é que a lenta começa: assim as duas não disputam as conexões do banco.
-  const lento = carregarInicio({ dataRef, hoje, perm });
+  const lento = carregarInicioComSnapshot({ dataRef, hoje, perm, forcar: atualizar === "1" });
   lento.catch(() => {}); // erro é tratado onde o bloco é aguardado
 
   const ehHoje = rapido.dataRef === hoje.toISOString().slice(0, 10);

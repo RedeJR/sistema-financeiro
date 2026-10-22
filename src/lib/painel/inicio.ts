@@ -6,7 +6,7 @@ import {
   combustiveisNoExtratoSemConta,
   conferenciaTotalDiario,
   statusDiarioPorPosto,
-  type CelulaDiaria,
+  type StatusCelulaDia,
 } from "@/lib/conciliacao";
 
 // Dados do painel inicial. Cada bloco só é calculado se o usuário pode ver o
@@ -56,7 +56,7 @@ export type PostoSituacao = {
   vendasAte: string | null;
   pagarNoDia: number;
   vencidas: number;
-  celulas: CelulaDiaria[];
+  celulas: { data: string; status: StatusCelulaDia }[];
 };
 
 export type AlertaInicio = {
@@ -87,21 +87,8 @@ export function proximosDiasUteis(inicio: Date, n: number): Date[] {
 }
 
 const CACHE_MS = 120_000;
-const cache = new Map<string, { em: number; dados: Promise<DadosInicio> }>();
 
-export function carregarInicio(params: { dataRef: Date; hoje: Date; perm: PermissoesInicio }): Promise<DadosInicio> {
-  const chave = `${iso(params.dataRef)}|${iso(params.hoje)}|${Object.values(params.perm).map(Number).join("")}`;
-  const agora = Date.now();
-  const guardado = cache.get(chave);
-  if (guardado && agora - guardado.em < CACHE_MS) return guardado.dados;
-  const dados = calcularInicio(params);
-  cache.set(chave, { em: agora, dados });
-  dados.catch(() => cache.delete(chave)); // erro não fica guardado
-  for (const [k, v] of cache) if (agora - v.em > CACHE_MS * 5) cache.delete(k);
-  return dados;
-}
-
-async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: PermissoesInicio }): Promise<DadosInicio> {
+export async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: PermissoesInicio }): Promise<DadosInicio> {
   const { dataRef, hoje, perm } = params;
   const diasUteis = proximosDiasUteis(dataRef, 7);
   const diasUteisISO = diasUteis.map(iso);
@@ -271,10 +258,10 @@ async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: Permiss
   }
 
   // ---------- conciliação dos últimos 7 dias, por posto ----------
-  const celulasPorPosto = new Map<string, CelulaDiaria[]>();
+  const celulasPorPosto = new Map<string, { data: string; status: StatusCelulaDia }[]>();
   if (perm.despesasPagas && perm.extratos) {
     const linhas = (await pCelulas)!;
-    for (const l of linhas) celulasPorPosto.set(l.postoId, l.celulas);
+    for (const l of linhas) celulasPorPosto.set(l.postoId, l.celulas.map((c) => ({ data: iso(c.data), status: c.status })));
   }
 
   // ---------- tabela "situação por posto" ----------

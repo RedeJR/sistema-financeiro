@@ -794,3 +794,15 @@ model ApelidoImportacao {
   @@unique([tipo, texto])
   @@map("apelidos_importacao")
 }
+
+// Resultado pronto do painel inicial (blocos lentos: previsão de recebimento,
+// extratos e vendas desatualizados...). A tela abre mostrando o último
+// resultado guardado aqui na hora e o sistema recalcula em segundo plano
+// quando ele passa de uns minutos — ver src/lib/painel/snapshot.ts.
+model PainelSnapshot {
+  chave        String   @id
+  dados        Json
+  atualizadoEm DateTime @default(now())
+
+  @@map("painel_snapshots")
+}
