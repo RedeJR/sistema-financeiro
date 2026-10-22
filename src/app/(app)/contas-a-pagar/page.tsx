@@ -9,7 +9,10 @@ import { gerarOcorrenciasRecorrentesPendentes } from "./recorrencia";
 import { excluirContaAPagar, excluirContasEmMassa } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
-import { BOTAO_EDITAR, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, ETIQUETA_VERMELHA, TITULO_PAGINA } from "@/lib/estilo";
+import { ThOrdenavel } from "@/components/ui/th-ordenavel";
+import { Paginacao } from "@/components/ui/paginacao";
+import { lerParamsLista, ordenar, paginar } from "@/lib/lista";
+import { BOTAO_EDITAR, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ComentarioHover } from "@/components/ui/comentario-hover";
 
@@ -52,14 +55,25 @@ function dataUTC(iso: string): Date {
 export default async function ContasAPagarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string | string[]; status?: string; de?: string; ate?: string; q?: string; erro?: string }>;
+  searchParams: Promise<{
+    postoId?: string | string[];
+    status?: string;
+    de?: string;
+    ate?: string;
+    q?: string;
+    erro?: string;
+    ordem?: string;
+    dir?: string;
+    pagina?: string;
+    porPagina?: string;
+  }>;
 }) {
   await exigirPermissao("CONTAS_A_PAGAR", "visualizar");
   const podeEditar = await podeEditarModulo("CONTAS_A_PAGAR");
 
   await gerarOcorrenciasRecorrentesPendentes();
 
-  const { postoId, status, de, ate, q, erro } = await searchParams;
+  const { postoId, status, de, ate, q, erro, ordem, dir, pagina, porPagina } = await searchParams;
   const busca = q?.trim();
   const postoIds = paraLista(postoId);
 
@@ -125,6 +139,21 @@ export default async function ContasAPagarPage({
   );
   anexarLista(qsAtualParams, "postoId", postoIds);
   const qsAtual = qsAtualParams.toString();
+
+  // Ordenação por cabeçalho + paginação (10/25/50).
+  const estado = lerParamsLista({ ordem, dir, pagina, porPagina }, { ordem: "vencimento", dir: "asc" }, ["vencimento", "posto", "fornecedor", "descricao", "valor", "status"]);
+  const contasOrdenadas = ordenar(contasComStatus, estado.ordem, estado.dir, {
+    vencimento: (c) => c.dataVencimento,
+    posto: (c) => c.posto.nome,
+    fornecedor: (c) => c.fornecedor.nome,
+    descricao: (c) => c.descricao,
+    valor: (c) => Number(c.valor),
+    status: (c) => c.status,
+  });
+  const pag = paginar(contasOrdenadas, estado.pagina, estado.porPagina);
+  const qsPaginacao = new URLSearchParams(qsAtual);
+  qsPaginacao.set("ordem", estado.ordem);
+  qsPaginacao.set("dir", estado.dir);
   const urlAtual = `/contas-a-pagar${qsAtual ? `?${qsAtual}` : ""}`;
   const qsVoltarPara = `voltarPara=${encodeURIComponent(urlAtual)}`;
 
@@ -264,17 +293,17 @@ export default async function ContasAPagarPage({
                   <SelecionarTodos formId={FORM_MASSA} />
                 </th>
               )}
-              <th className="px-4 py-2.5 text-left">Vencimento</th>
-              <th className="px-4 py-2.5 text-left">Posto</th>
-              <th className="px-4 py-2.5 text-left">Fornecedor</th>
-              <th className="px-4 py-2.5 text-left">Descrição</th>
-              <th className="px-4 py-2.5 text-right">Valor</th>
-              <th className="px-4 py-2.5 text-left">Status</th>
+              <ThOrdenavel campo="vencimento" rotulo="Vencimento" base="/contas-a-pagar" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="posto" rotulo="Posto" base="/contas-a-pagar" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="fornecedor" rotulo="Fornecedor" base="/contas-a-pagar" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="descricao" rotulo="Descrição" base="/contas-a-pagar" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="valor" rotulo="Valor" alinhar="right" base="/contas-a-pagar" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="status" rotulo="Status" base="/contas-a-pagar" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
               {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
-            {contasComStatus.map((c) => (
+            {pag.itens.map((c) => (
               <tr key={c.id} className="border-t border-black/10 hover:bg-black/[0.015] dark:border-white/10 dark:hover:bg-white/[0.03]">
                 {podeEditar && (
                   <td className="px-4 py-3">
@@ -341,6 +370,16 @@ export default async function ContasAPagarPage({
           </tbody>
         </table>
       </div>
+      <Paginacao
+        base="/contas-a-pagar"
+        qs={qsPaginacao.toString()}
+        pagina={pag.pagina}
+        totalPaginas={pag.totalPaginas}
+        total={pag.total}
+        inicio={pag.inicio}
+        mostrados={pag.itens.length}
+        porPagina={estado.porPagina}
+      />
     </div>
   );
 }

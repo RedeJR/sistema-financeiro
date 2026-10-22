@@ -15,6 +15,9 @@ import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, ETIQUETA
 import { BotaoVerDescricao, LinhaDescricao } from "@/components/ui/ver-descricao";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ComentarioHover } from "@/components/ui/comentario-hover";
+import { ThOrdenavel } from "@/components/ui/th-ordenavel";
+import { Paginacao } from "@/components/ui/paginacao";
+import { lerParamsLista, ordenar, paginar } from "@/lib/lista";
 
 const FORM_PAGAR = "form-marcar-pagas";
 
@@ -49,6 +52,10 @@ export default async function ConferenciaDiariaPage({
     ate?: string;
     q?: string;
     erro?: string;
+    ordem?: string;
+    dir?: string;
+    pagina?: string;
+    porPagina?: string;
   }>;
 }) {
   await exigirPermissao("CONFERENCIA_DIARIA", "visualizar");
@@ -56,10 +63,15 @@ export default async function ConferenciaDiariaPage({
 
   await gerarOcorrenciasRecorrentesPendentes();
 
-  const { postoId, fornecedorId, planoContaId, de, ate, q, erro } = await searchParams;
+  const { postoId, fornecedorId, planoContaId, de, ate, q, erro, ordem, dir, pagina, porPagina } = await searchParams;
   const postoIds = paraLista(postoId);
   const busca = q?.trim();
   const hoje = hojeUTC();
+  // Padrão: só o dia atual (22 a 22, por exemplo). Pra ver o que já venceu, é só
+  // esvaziar a data inicial — aí vem tudo até a data final.
+  const padraoDia = !de && !ate;
+  const deEfetivo = padraoDia ? paraDataInput(hoje) : de;
+  const ateEfetivo = padraoDia ? paraDataInput(hoje) : ate;
 
   // "voltarPara" no link Editar: sem isso, editar uma conta daqui (o
   // formulário é compartilhado com Contas a Pagar) voltava pra Contas a
@@ -76,10 +88,10 @@ export default async function ConferenciaDiariaPage({
   // a final) e final (obrigatória na prática, default hoje). Sem "de" e sem
   // mexer em "ate", o resultado é igual ao antigo padrão "hoje + tudo
   // vencido": dataVencimento <= hoje.
-  const dataAte = ate ? dataUTC(ate) : hoje;
+  const dataAte = ateEfetivo ? dataUTC(ateEfetivo) : hoje;
   const condicaoData = {
     dataVencimento: {
-      ...(de ? { gte: dataUTC(de) } : {}),
+      ...(deEfetivo ? { gte: dataUTC(deEfetivo) } : {}),
       lte: dataAte,
     },
   };
@@ -123,16 +135,61 @@ export default async function ConferenciaDiariaPage({
 
   const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
 
+  // Lembrete: contas ainda não pagas que venceram ANTES do período mostrado.
+  const vencidasAntes = deEfetivo
+    ? await prisma.contaAPagar.aggregate({
+        where: { paga: false, ...emLista("postoId", postoIds), dataVencimento: { lt: dataUTC(deEfetivo) } },
+        _count: { _all: true },
+        _sum: { valor: true },
+      })
+    : null;
+  const qtdVencidasAntes = vencidasAntes?._count._all ?? 0;
+  const ateVencidas = deEfetivo ? paraDataInput(new Date(dataUTC(deEfetivo).getTime() - 86400000)) : "";
+  const qsVencidas = new URLSearchParams({ ate: ateVencidas });
+  anexarLista(qsVencidas, "postoId", postoIds);
+
+  // Ordenação por cabeçalho + paginação (10/25/50).
+  const estado = lerParamsLista({ ordem, dir, pagina, porPagina }, { ordem: "vencimento", dir: "asc" }, [
+    "vencimento",
+    "posto",
+    "fornecedor",
+    "plano",
+    "banco",
+    "valor",
+  ]);
+  const contasOrdenadas = ordenar(contas, estado.ordem, estado.dir, {
+    vencimento: (c) => c.dataVencimento,
+    posto: (c) => c.posto.nome,
+    fornecedor: (c) => c.fornecedor.nome,
+    plano: (c) => `${c.planoConta.grupo.nome} / ${c.planoConta.nome}`,
+    banco: (c) => c.bancoPrevisto?.nome ?? nomeBancoPadraoDoPosto(c.posto.nome),
+    valor: (c) => Number(c.valor),
+  });
+  const pag = paginar(contasOrdenadas, estado.pagina, estado.porPagina);
+  const qsPaginacao = new URLSearchParams(qsAtual);
+  qsPaginacao.set("ordem", estado.ordem);
+  qsPaginacao.set("dir", estado.dir);
+
   return (
     <div className="space-y-6">
       <header>
         <h1 className={TITULO_PAGINA}>Conferência Diária</h1>
         <p className="mt-1.5 text-sm text-foreground/60">
-          Contas com vencimento até a data final escolhida (inclui tudo que já venceu e ainda não foi pago), a
-          partir da data inicial se você preencher.
+          Por padrão mostra só as contas que vencem hoje. Mude as datas para ver outros dias — e esvazie a data
+          inicial para ver tudo que já venceu e ainda não foi pago até a data final.
         </p>
       </header>
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
+      {qtdVencidasAntes > 0 && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <strong className="font-semibold">Atenção:</strong> {qtdVencidasAntes} conta{qtdVencidasAntes === 1 ? "" : "s"} já
+          vencida{qtdVencidasAntes === 1 ? "" : "s"} antes de {formatarData(dataUTC(deEfetivo!))} e ainda não paga
+          {qtdVencidasAntes === 1 ? "" : "s"} ({formatarMoeda(Number(vencidasAntes?._sum.valor ?? 0))}).{" "}
+          <Link href={`/conferencia-diaria?${qsVencidas.toString()}`} className="font-semibold underline">
+            Ver vencidas
+          </Link>
+        </p>
+      )}
 
       <section aria-label="Resumo" className="flex flex-wrap gap-4">
         <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
@@ -167,7 +224,7 @@ export default async function ConferenciaDiariaPage({
             id="de"
             type="date"
             name="de"
-            defaultValue={de ?? ""}
+            defaultValue={deEfetivo ?? ""}
             className={CAMPO}
           />
         </div>
@@ -179,7 +236,7 @@ export default async function ConferenciaDiariaPage({
             id="ate"
             type="date"
             name="ate"
-            defaultValue={ate ?? paraDataInput(hoje)}
+            defaultValue={ateEfetivo ?? paraDataInput(hoje)}
             className={CAMPO}
           />
         </div>
@@ -321,17 +378,17 @@ export default async function ConferenciaDiariaPage({
                   <SelecionarTodos formId={FORM_PAGAR} />
                 </th>
               )}
-              <th className="px-4 py-2.5 text-left">Vencimento</th>
-              <th className="px-4 py-2.5 text-left">Posto</th>
-              <th className="px-4 py-2.5 text-left">Fornecedor</th>
-              <th className="px-4 py-2.5 text-left">Plano de contas</th>
-              <th className="px-4 py-2.5 text-left">Banco previsto</th>
-              <th className="px-4 py-2.5 text-right">Valor</th>
+              <ThOrdenavel campo="vencimento" rotulo="Vencimento" base="/conferencia-diaria" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="posto" rotulo="Posto" base="/conferencia-diaria" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="fornecedor" rotulo="Fornecedor" base="/conferencia-diaria" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="plano" rotulo="Plano de contas" base="/conferencia-diaria" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="banco" rotulo="Banco previsto" base="/conferencia-diaria" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
+              <ThOrdenavel campo="valor" rotulo="Valor" alinhar="right" base="/conferencia-diaria" qs={qsAtual} ordem={estado.ordem} dir={estado.dir} porPagina={estado.porPagina} />
               {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
-            {contas.map((c) => {
+            {pag.itens.map((c) => {
               const vencida = c.dataVencimento < hoje;
               return (
                 <Fragment key={c.id}>
@@ -404,6 +461,16 @@ export default async function ConferenciaDiariaPage({
           </tbody>
         </table>
       </div>
+      <Paginacao
+        base="/conferencia-diaria"
+        qs={qsPaginacao.toString()}
+        pagina={pag.pagina}
+        totalPaginas={pag.totalPaginas}
+        total={pag.total}
+        inicio={pag.inicio}
+        mostrados={pag.itens.length}
+        porPagina={estado.porPagina}
+      />
     </div>
   );
 }

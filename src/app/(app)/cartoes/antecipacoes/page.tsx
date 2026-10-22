@@ -6,6 +6,7 @@ import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { excluirAntecipacao } from "./actions";
+import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -36,7 +37,7 @@ export default async function AntecipacoesPage({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="text-sm text-foreground/60">
         Antecipações de recebíveis feitas nas adquirentes. Em Recebimentos (por data de pagamento) e no Resumo
         mensal, o líquido entra como esperado no dia em que caiu e o valor antecipado sai dos dias do período —
@@ -44,7 +45,7 @@ export default async function AntecipacoesPage({
         antecipadas.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -64,7 +65,7 @@ export default async function AntecipacoesPage({
             id="adquirenteId"
             name="adquirenteId"
             defaultValue={adquirenteId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todas</option>
             {adquirentes.map((a) => (
@@ -76,19 +77,19 @@ export default async function AntecipacoesPage({
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {(postoIds.length || adquirenteId) && (
-          <Link href="/cartoes/antecipacoes" className="text-foreground/60 underline">
+          <Link href="/cartoes/antecipacoes" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
         {podeEditar && (
           <Link
             href="/cartoes/antecipacoes/novo"
-            className="ml-auto rounded-md bg-foreground px-4 py-1.5 font-medium text-background hover:opacity-90"
+            className="ml-auto rounded-md bg-foreground px-4 py-3 font-medium text-background hover:opacity-90"
           >
             + Nova antecipação
           </Link>
@@ -98,20 +99,20 @@ export default async function AntecipacoesPage({
       {antecipacoes.length === 0 ? (
         <p className="py-10 text-center text-sm text-foreground/50">Nenhuma antecipação cadastrada.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-1.5 text-left font-medium">Caiu em</th>
-                <th className="px-4 py-1.5 text-left font-medium">Posto</th>
-                <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                <th className="px-4 py-1.5 text-left font-medium">Recebíveis de</th>
-                <th className="px-4 py-1.5 text-right font-medium">Valor</th>
-                <th className="px-4 py-1.5 text-right font-medium">Desconto</th>
-                <th className="px-4 py-1.5 text-right font-medium">%</th>
-                <th className="px-4 py-1.5 text-right font-medium">Líquido recebido</th>
-                <th className="px-4 py-1.5 text-left font-medium">Obs.</th>
-                {podeEditar && <th className="px-4 py-1.5 text-right font-medium">Ações</th>}
+                <th className="px-4 py-2.5 text-left">Caiu em</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-left">Adquirente</th>
+                <th className="px-4 py-2.5 text-left">Recebíveis de</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
+                <th className="px-4 py-2.5 text-right">Desconto</th>
+                <th className="px-4 py-2.5 text-right">%</th>
+                <th className="px-4 py-2.5 text-right">Líquido recebido</th>
+                <th className="px-4 py-2.5 text-left">Obs.</th>
+                {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -121,21 +122,21 @@ export default async function AntecipacoesPage({
                 const desconto = face - liquido;
                 return (
                   <tr key={a.id} className="border-t border-black/5 dark:border-white/10">
-                    <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(a.dataRecebimento)}</td>
-                    <td className="px-4 py-1.5">{a.posto.nome}</td>
-                    <td className="px-4 py-1.5">{a.adquirente.nome}</td>
-                    <td className="px-4 py-1.5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">{formatarData(a.dataRecebimento)}</td>
+                    <td className="px-4 py-3">{a.posto.nome}</td>
+                    <td className="px-4 py-3">{a.adquirente.nome}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {formatarData(a.periodoDe)} a {formatarData(a.periodoAte)}
                     </td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(face)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(desconto)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(face)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(desconto)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
                       {face > 0 ? `${((desconto / face) * 100).toFixed(2).replace(".", ",")}%` : "—"}
                     </td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(liquido)}</td>
-                    <td className="px-4 py-1.5 text-foreground/70">{a.observacao ?? "—"}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(liquido)}</td>
+                    <td className="px-4 py-3 text-foreground/70">{a.observacao ?? "—"}</td>
                     {podeEditar && (
-                      <td className="px-4 py-1.5">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <Link
                             href={`/cartoes/antecipacoes/${a.id}/editar`}
@@ -159,14 +160,14 @@ export default async function AntecipacoesPage({
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                <td className="px-4 py-1.5" colSpan={4}>
+              <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
+                <td className="px-4 py-3" colSpan={4}>
                   Total
                 </td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.face)}</td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.face - totais.liquido)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.face)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.face - totais.liquido)}</td>
                 <td></td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.liquido)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.liquido)}</td>
                 <td colSpan={podeEditar ? 2 : 1}></td>
               </tr>
             </tfoot>

@@ -10,6 +10,7 @@ import {
   type VendasPor,
 } from "@/lib/cartoes/resumoMensal";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function rotuloMes(mes: string): string {
   const [ano, m] = mes.split("-").map(Number);
@@ -23,16 +24,16 @@ function percentual(l: LinhaResumoMensal): string {
 
 function CabecalhoTabela() {
   return (
-    <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+    <thead className={CABECALHO_TABELA}>
       <tr>
-        <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-        <th className="px-4 py-1.5 text-right font-medium">Débito</th>
-        <th className="px-4 py-1.5 text-right font-medium">Crédito</th>
-        <th className="px-4 py-1.5 text-right font-medium">Pix</th>
-        <th className="px-4 py-1.5 text-right font-medium">Total vendas</th>
-        <th className="px-4 py-1.5 text-right font-medium">Entradas no banco</th>
-        <th className="px-4 py-1.5 text-right font-medium">Diferença</th>
-        <th className="px-4 py-1.5 text-right font-medium">Entradas / vendas</th>
+        <th className="px-4 py-2.5 text-left">Adquirente</th>
+        <th className="px-4 py-2.5 text-right">Débito</th>
+        <th className="px-4 py-2.5 text-right">Crédito</th>
+        <th className="px-4 py-2.5 text-right">Pix</th>
+        <th className="px-4 py-2.5 text-right">Total vendas</th>
+        <th className="px-4 py-2.5 text-right">Entradas no banco</th>
+        <th className="px-4 py-2.5 text-right">Diferença</th>
+        <th className="px-4 py-2.5 text-right">Entradas / vendas</th>
       </tr>
     </thead>
   );
@@ -41,13 +42,13 @@ function CabecalhoTabela() {
 function CelulasValores({ l }: { l: LinhaResumoMensal }) {
   return (
     <>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.debito)}</td>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.credito)}</td>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.pix)}</td>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalVendas)}</td>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.entradas)}</td>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.diferenca)}</td>
-      <td className="px-4 py-1.5 text-right whitespace-nowrap">{percentual(l)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.debito)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.credito)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.pix)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.totalVendas)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.entradas)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.diferenca)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">{percentual(l)}</td>
     </>
   );
 }
@@ -87,9 +88,9 @@ export default async function ResumoMensalCartoesPage({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           Resumo mensal de Cartões — {postoNome ?? "Todos os postos"} — {mesValido ? rotuloMes(mesValido) : ""}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
@@ -102,7 +103,7 @@ export default async function ResumoMensalCartoesPage({
         conta de outra.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="mes" className="text-foreground/60">
             Mês
@@ -113,7 +114,7 @@ export default async function ResumoMensalCartoesPage({
             name="mes"
             defaultValue={mesValido ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -135,7 +136,7 @@ export default async function ResumoMensalCartoesPage({
             id="vendasPor"
             name="vendasPor"
             defaultValue={modo}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="venda">Data da venda</option>
             <option value="pagamento">Data do pagamento</option>
@@ -143,12 +144,12 @@ export default async function ResumoMensalCartoesPage({
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {mesValido && (
-          <Link href="/cartoes/resumo-mensal" className="text-foreground/60 underline">
+          <Link href="/cartoes/resumo-mensal" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -156,7 +157,7 @@ export default async function ResumoMensalCartoesPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/cartoes/resumo-mensal/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -175,7 +176,7 @@ export default async function ResumoMensalCartoesPage({
         <div className="space-y-4">
           {resultado.map((p) => (
             <div key={p.postoId} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-              <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+              <div className="border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
                 {p.posto}
               </div>
               <div className="overflow-x-auto">
@@ -187,7 +188,7 @@ export default async function ResumoMensalCartoesPage({
                         key={l.adquirente}
                         className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}
                       >
-                        <td className="px-4 py-1.5">
+                        <td className="px-4 py-3">
                           {l.adquirente}
                           {l.totalVendas === 0 && l.entradas > 0 && (
                             <span className="ml-2 text-xs text-foreground/50">sem vendas no sistema</span>
@@ -199,13 +200,13 @@ export default async function ResumoMensalCartoesPage({
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                      <td className="px-4 py-1.5">Total {p.posto}</td>
+                      <td className="px-4 py-3">Total {p.posto}</td>
                       <CelulasValores l={p.total} />
                     </tr>
                   </tfoot>
                 </table>
               </div>
-              <div className="space-y-0.5 border-t border-black/5 px-4 py-1.5 text-xs text-foreground/50 dark:border-white/10">
+              <div className="space-y-0.5 border-t border-black/5 px-4 py-3 text-xs text-foreground/50 dark:border-white/10">
                 <p>
                   Vendas ref. {formatarPeriodoReferencia(p.vendasDe, p.vendasAte)} · Extratos ref.{" "}
                   {formatarPeriodoReferencia(p.extratosDe, p.extratosAte)}
@@ -222,7 +223,7 @@ export default async function ResumoMensalCartoesPage({
               <table className="w-full text-sm">
                 <tbody>
                   <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">
-                    <td className="px-4 py-1.5">Total geral</td>
+                    <td className="px-4 py-3">Total geral</td>
                     <CelulasValores l={totalGeral} />
                   </tr>
                 </tbody>

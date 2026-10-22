@@ -6,6 +6,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarFechamentoCartoes, buscarCustoAntecipacao, type LinhaFechamento, type ModalidadeFechamento } from "@/lib/cartoes/fechamento";
 import { ROTULO_TIPO_FECHAMENTO } from "@/lib/cartoes/normalizar";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -70,9 +71,9 @@ export default async function FechamentoCartoesPage({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           Fechamento de Cartões — {postoNome ?? "Todos os postos"} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
@@ -83,7 +84,7 @@ export default async function FechamentoCartoesPage({
         escolher um posto, mostra todos agrupados.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -103,7 +104,7 @@ export default async function FechamentoCartoesPage({
             id="adquirenteId"
             name="adquirenteId"
             defaultValue={adquirenteId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todas</option>
             {adquirentes.map((a) => (
@@ -123,7 +124,7 @@ export default async function FechamentoCartoesPage({
             name="inicio"
             defaultValue={inicio ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -136,17 +137,17 @@ export default async function FechamentoCartoesPage({
             name="fim"
             defaultValue={fim ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/cartoes/fechamento" className="text-foreground/60 underline">
+          <Link href="/cartoes/fechamento" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -154,7 +155,7 @@ export default async function FechamentoCartoesPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/cartoes/fechamento/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -185,18 +186,18 @@ export default async function FechamentoCartoesPage({
             );
             return (
               <div key={posto} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-                <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+                <div className="border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
                   {posto}
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                  <thead className={CABECALHO_TABELA}>
                     <tr>
-                      <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                      <th className="px-4 py-1.5 text-left font-medium">Tipo</th>
-                      <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
-                      <th className="px-4 py-1.5 text-right font-medium">Total Bruto</th>
-                      <th className="px-4 py-1.5 text-right font-medium">Total Líquido</th>
-                      <th className="px-4 py-1.5 text-right font-medium">Taxas</th>
+                      <th className="px-4 py-2.5 text-left">Adquirente</th>
+                      <th className="px-4 py-2.5 text-left">Tipo</th>
+                      <th className="px-4 py-2.5 text-right">Qtd</th>
+                      <th className="px-4 py-2.5 text-right">Total Bruto</th>
+                      <th className="px-4 py-2.5 text-right">Total Líquido</th>
+                      <th className="px-4 py-2.5 text-right">Taxas</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -205,23 +206,23 @@ export default async function FechamentoCartoesPage({
                         key={`${l.adquirente}|${l.modalidade}`}
                         className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}
                       >
-                        <td className="px-4 py-1.5">{l.adquirente}</td>
-                        <td className="px-4 py-1.5 text-foreground/70">{ROTULO_MODALIDADE[l.modalidade]}</td>
-                        <td className="px-4 py-1.5 text-right">{l.qtd}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalBruto)}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalLiquido)}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.taxa)}</td>
+                        <td className="px-4 py-3">{l.adquirente}</td>
+                        <td className="px-4 py-3 text-foreground/70">{ROTULO_MODALIDADE[l.modalidade]}</td>
+                        <td className="px-4 py-3 text-right">{l.qtd}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.totalBruto)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.totalLiquido)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.taxa)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                      <td className="px-4 py-1.5" colSpan={3}>
+                      <td className="px-4 py-3" colSpan={3}>
                         Total {posto}
                       </td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(subtotal.bruto)}</td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(subtotal.liquido)}</td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(subtotal.taxa)}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(subtotal.bruto)}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(subtotal.liquido)}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(subtotal.taxa)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -231,44 +232,44 @@ export default async function FechamentoCartoesPage({
 
           {custoAntecipacao.length > 0 && (
             <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-              <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+              <div className="border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
                 Custo de antecipação <span className="font-normal text-foreground/60">(pela data em que o dinheiro caiu)</span>
               </div>
               <table className="w-full text-sm">
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+                <thead className={CABECALHO_TABELA}>
                   <tr>
-                    <th className="px-4 py-1.5 text-left font-medium">Posto</th>
-                    <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Antecipações</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor original</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Valor recebido</th>
-                    <th className="px-4 py-1.5 text-right font-medium">Custo</th>
+                    <th className="px-4 py-2.5 text-left">Posto</th>
+                    <th className="px-4 py-2.5 text-left">Adquirente</th>
+                    <th className="px-4 py-2.5 text-right">Antecipações</th>
+                    <th className="px-4 py-2.5 text-right">Valor original</th>
+                    <th className="px-4 py-2.5 text-right">Valor recebido</th>
+                    <th className="px-4 py-2.5 text-right">Custo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {custoAntecipacao.map((l) => (
                     <tr key={l.postoId + l.adquirente} className="border-t border-black/5 dark:border-white/10">
-                      <td className="px-4 py-1.5">{l.posto}</td>
-                      <td className="px-4 py-1.5">{l.adquirente}</td>
-                      <td className="px-4 py-1.5 text-right">{l.qtd}</td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valorFace)}</td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valorLiquido)}</td>
-                      <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.custo)}</td>
+                      <td className="px-4 py-3">{l.posto}</td>
+                      <td className="px-4 py-3">{l.adquirente}</td>
+                      <td className="px-4 py-3 text-right">{l.qtd}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.valorFace)}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.valorLiquido)}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.custo)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-black/10 bg-black/[0.03] font-semibold dark:border-white/10 dark:bg-white/[0.04]">
-                    <td className="px-4 py-1.5" colSpan={5}>
+                    <td className="px-4 py-3" colSpan={5}>
                       Total custo de antecipação
                     </td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalCustoAntecipacao)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalCustoAntecipacao)}</td>
                   </tr>
                   <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">
-                    <td className="px-4 py-1.5" colSpan={5}>
+                    <td className="px-4 py-3" colSpan={5}>
                       Taxas das vendas + custo de antecipação
                     </td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral.taxa + totalCustoAntecipacao)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalGeral.taxa + totalCustoAntecipacao)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -280,12 +281,12 @@ export default async function FechamentoCartoesPage({
               <table className="w-full text-sm">
                 <tbody>
                   <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">
-                    <td className="px-4 py-1.5" colSpan={3}>
+                    <td className="px-4 py-3" colSpan={3}>
                       Total geral
                     </td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral.bruto)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral.liquido)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totalGeral.taxa)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalGeral.bruto)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalGeral.liquido)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalGeral.taxa)}</td>
                   </tr>
                 </tbody>
               </table>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarConferenciaTaxas, type LinhaConferenciaTaxas } from "@/lib/cartoes/conferenciaTaxas";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -55,9 +56,9 @@ export default async function ConferenciaTaxasPage({
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           Conferência de Taxas — {postoNome || "Todos os postos"} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
@@ -69,7 +70,7 @@ export default async function ConferenciaTaxasPage({
         praticado.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -89,7 +90,7 @@ export default async function ConferenciaTaxasPage({
             id="adquirenteId"
             name="adquirenteId"
             defaultValue={adquirenteId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todas</option>
             {adquirentes.map((a) => (
@@ -109,7 +110,7 @@ export default async function ConferenciaTaxasPage({
             name="inicio"
             defaultValue={inicio ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -122,17 +123,17 @@ export default async function ConferenciaTaxasPage({
             name="fim"
             defaultValue={fim ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/cartoes/conferencia-taxas" className="text-foreground/60 underline">
+          <Link href="/cartoes/conferencia-taxas" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -140,7 +141,7 @@ export default async function ConferenciaTaxasPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/cartoes/conferencia-taxas/exportar?${qsExportar.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -169,21 +170,21 @@ export default async function ConferenciaTaxasPage({
       )}
 
       {linhas && linhas.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                {varios && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
-                <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                <th className="px-4 py-1.5 text-left font-medium">Modalidade (arquivo)</th>
-                <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
-                <th className="px-4 py-1.5 text-right font-medium">Bruto</th>
-                <th className="px-4 py-1.5 text-right font-medium">Taxa R$</th>
-                <th className="px-4 py-1.5 text-right font-medium">Líquido</th>
-                <th className="px-4 py-1.5 text-right font-medium">Prazo cadastrado</th>
-                <th className="px-4 py-1.5 text-right font-medium">Prazo real (arquivo)</th>
-                <th className="px-4 py-1.5 text-right font-medium">Taxa cadastrada</th>
-                <th className="px-4 py-1.5 text-right font-medium">Taxa real (arquivo)</th>
+                {varios && <th className="px-4 py-2.5 text-left">Posto</th>}
+                <th className="px-4 py-2.5 text-left">Adquirente</th>
+                <th className="px-4 py-2.5 text-left">Modalidade (arquivo)</th>
+                <th className="px-4 py-2.5 text-right">Qtd</th>
+                <th className="px-4 py-2.5 text-right">Bruto</th>
+                <th className="px-4 py-2.5 text-right">Taxa R$</th>
+                <th className="px-4 py-2.5 text-right">Líquido</th>
+                <th className="px-4 py-2.5 text-right">Prazo cadastrado</th>
+                <th className="px-4 py-2.5 text-right">Prazo real (arquivo)</th>
+                <th className="px-4 py-2.5 text-right">Taxa cadastrada</th>
+                <th className="px-4 py-2.5 text-right">Taxa real (arquivo)</th>
               </tr>
             </thead>
             <tbody>
@@ -200,28 +201,28 @@ export default async function ConferenciaTaxasPage({
                           : ""
                     }`}
                   >
-                    {varios && <td className="px-4 py-1.5">{l.posto}</td>}
-                    <td className="px-4 py-1.5">{l.adquirente}</td>
-                    <td className="px-4 py-1.5 text-foreground/70">{l.tipoVenda}</td>
-                    <td className="px-4 py-1.5 text-right">
+                    {varios && <td className="px-4 py-3">{l.posto}</td>}
+                    <td className="px-4 py-3">{l.adquirente}</td>
+                    <td className="px-4 py-3 text-foreground/70">{l.tipoVenda}</td>
+                    <td className="px-4 py-3 text-right">
                       {l.qtd}
                       {l.qtdSemLiquido > 0 && (
                         <span className="block text-xs text-foreground/50">{l.qtdSemLiquido} sem líquido ainda</span>
                       )}
                     </td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.somaBruto)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.somaTaxa)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.somaLiquido)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.somaBruto)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.somaTaxa)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.somaLiquido)}</td>
                     {l.semTaxaCadastrada ? (
-                      <td colSpan={4} className="px-4 py-1.5 text-center text-foreground/50">
+                      <td colSpan={4} className="px-4 py-3 text-center text-foreground/50">
                         Sem Taxas de Cartão cadastrada pra essa adquirente nesse posto
                       </td>
                     ) : (
                       <>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarDias(l.prazoCadastradoDias)}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarDias(l.prazoRealDias)}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarPct(l.taxaCadastradaPct)}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarPct(l.taxaRealPct)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarDias(l.prazoCadastradoDias)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarDias(l.prazoRealDias)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarPct(l.taxaCadastradaPct)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarPct(l.taxaRealPct)}</td>
                       </>
                     )}
                   </tr>

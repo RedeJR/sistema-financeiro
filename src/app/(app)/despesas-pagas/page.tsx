@@ -16,6 +16,8 @@ import {
 import { desfazerPagamento } from "./actions";
 import { buscarDespesasPagas, type FiltrosDespesasPagas } from "./consulta";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { Paginacao } from "@/components/ui/paginacao";
+import { lerParamsLista, paginar } from "@/lib/lista";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -109,7 +111,7 @@ function Badge({ status }: { status: StatusConciliacaoGrupo }) {
 export default async function DespesasPagasPage({
   searchParams,
 }: {
-  searchParams: Promise<FiltrosDespesasPagas>;
+  searchParams: Promise<FiltrosDespesasPagas & { pagina?: string; porPagina?: string }>;
 }) {
   await exigirPermissao("DESPESAS_PAGAS", "visualizar");
   const podeEditarDespesas = await podeEditarModulo("DESPESAS_PAGAS");
@@ -163,7 +165,7 @@ export default async function DespesasPagasPage({
   const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
   const temFiltro = Boolean(postoIds.length || fornecedorId || planoContaId || bancoId || de || ate || q);
   const qsParams = new URLSearchParams(
-    Object.entries(filtros).filter(([k, v]) => v && k !== "postoId") as [string, string][]
+    Object.entries(filtros).filter(([k, v]) => v && k !== "postoId" && k !== "pagina" && k !== "porPagina") as [string, string][]
   );
   anexarLista(qsParams, "postoId", postoIds);
   const qs = qsParams.toString();
@@ -185,7 +187,10 @@ export default async function DespesasPagasPage({
   const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
 
   const grupos = agruparPorDia(contas);
-  const gruposComBanco = grupos.filter((g): g is GrupoDespesa & { bancoId: string } => g.bancoId !== null);
+  // Paginação por grupo (dia + posto + banco): 10/25/50 grupos por página.
+  const estadoPag = lerParamsLista({ pagina: filtros.pagina, porPagina: filtros.porPagina }, { ordem: "x", dir: "asc" }, ["x"]);
+  const pagGrupos = paginar(grupos, estadoPag.pagina, estadoPag.porPagina);
+  const gruposComBanco = pagGrupos.itens.filter((g): g is GrupoDespesa & { bancoId: string } => g.bancoId !== null);
   const statusPorChave = await statusConciliacaoPorGrupo(
     gruposComBanco.map((g) => ({
       chave: g.chave,
@@ -359,7 +364,7 @@ export default async function DespesasPagasPage({
       {/* Barras de grupo e despesas na mesma grade; o cabeçalho das colunas fica dentro de cada grupo, logo acima das despesas. */}
       <div className={`${CARTAO} overflow-x-auto ${grupos.length === 0 ? "hidden" : ""}`}>
        <div className="min-w-[900px]">
-        {grupos.map((g) => {
+        {pagGrupos.itens.map((g) => {
           const status = g.bancoId ? statusPorChave.get(g.chave)?.status : undefined;
           const verMais = linkVerMais(g);
           return (
@@ -475,6 +480,17 @@ export default async function DespesasPagasPage({
         })}
        </div>
       </div>
+      <Paginacao
+        base="/despesas-pagas"
+        qs={qs}
+        pagina={pagGrupos.pagina}
+        totalPaginas={pagGrupos.totalPaginas}
+        total={pagGrupos.total}
+        inicio={pagGrupos.inicio}
+        mostrados={pagGrupos.itens.length}
+        porPagina={estadoPag.porPagina}
+        unidade="grupos (dia · posto · banco)"
+      />
       {grupos.length === 0 && (
         <p className="rounded-lg border border-black/10 px-4 py-6 text-center text-sm text-foreground/50 dark:border-white/15">
           Nenhuma despesa paga encontrada pra esse filtro.

@@ -6,6 +6,7 @@ import { buscarVendasCartoes, type LinhaVendas } from "@/lib/cartoes/vendas";
 import { ROTULO_MODALIDADE_VENDA } from "@/lib/cartoes/normalizar";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -58,9 +59,9 @@ export default async function VendasCartoesPage({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-bold tracking-tight">
           Vendas de Cartões — {postoNome || "Todos os postos"} — {inicio} a {fim}
         </h2>
         <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
@@ -71,7 +72,7 @@ export default async function VendasCartoesPage({
         extrato. Serve pra conferir se o arquivo foi lido certo.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -97,7 +98,7 @@ export default async function VendasCartoesPage({
             name="inicio"
             defaultValue={inicio ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -110,17 +111,17 @@ export default async function VendasCartoesPage({
             name="fim"
             defaultValue={fim ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/cartoes/vendas" className="text-foreground/60 underline">
+          <Link href="/cartoes/vendas" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -128,7 +129,7 @@ export default async function VendasCartoesPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/cartoes/vendas/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -150,42 +151,42 @@ export default async function VendasCartoesPage({
       )}
 
       {linhas && linhas.length > 0 && totais && (
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                {varios && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
-                <th className="px-4 py-1.5 text-left font-medium">Data</th>
-                <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                <th className="px-4 py-1.5 text-left font-medium">Modalidade</th>
-                <th className="px-4 py-1.5 text-right font-medium">Qtd</th>
-                <th className="px-4 py-1.5 text-right font-medium">Bruto</th>
-                <th className="px-4 py-1.5 text-right font-medium">Líquido</th>
-                <th className="px-4 py-1.5 text-right font-medium">Taxa</th>
+                {varios && <th className="px-4 py-2.5 text-left">Posto</th>}
+                <th className="px-4 py-2.5 text-left">Data</th>
+                <th className="px-4 py-2.5 text-left">Adquirente</th>
+                <th className="px-4 py-2.5 text-left">Modalidade</th>
+                <th className="px-4 py-2.5 text-right">Qtd</th>
+                <th className="px-4 py-2.5 text-right">Bruto</th>
+                <th className="px-4 py-2.5 text-right">Líquido</th>
+                <th className="px-4 py-2.5 text-right">Taxa</th>
               </tr>
             </thead>
             <tbody>
               {linhas.map((l: LinhaVendas) => (
                 <tr key={`${l.postoId}|${l.adquirenteId}|${l.data}|${l.modalidade}`} className="border-t border-black/5 dark:border-white/10">
-                  {varios && <td className="px-4 py-1.5">{l.posto}</td>}
-                  <td className="px-4 py-1.5 whitespace-nowrap">{formatarData(l.data)}</td>
-                  <td className="px-4 py-1.5">{l.adquirente}</td>
-                  <td className="px-4 py-1.5 text-foreground/70">{ROTULO_MODALIDADE_VENDA[l.modalidade]}</td>
-                  <td className="px-4 py-1.5 text-right">{l.qtd}</td>
-                  <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalBruto)}</td>
-                  <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.totalLiquido)}</td>
-                  <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.taxa)}</td>
+                  {varios && <td className="px-4 py-3">{l.posto}</td>}
+                  <td className="px-4 py-3 whitespace-nowrap">{formatarData(l.data)}</td>
+                  <td className="px-4 py-3">{l.adquirente}</td>
+                  <td className="px-4 py-3 text-foreground/70">{ROTULO_MODALIDADE_VENDA[l.modalidade]}</td>
+                  <td className="px-4 py-3 text-right">{l.qtd}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.totalBruto)}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.totalLiquido)}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.taxa)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                <td className="px-4 py-1.5" colSpan={varios ? 5 : 4}>
+              <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
+                <td className="px-4 py-3" colSpan={varios ? 5 : 4}>
                   Total
                 </td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.bruto)}</td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.liquido)}</td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.taxa)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.bruto)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.liquido)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.taxa)}</td>
               </tr>
             </tfoot>
           </table>
