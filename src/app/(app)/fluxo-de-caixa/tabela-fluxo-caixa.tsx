@@ -186,7 +186,7 @@ export function TabelaFluxoCaixa({ dias, podeEditar }: { dias: DiaFluxoCaixa[]; 
   return (
     <div className="space-y-4">
       {podeEditar && dias.length > 1 && (
-        <label className="flex items-center gap-2 text-sm text-foreground/80">
+        <label className="flex items-center gap-2 text-sm text-foreground/80 print:hidden">
           <input type="checkbox" checked={encadear} onChange={(e) => setEncadear(e.target.checked)} />
           Puxar o saldo final do dia anterior como saldo inicial do dia seguinte
         </label>

@@ -19,6 +19,11 @@ function paraDatetimeUTC(valor: string): Date {
   return new Date(`${valor}:00.000Z`);
 }
 
+function formatarTurno(v?: string): string {
+  const m = v?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}` : (v ?? "");
+}
+
 export default async function RelatorioCaixaPage({
   searchParams,
 }: {
@@ -56,7 +61,7 @@ export default async function RelatorioCaixaPage({
   return (
     <div className="space-y-6">
       <OrientacaoImpressao />
-      <CabecalhoImpressao titulo="Relatório de Caixa" detalhes={[{ rotulo: "Posto", valor: postoNome }, { rotulo: "Período", valor: `${inicio} a ${fim}` }]} />
+      <CabecalhoImpressao titulo="Relatório de Caixa" detalhes={[{ rotulo: "Posto", valor: postoNome }, { rotulo: "Turno", valor: `${formatarTurno(inicio)} a ${formatarTurno(fim)}` }]} />
 
       <div className="flex flex-wrap items-end gap-3 text-sm print:hidden">
       <form key={`${postoId}|${inicio}|${fim}`} className="flex flex-wrap items-end gap-3">
@@ -159,7 +164,7 @@ export default async function RelatorioCaixaPage({
           </div>
         )}
       </div>
-      <p className="text-xs text-foreground/50">
+      <p className="text-xs text-foreground/50 print:hidden">
         O fim pode ser no dia seguinte ao início — útil pra turnos que viram a noite (ex: 06:00 de um dia
         até 06:00 do dia seguinte).
       </p>
