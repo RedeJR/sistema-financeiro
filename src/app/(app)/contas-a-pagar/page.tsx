@@ -9,6 +9,7 @@ import { gerarOcorrenciasRecorrentesPendentes } from "./recorrencia";
 import { excluirContaAPagar, excluirContasEmMassa } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
+import { BOTAO_EDITAR, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, ETIQUETA_VERMELHA, TITULO_PAGINA } from "@/lib/estilo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ComentarioHover } from "@/components/ui/comentario-hover";
 
@@ -28,15 +29,15 @@ function statusDaConta(dataVencimento: Date, hoje: Date): StatusConta {
 
 function BadgeStatus({ status }: { status: StatusConta }) {
   const estilos: Record<StatusConta, string> = {
-    VENCIDA: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400",
-    A_VENCER: "bg-black/10 text-foreground/60 dark:bg-white/10",
+    VENCIDA: "rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-xs font-semibold text-[#A12727] dark:bg-red-900/40 dark:text-red-400",
+    A_VENCER: "rounded-full bg-[#EEF0F3] px-2.5 py-0.5 text-xs font-semibold text-[#374151] dark:bg-white/10 dark:text-foreground/70",
   };
   const rotulos: Record<StatusConta, string> = {
     VENCIDA: "Vencida",
     A_VENCER: "A vencer",
   };
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs ${estilos[status]}`}>{rotulos[status]}</span>
+    <span className={estilos[status]}>{rotulos[status]}</span>
   );
 }
 
@@ -128,22 +129,27 @@ export default async function ContasAPagarPage({
   const qsVoltarPara = `voltarPara=${encodeURIComponent(urlAtual)}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Contas a Pagar</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className={TITULO_PAGINA}>Contas a Pagar</h1>
+          <p className="mt-1.5 text-sm text-foreground/60">
+            Contas lançadas por vencimento. O pagamento é marcado na Conferência Diária.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Link
             href={linkRelatorio}
             target="_blank"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Relatório (imprimir / PDF)
           </Link>
           {podeEditar && (
             <Link
               href={`/contas-a-pagar/novo?${qsVoltarPara}`}
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
             >
               + Nova conta
             </Link>
@@ -151,7 +157,18 @@ export default async function ContasAPagarPage({
         </div>
       </div>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <section aria-label="Resumo" className="flex flex-wrap gap-4">
+        <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
+          <p className="text-[13px] text-foreground/60">Contas no filtro</p>
+          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{contasComStatus.length}</p>
+        </div>
+        <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
+          <p className="text-[13px] text-foreground/60">Total</p>
+          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{formatarMoeda(total)}</p>
+        </div>
+      </section>
+
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="q" className="text-foreground/60">
             Buscar
@@ -162,7 +179,7 @@ export default async function ContasAPagarPage({
             name="q"
             defaultValue={q ?? ""}
             placeholder="Fornecedor ou descrição"
-            className="min-w-[14rem] rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={`${CAMPO} min-w-[14rem]`}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -184,7 +201,7 @@ export default async function ContasAPagarPage({
             id="status"
             name="status"
             defaultValue={status ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             <option value="A_VENCER">A vencer</option>
@@ -200,7 +217,7 @@ export default async function ContasAPagarPage({
             type="date"
             name="de"
             defaultValue={de ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -212,26 +229,20 @@ export default async function ContasAPagarPage({
             type="date"
             name="ate"
             defaultValue={ate ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
-        <button
-          type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-        >
+        <button type="submit" className={BOTAO_PRIMARIO}>
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/contas-a-pagar" className="text-foreground/60 underline">
+          <Link href="/contas-a-pagar" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
       </form>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-foreground/60">
-          {contasComStatus.length} conta{contasComStatus.length === 1 ? "" : "s"} — total {formatarMoeda(total)}
-        </p>
+      <div className="flex items-center justify-end">
         {podeEditar && (
           <ConfirmSubmitButton
             form={FORM_MASSA}
@@ -244,33 +255,33 @@ export default async function ContasAPagarPage({
       </div>
       {podeEditar && <form id={FORM_MASSA} action={excluirContasEmMassa} />}
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
               {podeEditar && (
-                <th className="px-4 py-2 text-left font-medium">
+                <th className="px-4 py-2.5 text-left">
                   <SelecionarTodos formId={FORM_MASSA} />
                 </th>
               )}
-              <th className="px-4 py-2 text-left font-medium">Vencimento</th>
-              <th className="px-4 py-2 text-left font-medium">Posto</th>
-              <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
-              <th className="px-4 py-2 text-left font-medium">Descrição</th>
-              <th className="px-4 py-2 text-right font-medium">Valor</th>
-              <th className="px-4 py-2 text-left font-medium">Status</th>
-              {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
+              <th className="px-4 py-2.5 text-left">Vencimento</th>
+              <th className="px-4 py-2.5 text-left">Posto</th>
+              <th className="px-4 py-2.5 text-left">Fornecedor</th>
+              <th className="px-4 py-2.5 text-left">Descrição</th>
+              <th className="px-4 py-2.5 text-right">Valor</th>
+              <th className="px-4 py-2.5 text-left">Status</th>
+              {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
             {contasComStatus.map((c) => (
-              <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
+              <tr key={c.id} className="border-t border-black/10 hover:bg-black/[0.015] dark:border-white/10 dark:hover:bg-white/[0.03]">
                 {podeEditar && (
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <input type="checkbox" name="ids" value={c.id} form={FORM_MASSA} />
                   </td>
                 )}
-                <td className="px-4 py-2">
+                <td className="px-4 py-3">
                   {formatarData(c.dataVencimento)}
                   {c.totalParcelas ? (
                     <span className="block text-xs text-foreground/40">
@@ -283,9 +294,9 @@ export default async function ContasAPagarPage({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-2">{c.posto.nome}</td>
-                <td className="px-4 py-2">{c.fornecedor.nome}</td>
-                <td className="px-4 py-2 text-foreground/70">
+                <td className="px-4 py-3">{c.posto.nome}</td>
+                <td className="px-4 py-3">{c.fornecedor.nome}</td>
+                <td className="px-4 py-3 text-foreground/70">
                   {c.descricao ?? "—"}
                   {c.observacao && (
                     <>
@@ -294,16 +305,16 @@ export default async function ContasAPagarPage({
                     </>
                   )}
                 </td>
-                <td className="px-4 py-2 text-right">{formatarMoeda(c.valor.toString())}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3 text-right">{formatarMoeda(c.valor.toString())}</td>
+                <td className="px-4 py-3">
                   <BadgeStatus status={c.status} />
                 </td>
                 {podeEditar && (
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Link
                         href={`/contas-a-pagar/${c.id}/editar?${qsVoltarPara}`}
-                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                        className={BOTAO_EDITAR}
                       >
                         Editar
                       </Link>

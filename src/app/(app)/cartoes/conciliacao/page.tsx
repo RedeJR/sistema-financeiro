@@ -11,6 +11,7 @@ import {
 } from "@/lib/cartoes/conciliacao";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { BotaoImprimir } from "./botao-imprimir";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -27,9 +28,9 @@ const ROTULO_STATUS: Record<StatusConciliacao, string> = {
 };
 
 const COR_STATUS: Record<StatusConciliacao, string> = {
-  CONCILIADO: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400",
-  DIVERGENTE: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400",
-  PENDENTE: "bg-black/10 text-foreground/60 dark:bg-white/10",
+  CONCILIADO: "bg-[#E7F6EC] text-[#14693A] dark:bg-green-900/40 dark:text-green-400",
+  DIVERGENTE: "bg-[#FDECEC] text-[#A12727] dark:bg-red-900/40 dark:text-red-400",
+  PENDENTE: "bg-[#EEF0F3] text-[#374151] dark:bg-white/10 dark:text-foreground/70",
 };
 
 const COR_LINHA: Record<StatusConciliacao, string> = {
@@ -103,7 +104,7 @@ export default async function ConciliacaoCartoesPage({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="hidden print:block">
         <h2 className="text-lg font-semibold">
           Conciliação de Cartões — {postoNome ?? ""} — {inicio} a {fim}
@@ -117,7 +118,7 @@ export default async function ConciliacaoCartoesPage({
         é lançamento que não bate com o esperado.
       </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm print:hidden">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -141,7 +142,7 @@ export default async function ConciliacaoCartoesPage({
             id="agruparPor"
             name="agruparPor"
             defaultValue={agrupamento}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="recebimento">Data do recebimento</option>
             <option value="adquirente">Adquirente</option>
@@ -155,7 +156,7 @@ export default async function ConciliacaoCartoesPage({
             id="status"
             name="status"
             defaultValue={status ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             <option value="CONCILIADO">Conciliado</option>
@@ -171,7 +172,7 @@ export default async function ConciliacaoCartoesPage({
             id="filtrarPor"
             name="filtrarPor"
             defaultValue={filtrarPorVenda ? "venda" : "pagamento"}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="pagamento">Data de pagamento</option>
             <option value="venda">Data de venda</option>
@@ -187,7 +188,7 @@ export default async function ConciliacaoCartoesPage({
             name="inicio"
             defaultValue={inicio ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -200,17 +201,17 @@ export default async function ConciliacaoCartoesPage({
             name="fim"
             defaultValue={fim ?? ""}
             required
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
         {temFiltro && (
-          <Link href="/cartoes/conciliacao" className="text-foreground/60 underline">
+          <Link href="/cartoes/conciliacao" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
@@ -218,7 +219,7 @@ export default async function ConciliacaoCartoesPage({
           <div className="ml-auto flex items-center gap-2">
             <Link
               href={`/cartoes/conciliacao/exportar?${qsBase.toString()}`}
-              className="rounded-md border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className={`${BOTAO_SECUNDARIO} font-medium`}
             >
               Exportar (Excel)
             </Link>
@@ -249,21 +250,21 @@ export default async function ConciliacaoCartoesPage({
       )}
 
       {linhas && linhas.length > 0 && totais && (
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                {varios && <th className="px-4 py-1.5 text-left font-medium">Posto</th>}
-                <th className="px-4 py-1.5 text-left font-medium">{colunaData}</th>
-                <th className="px-4 py-1.5 text-left font-medium">Adquirente</th>
-                <th className="px-4 py-1.5 text-left font-medium">Prazo</th>
-                <th className="px-4 py-1.5 text-right font-medium">Qtd vendas</th>
-                <th className="px-4 py-1.5 text-right font-medium">Esperado</th>
-                <th className="px-4 py-1.5 text-right font-medium">Extrato Débito</th>
-                <th className="px-4 py-1.5 text-right font-medium">Extrato Crédito</th>
-                <th className="px-4 py-1.5 text-right font-medium">Diferença</th>
-                <th className="px-4 py-1.5 text-left font-medium">Status</th>
-                <th className="px-4 py-1.5 text-left font-medium print:hidden">Lançamentos</th>
+                {varios && <th className="px-4 py-2.5 text-left">Posto</th>}
+                <th className="px-4 py-2.5 text-left">{colunaData}</th>
+                <th className="px-4 py-2.5 text-left">Adquirente</th>
+                <th className="px-4 py-2.5 text-left">Prazo</th>
+                <th className="px-4 py-2.5 text-right">Qtd vendas</th>
+                <th className="px-4 py-2.5 text-right">Esperado</th>
+                <th className="px-4 py-2.5 text-right">Extrato Débito</th>
+                <th className="px-4 py-2.5 text-right">Extrato Crédito</th>
+                <th className="px-4 py-2.5 text-right">Diferença</th>
+                <th className="px-4 py-2.5 text-left">Status</th>
+                <th className="px-4 py-2.5 text-left print:hidden">Lançamentos</th>
               </tr>
             </thead>
             <tbody>
@@ -279,25 +280,25 @@ export default async function ConciliacaoCartoesPage({
                     key={l.chave}
                     className={`border-t border-black/5 dark:border-white/10 ${COR_LINHA[l.status]}`}
                   >
-                    {varios && <td className="px-4 py-1.5">{l.posto}</td>}
-                    <td className="px-4 py-1.5 whitespace-nowrap">
+                    {varios && <td className="px-4 py-3">{l.posto}</td>}
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {l.data ? formatarData(l.data) : `${formatarData(l.dataLinkDe)} a ${formatarData(l.dataLinkAte)}`}
                     </td>
-                    <td className="px-4 py-1.5">{l.adquirente}</td>
-                    <td className="px-4 py-1.5 text-foreground/60">
+                    <td className="px-4 py-3">{l.adquirente}</td>
+                    <td className="px-4 py-3 text-foreground/60">
                       {l.fontePrazo === "ARQUIVO" ? "Arquivo" : l.fontePrazo === "MISTO" ? "Arquivo + regra fixa" : "Sistema (regra fixa)"}
                     </td>
-                    <td className="px-4 py-1.5 text-right">{l.qtdVendas}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.esperado)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.extratoDebito)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.extratoCredito)}</td>
-                    <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.diferenca)}</td>
-                    <td className="px-4 py-1.5">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${COR_STATUS[l.status]}`}>
+                    <td className="px-4 py-3 text-right">{l.qtdVendas}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.esperado)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.extratoDebito)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.extratoCredito)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.diferenca)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${COR_STATUS[l.status]}`}>
                         {ROTULO_STATUS[l.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-1.5 print:hidden">
+                    <td className="px-4 py-3 print:hidden">
                       {l.categoriaId && (
                         <Link href={`/extratos/editar?${qsLancamentos.toString()}`} className="text-foreground/60 underline">
                           Ver
@@ -309,13 +310,13 @@ export default async function ConciliacaoCartoesPage({
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t border-black/10 bg-blue-950/10 font-semibold dark:border-white/10 dark:bg-blue-950/25">
-                <td className="px-4 py-1.5" colSpan={varios ? 5 : 4}>
+              <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
+                <td className="px-4 py-3" colSpan={varios ? 5 : 4}>
                   Total
                 </td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.esperado)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.esperado)}</td>
                 <td colSpan={2}></td>
-                <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(totais.diferenca)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totais.diferenca)}</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>

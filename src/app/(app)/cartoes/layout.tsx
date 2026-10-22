@@ -1,5 +1,6 @@
 import { exigirPermissao } from "@/lib/auth";
 import { AbasNav } from "./abas-nav";
+import { TITULO_PAGINA } from "@/lib/estilo";
 
 const ABAS = [
   { href: "/cartoes/conferencia-taxas", label: "Taxas" },
@@ -16,7 +17,10 @@ export default async function CartoesLayout({ children }: { children: React.Reac
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Cartões</h1>
+        <h1 className={TITULO_PAGINA}>Cartões</h1>
+        <p className="mt-1.5 text-sm text-foreground/60 print:hidden">
+          Taxas, vendas, recebimentos e antecipações das maquininhas e vouchers.
+        </p>
         <AbasNav abas={ABAS} />
       </div>
       {children}
