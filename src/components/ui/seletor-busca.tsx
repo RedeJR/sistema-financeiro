@@ -46,6 +46,9 @@ export function SeletorBusca({
   const atual = valor ?? interno;
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
+  // Opção destacada pelo teclado (setas) ou pelo mouse; Enter escolhe ela.
+  const [destaque, setDestaque] = useState(0);
+  const listaRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,11 +71,18 @@ export function SeletorBusca({
     return itens.filter((i) => normalizar(i.nome).includes(termo));
   }, [itens, busca]);
 
+  // Mantém a opção destacada visível ao andar com as setas numa lista longa.
+  useEffect(() => {
+    if (!aberto) return;
+    listaRef.current?.querySelector('[data-destaque="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [destaque, aberto]);
+
   function escolher(novo: string) {
     setInterno(novo);
     onChange?.(novo);
     setAberto(false);
     setBusca("");
+    setDestaque(0);
   }
 
   return (
@@ -100,12 +110,21 @@ export function SeletorBusca({
         onFocus={() => setAberto(true)}
         onChange={(e) => {
           setBusca(e.target.value);
+          setDestaque(0);
           setAberto(true);
         }}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && aberto) {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
-            if (filtrados.length > 0) escolher(filtrados[0].id);
+            if (!aberto) {
+              setAberto(true);
+              return;
+            }
+            const n = filtrados.length;
+            if (n > 0) setDestaque((d) => (e.key === "ArrowDown" ? (d + 1) % n : (d - 1 + n) % n));
+          } else if (e.key === "Enter" && aberto) {
+            e.preventDefault();
+            if (filtrados.length > 0) escolher(filtrados[Math.min(destaque, filtrados.length - 1)].id);
           } else if (e.key === "Escape") {
             setAberto(false);
             setBusca("");
@@ -114,7 +133,7 @@ export function SeletorBusca({
         className="w-full rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/40 dark:border-white/20"
       />
       {aberto && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-black/15 bg-background text-sm shadow-lg dark:border-white/20">
+        <ul ref={listaRef} className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-black/15 bg-background text-sm shadow-lg dark:border-white/20">
           {rotuloVazio !== undefined && (
             <li>
               <button
@@ -130,13 +149,15 @@ export function SeletorBusca({
           {filtrados.length === 0 ? (
             <li className="px-3 py-2 text-foreground/50">Nada encontrado.</li>
           ) : (
-            filtrados.map((i) => (
+            filtrados.map((i, idx) => (
               <li key={i.id}>
                 <button
                   type="button"
+                  data-destaque={idx === destaque}
                   onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setDestaque(idx)}
                   onClick={() => escolher(i.id)}
-                  className={`w-full px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10 ${
+                  className={`w-full px-3 py-2 text-left ${idx === destaque ? "bg-black/5 dark:bg-white/10" : ""} ${
                     i.id === atual ? "font-medium" : ""
                   }`}
                 >
