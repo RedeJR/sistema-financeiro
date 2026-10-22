@@ -8,6 +8,7 @@ import { buscarRelatorioCampoExtrato, listarCategoriasRelatorioExtrato } from "@
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -58,7 +59,8 @@ export default async function RelatoriosExtratosPage({
   anexarLista(qsBase, "postoId", postoIds);
 
   return (
-    <div className="pagina-paisagem space-y-6">
+    <div className="space-y-6">
+      <OrientacaoImpressao />
       <CabecalhoImpressao titulo={`Relatório de Extrato — ${nomeCategoria}`} detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${de} a ${ate}` }]} />
 
       <div className="flex items-center justify-between print:hidden">

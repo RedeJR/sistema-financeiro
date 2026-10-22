@@ -12,6 +12,7 @@ import {
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function rotuloMes(mes: string): string {
   const [ano, m] = mes.split("-").map(Number);
@@ -89,7 +90,8 @@ export default async function ResumoMensalCartoesPage({
   );
 
   return (
-    <div className="pagina-paisagem space-y-6">
+    <div className="space-y-6">
+      <OrientacaoImpressao />
       <CabecalhoImpressao titulo="Resumo mensal de Cartões" detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Mês", valor: mesValido ? rotuloMes(mesValido) : "" }]} />
 
       <p className="text-sm text-foreground/60 print:hidden">

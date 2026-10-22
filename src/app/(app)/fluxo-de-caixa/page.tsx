@@ -8,6 +8,7 @@ import { BotaoImprimir } from "./botao-imprimir";
 import { TabelaFluxoCaixa } from "./tabela-fluxo-caixa";
 import { BOTAO_PRIMARIO, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function formatarDiaBR(iso: string): string {
   return iso.split("-").reverse().join("/");
@@ -59,7 +60,8 @@ export default async function FluxoDeCaixaPage({
   const voltarPara = `/fluxo-de-caixa?${qsAtual.toString()}`;
 
   return (
-    <div className="pagina-paisagem space-y-6">
+    <div className="space-y-6">
+      <OrientacaoImpressao />
       <CabecalhoImpressao titulo="Fluxo de Caixa" detalhes={[{ rotulo: "Período", valor: de === ate ? formatarDiaBR(de) : `${formatarDiaBR(de)} a ${formatarDiaBR(ate)}` }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 print:hidden">
         <div>

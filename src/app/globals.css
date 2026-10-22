@@ -65,13 +65,6 @@ body {
       color: #9aa1ad;
     }
   }
-  @page paisagem {
-    size: A4 landscape;
-  }
-  /* Relatório com tabela larga: a página inteira vira paisagem. */
-  .pagina-paisagem {
-    page: paisagem;
-  }
   /* Por padrão o navegador descarta cor de fundo/texto ao imprimir (economia
      de tinta) — sem isso, as faixas coloridas sumiriam no PDF. */
   * {

@@ -8,6 +8,7 @@ import { paraLista } from "@/lib/filtro-multiplo";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function fmtPct(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
@@ -72,10 +73,11 @@ export default async function TaxasCartaoPage({
   }
 
   return (
-    <div className="pagina-paisagem space-y-6">
+    <div className="space-y-6">
+      <OrientacaoImpressao />
       <style>{CSS_TABELA}</style>
       <CabecalhoImpressao titulo="Taxas de Cartão" />
-      <p className="text-sm text-foreground/60">
+      <p className="text-sm text-foreground/60 print:hidden">
         Taxas de cartão por posto/adquirente — base pra futura Conciliação de Cartões. Taxa em branco = não
         contratado.
       </p>
