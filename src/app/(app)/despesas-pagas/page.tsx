@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Fragment } from "react";
+import { BotaoVerDescricao, BlocoDescricao } from "@/components/ui/ver-descricao";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
 import { SeletorBusca } from "@/components/ui/seletor-busca";
@@ -351,7 +353,7 @@ export default async function DespesasPagasPage({
       <div className={`overflow-x-auto rounded-lg border border-black/10 dark:border-white/15 ${grupos.length === 0 ? "hidden" : ""}`}>
        <div className="min-w-[820px]">
         {grupos.length > 0 && (
-          <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_4.5rem_9.5rem] gap-x-3 bg-black/[0.04] px-4 py-1.5 text-xs font-medium text-foreground/60 dark:bg-white/[0.05]">
+          <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_11rem_9.5rem] gap-x-3 bg-black/[0.04] px-4 py-1.5 text-xs font-medium text-foreground/60 dark:bg-white/[0.05]">
             <span>Fornecedor</span>
             <span>Plano de contas</span>
             <span />
@@ -365,7 +367,7 @@ export default async function DespesasPagasPage({
           const verMais = linkVerMais(g);
           return (
             <div key={g.chave} className="border-t border-black/10 dark:border-white/15">
-              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_4.5rem_9.5rem] gap-x-3 items-center bg-blue-950/10 px-4 py-2 dark:bg-blue-950/25">
+              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_11rem_9.5rem] gap-x-3 items-center bg-blue-950/10 px-4 py-2 dark:bg-blue-950/25">
                 <span className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-foreground/80">
                   <span>
                     {formatarData(g.data)} — {g.postoNome} — {g.bancoNome ?? "sem banco definido"} — {g.quantidade}{" "}
@@ -408,9 +410,9 @@ export default async function DespesasPagasPage({
                     <div>
                       <div className="divide-y divide-black/5 dark:divide-white/10">
                         {g.despesas.map((c) => (
+                          <Fragment key={c.id}>
                           <div
-                            key={c.id}
-                            className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_4.5rem_9.5rem] items-center gap-x-3 px-4 py-1.5 text-sm"
+                            className="item-desc grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_7rem_11rem_9.5rem] items-center gap-x-3 px-4 py-1.5 text-sm"
                           >
                             <span className="break-words">{c.fornecedor.nome}</span>
                             <span className="break-words text-foreground/60">
@@ -432,12 +434,15 @@ export default async function DespesasPagasPage({
                               )}
                             </span>
                             <span className="text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}</span>
-                            <Link
-                              href={`/despesas-pagas/${c.id}/editar?${qsVoltarPara}`}
-                              className="rounded-md bg-amber-300 px-2 py-1 text-center text-xs font-medium text-amber-950 hover:bg-amber-400"
-                            >
-                              Editar
-                            </Link>
+                            <span className="flex items-center justify-end gap-1">
+                              <BotaoVerDescricao id={c.id} descricao={c.descricao} />
+                              <Link
+                                href={`/despesas-pagas/${c.id}/editar?${qsVoltarPara}`}
+                                className="rounded-md bg-amber-300 px-2 py-1 text-center text-xs font-medium text-amber-950 hover:bg-amber-400"
+                              >
+                                Editar
+                              </Link>
+                            </span>
                             <form action={desfazerPagamento} className="text-right">
                               <input type="hidden" name="id" value={c.id} />
                               <ConfirmSubmitButton
@@ -448,6 +453,8 @@ export default async function DespesasPagasPage({
                               </ConfirmSubmitButton>
                             </form>
                           </div>
+                          <BlocoDescricao texto={c.descricao} />
+                          </Fragment>
                         ))}
                       </div>
                     </div>

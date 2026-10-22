@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { paraLista, emLista, anexarLista } from "@/lib/filtro-multiplo";
@@ -10,6 +11,7 @@ import { nomeBancoPadraoDoPosto } from "@/lib/banco-padrao-posto";
 import { gerarOcorrenciasRecorrentesPendentes } from "@/app/(app)/contas-a-pagar/recorrencia";
 import { marcarComoPagas } from "./actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
+import { BotaoVerDescricao, LinhaDescricao } from "@/components/ui/ver-descricao";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ComentarioHover } from "@/components/ui/comentario-hover";
 
@@ -325,7 +327,8 @@ export default async function ConferenciaDiariaPage({
             {contas.map((c) => {
               const vencida = c.dataVencimento < hoje;
               return (
-                <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
+                <Fragment key={c.id}>
+                <tr className="item-desc border-t border-black/10 dark:border-white/10">
                   {podeEditar && (
                     <td className="px-4 py-2">
                       <input type="checkbox" name="ids" value={c.id} form={FORM_PAGAR} />
@@ -369,7 +372,8 @@ export default async function ConferenciaDiariaPage({
                   </td>
                   <td className="px-4 py-2 text-right">{formatarMoeda(c.valor.toString())}</td>
                   {podeEditar && (
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <BotaoVerDescricao id={c.id} descricao={c.descricao} />
                       <Link
                         href={`/contas-a-pagar/${c.id}/editar?${qsVoltarPara}`}
                         className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
@@ -379,6 +383,8 @@ export default async function ConferenciaDiariaPage({
                     </td>
                   )}
                 </tr>
+                <LinhaDescricao colSpan={podeEditar ? 8 : 6} texto={c.descricao} />
+                </Fragment>
               );
             })}
             {contas.length === 0 && (

@@ -47,3 +47,21 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* "Ver descrição" nas listas de contas (ver components/ui/ver-descricao.tsx):
+   um checkbox escondido dentro da linha liga/desliga a linha de descrição que
+   vem logo abaixo — sem JavaScript, funciona com a página renderizada no servidor. */
+.linha-desc,
+.linha-desc-bloco {
+  display: none;
+}
+.item-desc:has(.toggle-desc:checked) + .linha-desc {
+  display: table-row;
+}
+.item-desc:has(.toggle-desc:checked) + .linha-desc-bloco {
+  display: block;
+}
+.toggle-desc:checked + label .rotulo-ver,
+.toggle-desc:not(:checked) + label .rotulo-ocultar {
+  display: none;
+}
