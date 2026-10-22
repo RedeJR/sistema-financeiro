@@ -88,7 +88,7 @@ export async function NavPrincipal() {
       <div className="px-4 py-5">
         <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
           <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-lg bg-blue-700 text-[15px] text-white">
-            SF
+            JR
           </span>
           Sistema Financeiro
         </Link>

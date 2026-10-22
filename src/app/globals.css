@@ -86,17 +86,51 @@ body {
   /* Letra da tabela proporcional à do resto da página (os títulos de coluna
      usam px e ficavam maiores que o corpo, que usa rem). */
   table th {
-    font-size: 7.5px !important;
+    font-size: var(--print-th, 7.5px) !important;
     letter-spacing: 0.02em !important;
   }
   table td {
-    font-size: 8.5px !important;
+    font-size: var(--print-td, 8.5px) !important;
     padding-top: 5px !important;
     padding-bottom: 5px !important;
   }
   table th {
     padding-top: 6px !important;
     padding-bottom: 6px !important;
+  }
+  /* Tabela larga (muitas colunas, ex: Fechamento do extrato): colunas de largura igual, margens mínimas. */
+  .tabela-compacta {
+    table-layout: fixed;
+  }
+  .tabela-compacta th,
+  .tabela-compacta td {
+    padding: 2.5px 3px !important;
+    overflow-wrap: anywhere;
+  }
+  .tabela-compacta th {
+    white-space: normal !important;
+    vertical-align: bottom;
+    hyphens: auto;
+    overflow-wrap: break-word !important;
+  }
+  /* Muitas colunas: o nome de cada categoria na vertical (cabe inteiro e legível). */
+  .cabecalho-vertical th:not(:first-child):not(:last-child) {
+    writing-mode: sideways-lr;
+    white-space: nowrap !important;
+    text-align: left !important;
+    height: 74px;
+    vertical-align: bottom;
+    padding: 2px 1px !important;
+    letter-spacing: 0 !important;
+    font-size: 5.5px !important;
+  }
+  .tabela-compacta th:first-child,
+  .tabela-compacta td:first-child {
+    width: 3.5%;
+  }
+  .tabela-compacta th:last-child,
+  .tabela-compacta td:last-child {
+    width: 8.5%;
   }
   /* Sombras e cantos arredondados de cartão não fazem sentido no papel. */
   .shadow,

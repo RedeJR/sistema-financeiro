@@ -20,7 +20,7 @@ export async function CabecalhoImpressao({
   return (
     <header className="hidden items-start justify-between gap-6 border-b-2 border-blue-700 pb-3 print:flex">
       <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-base font-bold text-white">SF</span>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-base font-bold text-white">JR</span>
         <div>
           <p className="text-[8px] font-semibold tracking-wider text-gray-500 uppercase">Sistema Financeiro</p>
           <h1 className="mt-0.5 text-[19px] leading-tight font-bold tracking-tight text-gray-900">{titulo}</h1>
