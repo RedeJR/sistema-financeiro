@@ -25,9 +25,11 @@ body {
   font-family: var(--font-inter), system-ui, Arial, sans-serif;
 }
 
-/* Relatórios impressos/salvos como PDF (ver botao-imprimir.tsx): fonte
-   menor e margens enxutas pra caber mais linha por página, sem depender do
-   zoom de impressão do navegador. */
+/* Relatórios impressos/salvos como PDF (ver components/ui/cabecalho-impressao.tsx):
+   cabeçalho padrão no topo, rodapé com "Página N de M" em todas as páginas, linhas
+   inteiras (nunca cortadas entre páginas) e cabeçalho da tabela repetido. Os quadros
+   vazios de topo/rodapé abaixo desligam o cabeçalho do navegador (data, título e
+   endereço do sistema), que ficava feio e mostrava a URL interna no PDF. */
 @media print {
   /* No html (raiz), não no body: as classes de fonte do Tailwind (text-sm
      etc.) usam rem, que é relativo ao font-size da raiz — mudar só o body
@@ -35,16 +37,77 @@ body {
   html {
     font-size: 10px;
   }
+  body {
+    background: #fff;
+  }
   @page {
-    margin: 10mm;
+    margin: 12mm 10mm 14mm;
+    @top-left {
+      content: "";
+    }
+    @top-center {
+      content: "";
+    }
+    @top-right {
+      content: "";
+    }
+    @bottom-center {
+      content: "";
+    }
+    @bottom-left {
+      content: "Sistema Financeiro · documento gerado automaticamente";
+      font: 8px Arial, sans-serif;
+      color: #9aa1ad;
+    }
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font: 8px Arial, sans-serif;
+      color: #9aa1ad;
+    }
+  }
+  @page paisagem {
+    size: A4 landscape;
+  }
+  /* Relatório com tabela larga: a página inteira vira paisagem. */
+  .pagina-paisagem {
+    page: paisagem;
   }
   /* Por padrão o navegador descarta cor de fundo/texto ao imprimir (economia
-     de tinta) — sem isso, o cabeçalho azul-marinho do Relatório de Contas
-     (ver relatorios/page.tsx) sumiria na hora de imprimir/exportar em PDF,
-     mesmo aparecendo certo na tela. */
+     de tinta) — sem isso, as faixas coloridas sumiriam no PDF. */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* Tabelas: cabeçalho repete em cada página, linha não parte no meio, e o
+     rodapé de totais aparece uma vez só (no fim), não em todas as páginas. */
+  thead {
+    display: table-header-group;
+  }
+  tfoot {
+    display: table-row-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  /* Letra da tabela proporcional à do resto da página (os títulos de coluna
+     usam px e ficavam maiores que o corpo, que usa rem). */
+  table th {
+    font-size: 7.5px !important;
+    letter-spacing: 0.02em !important;
+  }
+  table td {
+    font-size: 8.5px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+  table th {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+  /* Sombras e cantos arredondados de cartão não fazem sentido no papel. */
+  .shadow,
+  .shadow-sm {
+    box-shadow: none !important;
   }
 }
 

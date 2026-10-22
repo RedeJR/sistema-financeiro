@@ -13,7 +13,7 @@ export default async function EntrePostosLayout({ children }: { children: React.
   return (
     <div className="space-y-6">
       <div>
-        <h1 className={TITULO_PAGINA}>Entre Postos</h1>
+        <h1 className={`${TITULO_PAGINA} print:hidden`}>Entre Postos</h1>
         <AbasNav abas={ABAS} />
       </div>
       {children}

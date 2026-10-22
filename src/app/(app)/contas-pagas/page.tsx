@@ -11,6 +11,7 @@ import {
 } from "@/app/(app)/relatorios/consulta";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 // Mesma tela do botão "Relatório (imprimir / PDF)" de Contas a Pagar (pedido
 // da usuária) — reaproveita a consulta e o agrupamento de lá (buscarRelatorio
@@ -86,10 +87,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
         <h1 className={TITULO_PAGINA}>Contas Pagas</h1>
         <BotaoImprimir />
       </div>
-      <div className="hidden print:block">
-        <h1 className="text-xl font-semibold">Contas Pagas</h1>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+      <CabecalhoImpressao titulo="Contas Pagas" />
 
       <form className="space-y-1.5 text-sm print:hidden">
         <div className="flex flex-wrap items-end gap-4">

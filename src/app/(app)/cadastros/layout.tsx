@@ -18,7 +18,7 @@ export default async function CadastrosLayout({ children }: { children: React.Re
   return (
     <div className="space-y-6">
       <div>
-        <h1 className={TITULO_PAGINA}>Cadastros</h1>
+        <h1 className={`${TITULO_PAGINA} print:hidden`}>Cadastros</h1>
         <AbasNav abas={SUBMENU} />
       </div>
       {children}

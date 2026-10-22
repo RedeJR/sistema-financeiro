@@ -7,6 +7,7 @@ import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { paraLista } from "@/lib/filtro-multiplo";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function fmtPct(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
@@ -27,7 +28,6 @@ const CSS_TABELA = `
 .tabela-taxas th:nth-child(7) { width: 11%; } .tabela-taxas th:nth-child(8) { width: 5%; }
 .tabela-taxas th:nth-child(9) { width: 10%; } .tabela-taxas th:nth-child(10) { width: 6%; }
 .tabela-taxas th:nth-child(11) { width: 17%; }
-@page { size: A4 landscape; margin: 10mm; }
 @media print {
   .tabela-taxas th:nth-child(1) { width: 10%; } .tabela-taxas th:nth-child(2) { width: 9%; }
   .tabela-taxas th:nth-child(3) { width: 11%; } .tabela-taxas th:nth-child(4) { width: 9%; }
@@ -72,9 +72,9 @@ export default async function TaxasCartaoPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="pagina-paisagem space-y-6">
       <style>{CSS_TABELA}</style>
-      <h2 className="hidden text-lg font-semibold print:block">Taxas de Cartão</h2>
+      <CabecalhoImpressao titulo="Taxas de Cartão" />
       <p className="text-sm text-foreground/60">
         Taxas de cartão por posto/adquirente — base pra futura Conciliação de Cartões. Taxa em branco = não
         contratado.

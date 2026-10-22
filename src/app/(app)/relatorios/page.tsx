@@ -12,6 +12,7 @@ import {
 } from "./consulta";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -80,10 +81,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
         <h1 className={TITULO_PAGINA}>Relatórios</h1>
         <BotaoImprimir />
       </div>
-      <div className="hidden print:block">
-        <h1 className="text-xl font-semibold">Relatório de Contas</h1>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+      <CabecalhoImpressao titulo="Relatório de Contas" />
 
       <form className="space-y-3 text-sm print:hidden">
         <div className="flex flex-wrap items-end gap-4">

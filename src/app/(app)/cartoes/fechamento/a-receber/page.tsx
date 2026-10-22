@@ -6,6 +6,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { agruparEmBlocos, buscarVendasAReceber, formatarPeriodoVendas, type BaseAReceber } from "@/lib/cartoes/aReceber";
 import { BotaoImprimir } from "../botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -50,15 +51,8 @@ export default async function VendasAReceberPage({
   const descricaoBase = base === "venda" ? "vendas do período ainda não recebidas" : "vendas com recebimento previsto no período";
 
   return (
-    <div className="space-y-6">
-      <div className="hidden print:block">
-        <h2 className="text-lg font-bold tracking-tight">
-          Valores a receber — {postoNome ?? "Todos os postos"} — {inicio} a {fim}
-        </h2>
-        <p className="text-xs text-foreground/60">
-          {descricaoBase} · Gerado em {geradoEm}
-        </p>
-      </div>
+    <div className="pagina-paisagem space-y-6">
+      <CabecalhoImpressao titulo="Valores a receber" detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${inicio} a ${fim}` }, { rotulo: "Base", valor: descricaoBase }]} />
 
       <p className="text-sm text-foreground/60 print:hidden">
         Valores de cartão que ainda vão cair na conta. Por data da venda: vendas feitas no período que não tinham sido

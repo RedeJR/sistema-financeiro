@@ -7,6 +7,11 @@ import { salvarFluxoCaixa } from "./actions";
 import { BotaoImprimir } from "./botao-imprimir";
 import { TabelaFluxoCaixa } from "./tabela-fluxo-caixa";
 import { BOTAO_PRIMARIO, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+
+function formatarDiaBR(iso: string): string {
+  return iso.split("-").reverse().join("/");
+}
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -54,8 +59,9 @@ export default async function FluxoDeCaixaPage({
   const voltarPara = `/fluxo-de-caixa?${qsAtual.toString()}`;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="pagina-paisagem space-y-6">
+      <CabecalhoImpressao titulo="Fluxo de Caixa" detalhes={[{ rotulo: "Período", valor: de === ate ? formatarDiaBR(de) : `${formatarDiaBR(de)} a ${formatarDiaBR(ate)}` }]} />
+      <header className="flex flex-wrap items-end justify-between gap-4 print:hidden">
         <div>
           <h1 className={TITULO_PAGINA}>Fluxo de Caixa</h1>
           <p className="mt-1.5 text-sm text-foreground/60 print:hidden">

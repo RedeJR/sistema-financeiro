@@ -7,6 +7,7 @@ import { buscarFechamentoCartoes, buscarCustoAntecipacao, type LinhaFechamento, 
 import { ROTULO_TIPO_FECHAMENTO } from "@/lib/cartoes/normalizar";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -71,13 +72,8 @@ export default async function FechamentoCartoesPage({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="hidden print:block">
-        <h2 className="text-lg font-bold tracking-tight">
-          Fechamento de Cartões — {postoNome ?? "Todos os postos"} — {inicio} a {fim}
-        </h2>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+    <div className="pagina-paisagem space-y-6">
+      <CabecalhoImpressao titulo="Fechamento de Cartões" detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${inicio} a ${fim}` }]} />
 
       <p className="text-sm text-foreground/60 print:hidden">
         Fecha o bruto, líquido e taxa das vendas de cartão por posto e adquirente, pela data da venda. Sem

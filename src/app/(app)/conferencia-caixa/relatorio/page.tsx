@@ -6,6 +6,7 @@ import { buscarRelatorioCaixa } from "@/lib/cartoes/relatorio";
 import { BotaoImprimir } from "./botao-imprimir";
 import { registrarConferenciaCaixa } from "./actions";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -52,13 +53,8 @@ export default async function RelatorioCaixaPage({
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   return (
-    <div className="space-y-6">
-      <div className="hidden print:block">
-        <h2 className="text-lg font-bold tracking-tight">
-          Relatório de Caixa — {postoNome ?? ""} — {inicio} a {fim}
-        </h2>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+    <div className="pagina-paisagem space-y-6">
+      <CabecalhoImpressao titulo="Relatório de Caixa" detalhes={[{ rotulo: "Posto", valor: postoNome }, { rotulo: "Período", valor: `${inicio} a ${fim}` }]} />
 
       <div className="flex flex-wrap items-end gap-3 text-sm print:hidden">
       <form key={`${postoId}|${inicio}|${fim}`} className="flex flex-wrap items-end gap-3">

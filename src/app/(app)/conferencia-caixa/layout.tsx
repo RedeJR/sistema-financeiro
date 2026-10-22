@@ -14,7 +14,7 @@ export default async function ConferenciaCaixaLayout({ children }: { children: R
   return (
     <div className="space-y-6">
       <div>
-        <h1 className={TITULO_PAGINA}>Conferência de Caixa</h1>
+        <h1 className={`${TITULO_PAGINA} print:hidden`}>Conferência de Caixa</h1>
         <AbasNav abas={ABAS} />
       </div>
       {children}

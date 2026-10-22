@@ -7,6 +7,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { buscarRelatorioCampoExtrato, listarCategoriasRelatorioExtrato } from "@/lib/extratos/relatorioCampos";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -57,13 +58,8 @@ export default async function RelatoriosExtratosPage({
   anexarLista(qsBase, "postoId", postoIds);
 
   return (
-    <div className="space-y-6">
-      <div className="hidden print:block">
-        <h2 className="text-lg font-bold tracking-tight">
-          {nomeCategoria} — {postoNome ?? "Todos os postos"} — {de} a {ate}
-        </h2>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+    <div className="pagina-paisagem space-y-6">
+      <CabecalhoImpressao titulo={`Relatório de Extrato — ${nomeCategoria}`} detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${de} a ${ate}` }]} />
 
       <div className="flex items-center justify-between print:hidden">
         <div>

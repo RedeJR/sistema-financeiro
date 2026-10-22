@@ -3,6 +3,7 @@ import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { BotaoImprimir } from "./botao-imprimir";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -49,10 +50,7 @@ export default async function RelatorioCombustiveisAPagarPage({
         <BotaoImprimir />
       </div>
 
-      <div className="hidden print:block">
-        <h1 className="text-xl font-semibold">Relatório de Combustíveis a Pagar</h1>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+      <CabecalhoImpressao titulo="Relatório de Combustíveis a Pagar" />
 
       <p className="text-sm text-foreground/60">
         {contas.length} conta{contas.length === 1 ? "" : "s"} — total {formatarMoeda(total)}

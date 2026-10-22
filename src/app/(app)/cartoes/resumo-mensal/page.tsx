@@ -11,6 +11,7 @@ import {
 } from "@/lib/cartoes/resumoMensal";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 
 function rotuloMes(mes: string): string {
   const [ano, m] = mes.split("-").map(Number);
@@ -88,13 +89,8 @@ export default async function ResumoMensalCartoesPage({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="hidden print:block">
-        <h2 className="text-lg font-bold tracking-tight">
-          Resumo mensal de Cartões — {postoNome ?? "Todos os postos"} — {mesValido ? rotuloMes(mesValido) : ""}
-        </h2>
-        <p className="text-xs text-foreground/60">Gerado em {geradoEm}</p>
-      </div>
+    <div className="pagina-paisagem space-y-6">
+      <CabecalhoImpressao titulo="Resumo mensal de Cartões" detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Mês", valor: mesValido ? rotuloMes(mesValido) : "" }]} />
 
       <p className="text-sm text-foreground/60 print:hidden">
         Total vendido no mês (valor líquido, por modalidade) contra o total que entrou no banco, por adquirente —

@@ -17,7 +17,7 @@ export default async function CartoesLayout({ children }: { children: React.Reac
   return (
     <div className="space-y-6">
       <div>
-        <h1 className={TITULO_PAGINA}>Cartões</h1>
+        <h1 className={`${TITULO_PAGINA} print:hidden`}>Cartões</h1>
         <p className="mt-1.5 text-sm text-foreground/60 print:hidden">
           Taxas, vendas, recebimentos e antecipações das maquininhas e vouchers.
         </p>
