@@ -13,6 +13,7 @@ import {
   conferenciaTotalDiario,
 } from "@/lib/conciliacao";
 import { hojeUTC } from "@/lib/datas";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { vincularManualmente, desvincular } from "./actions";
 
 const MENSAGENS_ERRO: Record<string, string> = {
@@ -129,13 +130,13 @@ export default async function ConciliacaoPage({
   const voltarPara = `/extratos/conciliacao${qs ? `?${qs}` : ""}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <Link href="/extratos" className="text-sm text-foreground/60 underline">
             ← Voltar pra Conciliação de Extratos
           </Link>
-          <h1 className="text-2xl font-semibold">Conciliação automática</h1>
+          <h1 className={TITULO_PAGINA}>Conciliação automática</h1>
         </div>
         {/* Essa tela só liga/desliga despesa x lançamento — pra corrigir o
             lançamento em si (categoria, posto, banco, ou excluir), é em
@@ -143,7 +144,7 @@ export default async function ConciliacaoPage({
             ter que escolher tudo de novo. */}
         <Link
           href={`/extratos/editar${qs ? `?${qs}` : ""}`}
-          className="rounded-md border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
         >
           Editar lançamentos deste filtro →
         </Link>
@@ -156,7 +157,7 @@ export default async function ConciliacaoPage({
 
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
@@ -176,7 +177,7 @@ export default async function ConciliacaoPage({
             id="bancoId"
             name="bancoId"
             defaultValue={bancoId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             {bancos.map((b) => (
@@ -195,7 +196,7 @@ export default async function ConciliacaoPage({
             type="date"
             name="de"
             defaultValue={de ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -207,12 +208,12 @@ export default async function ConciliacaoPage({
             type="date"
             name="ate"
             defaultValue={ate ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <button
           type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={BOTAO_PRIMARIO}
         >
           Filtrar
         </button>
@@ -223,12 +224,12 @@ export default async function ConciliacaoPage({
         )}
       </form>
 
-      <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950/40 dark:text-green-400">
+      <p className="rounded-xl bg-green-50 px-5 py-3 text-sm text-green-800 dark:bg-green-950/40 dark:text-green-400">
         {totalConciliados} conciliado{totalConciliados === 1 ? "" : "s"} automaticamente ou manualmente.
       </p>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold tracking-tight">
           Conferência por total do dia
           <span className="ml-2 text-sm font-normal text-foreground/50">({diasDivergentes.length} com diferença)</span>
         </h2>
@@ -244,15 +245,15 @@ export default async function ConciliacaoPage({
             acima pra olhar um mês já fechado.
           </p>
         )}
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/5 dark:bg-white/5">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-2 text-left font-medium">Dia</th>
-                <th className="px-4 py-2 text-left font-medium">Posto</th>
-                <th className="px-4 py-2 text-right font-medium">Total Contas Pagas</th>
-                <th className="px-4 py-2 text-right font-medium">Total Extrato (Despesas Pagas)</th>
-                <th className="px-4 py-2 text-right font-medium">Diferença</th>
+                <th className="px-4 py-2.5 text-left">Dia</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-right">Total Contas Pagas</th>
+                <th className="px-4 py-2.5 text-right">Total Extrato (Despesas Pagas)</th>
+                <th className="px-4 py-2.5 text-right">Diferença</th>
               </tr>
             </thead>
             <tbody>
@@ -281,21 +282,21 @@ export default async function ConciliacaoPage({
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold tracking-tight">
           Despesas pagas sem lançamento correspondente
           <span className="ml-2 text-sm font-normal text-foreground/50">({despesasSemLancamento.length})</span>
         </h2>
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/5 dark:bg-white/5">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-2 text-left font-medium">Pago em</th>
-                <th className="px-4 py-2 text-left font-medium">Posto</th>
-                <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
-                <th className="px-4 py-2 text-left font-medium">Banco</th>
-                <th className="px-4 py-2 text-right font-medium">Valor</th>
-                {podeEditar && <th className="px-4 py-2 text-left font-medium">Vincular a um lançamento</th>}
+                <th className="px-4 py-2.5 text-left">Pago em</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-left">Fornecedor</th>
+                <th className="px-4 py-2.5 text-left">Banco</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
+                {podeEditar && <th className="px-4 py-2.5 text-left">Vincular a um lançamento</th>}
               </tr>
             </thead>
             <tbody>
@@ -361,8 +362,8 @@ export default async function ConciliacaoPage({
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold tracking-tight">
           Lançamentos do extrato sem despesa correspondente
           <span className="ml-2 text-sm font-normal text-foreground/50">({lancamentosSemDespesa.length})</span>
         </h2>
@@ -370,15 +371,15 @@ export default async function ConciliacaoPage({
           Nem todo débito do extrato é uma despesa cadastrada (tarifas, investimento, cartão de crédito
           etc.) — essa lista é só pra conferência, não precisa vincular tudo.
         </p>
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/5 dark:bg-white/5">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-2 text-left font-medium">Data</th>
-                <th className="px-4 py-2 text-left font-medium">Posto</th>
-                <th className="px-4 py-2 text-left font-medium">Banco</th>
-                <th className="px-4 py-2 text-left font-medium">Descrição</th>
-                <th className="px-4 py-2 text-right font-medium">Valor</th>
+                <th className="px-4 py-2.5 text-left">Data</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-left">Banco</th>
+                <th className="px-4 py-2.5 text-left">Descrição</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -405,20 +406,20 @@ export default async function ConciliacaoPage({
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold tracking-tight">
           Conciliados <span className="ml-2 text-sm font-normal text-foreground/50">({conciliados.length})</span>
         </h2>
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <div className={`${CARTAO} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-black/5 dark:bg-white/5">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-2 text-left font-medium">Data</th>
-                <th className="px-4 py-2 text-left font-medium">Posto</th>
-                <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
-                <th className="px-4 py-2 text-left font-medium">Banco</th>
-                <th className="px-4 py-2 text-right font-medium">Valor</th>
-                {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
+                <th className="px-4 py-2.5 text-left">Data</th>
+                <th className="px-4 py-2.5 text-left">Posto</th>
+                <th className="px-4 py-2.5 text-left">Fornecedor</th>
+                <th className="px-4 py-2.5 text-left">Banco</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
+                {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>

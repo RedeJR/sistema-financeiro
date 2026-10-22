@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { Modulo } from "@/generated/prisma/client";
+import { IconeMenu } from "./icone-menu";
 
 type ItemMenu = { valor: Modulo; label: string; href: string; disponivel: boolean };
 type GrupoMenu = { label: string; itens: ItemMenu[] };
@@ -34,13 +35,16 @@ export function GruposMenu({ grupos }: { grupos: GrupoMenu[] }) {
               aria-expanded={aberto}
               className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground/85 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
             >
-              {grupo.label}
+              <span className="flex items-center gap-2.5">
+                <IconeMenu nome={grupo.label} />
+                {grupo.label}
+              </span>
               <span className={`text-xs text-foreground/40 transition-transform ${aberto ? "rotate-90" : ""}`}>
                 ›
               </span>
             </button>
             {aberto && (
-              <div className="ml-3 flex flex-col gap-0.5 border-l border-black/10 py-0.5 pl-3 dark:border-white/10">
+              <div className="ml-5 flex flex-col gap-0.5 border-l border-black/10 py-0.5 pl-3 dark:border-white/10">
                 {grupo.itens.map((item) =>
                   item.disponivel ? (
                     <Link

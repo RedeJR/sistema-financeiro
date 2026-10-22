@@ -11,6 +11,7 @@ import { nomeBancoPadraoDoPosto } from "@/lib/banco-padrao-posto";
 import { gerarOcorrenciasRecorrentesPendentes } from "@/app/(app)/contas-a-pagar/recorrencia";
 import { marcarComoPagas } from "./actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
+import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, ETIQUETA_AZUL, ETIQUETA_VERMELHA, TITULO_PAGINA } from "@/lib/estilo";
 import { BotaoVerDescricao, LinhaDescricao } from "@/components/ui/ver-descricao";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ComentarioHover } from "@/components/ui/comentario-hover";
@@ -123,15 +124,28 @@ export default async function ConferenciaDiariaPage({
   const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Conferência Diária</h1>
+    <div className="space-y-6">
+      <header>
+        <h1 className={TITULO_PAGINA}>Conferência Diária</h1>
+        <p className="mt-1.5 text-sm text-foreground/60">
+          Contas com vencimento até a data final escolhida (inclui tudo que já venceu e ainda não foi pago), a
+          partir da data inicial se você preencher.
+        </p>
+      </header>
       {erro && MENSAGENS_ERRO[erro] && <ErroFormulario mensagem={MENSAGENS_ERRO[erro]} />}
-      <p className="text-sm text-foreground/60">
-        Contas com vencimento até a data final escolhida (inclui tudo que já venceu e ainda não foi pago), a
-        partir da data inicial se você preencher.
-      </p>
 
-      <form className="flex flex-wrap items-end gap-3 text-sm">
+      <section aria-label="Resumo" className="flex flex-wrap gap-4">
+        <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
+          <p className="text-[13px] text-foreground/60">Contas pendentes</p>
+          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{contas.length}</p>
+        </div>
+        <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
+          <p className="text-[13px] text-foreground/60">Total a pagar</p>
+          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{formatarMoeda(total)}</p>
+        </div>
+      </section>
+
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="q" className="text-foreground/60">
             Buscar
@@ -142,7 +156,7 @@ export default async function ConferenciaDiariaPage({
             name="q"
             defaultValue={q ?? ""}
             placeholder="Fornecedor ou descrição"
-            className="min-w-[14rem] rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={`${CAMPO} min-w-[14rem]`}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -154,7 +168,7 @@ export default async function ConferenciaDiariaPage({
             type="date"
             name="de"
             defaultValue={de ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -166,7 +180,7 @@ export default async function ConferenciaDiariaPage({
             type="date"
             name="ate"
             defaultValue={ate ?? paraDataInput(hoje)}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -202,7 +216,7 @@ export default async function ConferenciaDiariaPage({
             id="planoContaId"
             name="planoContaId"
             defaultValue={planoContaId ?? ""}
-            className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+            className={CAMPO}
           >
             <option value="">Todos</option>
             {grupos.map((g) => (
@@ -216,26 +230,19 @@ export default async function ConferenciaDiariaPage({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          className="rounded-md border border-black/15 px-4 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-        >
+        <button type="submit" className={BOTAO_PRIMARIO}>
           Filtrar
         </button>
         {(postoIds.length || fornecedorId || planoContaId || de || ate || busca) && (
-          <Link href="/conferencia-diaria" className="text-foreground/60 underline">
+          <Link href="/conferencia-diaria" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
         )}
       </form>
 
-      <p className="text-sm text-foreground/60">
-        {contas.length} conta{contas.length === 1 ? "" : "s"} — total {formatarMoeda(total)}
-      </p>
-
       {podeEditar && (
         <>
-          <form id={FORM_PAGAR} action={marcarComoPagas} className="flex flex-wrap items-end gap-3 rounded-lg border border-black/10 p-3 text-sm dark:border-white/15">
+          <form id={FORM_PAGAR} action={marcarComoPagas} className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
             <div className="flex flex-col gap-1">
               <label htmlFor="bancoId" className="text-foreground/60">
                 Pago no banco
@@ -245,7 +252,7 @@ export default async function ConferenciaDiariaPage({
                 name="bancoId"
                 form={FORM_PAGAR}
                 defaultValue="previsto"
-                className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                className={CAMPO}
                 required
               >
                 <option value="previsto">Banco previsto de cada conta (padrão do posto)</option>
@@ -265,7 +272,7 @@ export default async function ConferenciaDiariaPage({
                 name="postoPagamentoId"
                 form={FORM_PAGAR}
                 defaultValue=""
-                className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                className={CAMPO}
               >
                 <option value="">Mesmo posto da conta</option>
                 {postos.map((p) => (
@@ -286,13 +293,13 @@ export default async function ConferenciaDiariaPage({
                 form={FORM_PAGAR}
                 defaultValue={paraDataInput(hoje)}
                 required
-                className="rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
+                className={CAMPO}
               />
             </div>
             <button
               type="submit"
               form={FORM_PAGAR}
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+              className={BOTAO_PRIMARIO}
             >
               Marcar selecionadas como pagas
             </button>
@@ -305,22 +312,22 @@ export default async function ConferenciaDiariaPage({
         </>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-black/5 dark:bg-white/5">
+          <thead className={CABECALHO_TABELA}>
             <tr>
               {podeEditar && (
-                <th className="px-4 py-2 text-left font-medium">
+                <th className="px-4 py-2.5 text-left">
                   <SelecionarTodos formId={FORM_PAGAR} />
                 </th>
               )}
-              <th className="px-4 py-2 text-left font-medium">Vencimento</th>
-              <th className="px-4 py-2 text-left font-medium">Posto</th>
-              <th className="px-4 py-2 text-left font-medium">Fornecedor</th>
-              <th className="px-4 py-2 text-left font-medium">Plano de contas</th>
-              <th className="px-4 py-2 text-left font-medium">Banco previsto</th>
-              <th className="px-4 py-2 text-right font-medium">Valor</th>
-              {podeEditar && <th className="px-4 py-2 text-right font-medium">Ações</th>}
+              <th className="px-4 py-2.5 text-left">Vencimento</th>
+              <th className="px-4 py-2.5 text-left">Posto</th>
+              <th className="px-4 py-2.5 text-left">Fornecedor</th>
+              <th className="px-4 py-2.5 text-left">Plano de contas</th>
+              <th className="px-4 py-2.5 text-left">Banco previsto</th>
+              <th className="px-4 py-2.5 text-right">Valor</th>
+              {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -328,7 +335,7 @@ export default async function ConferenciaDiariaPage({
               const vencida = c.dataVencimento < hoje;
               return (
                 <Fragment key={c.id}>
-                <tr className="item-desc border-t border-black/10 dark:border-white/10">
+                <tr className="item-desc border-t border-black/10 hover:bg-black/[0.015] dark:border-white/10 dark:hover:bg-white/[0.03]">
                   {podeEditar && (
                     <td className="px-4 py-2">
                       <input type="checkbox" name="ids" value={c.id} form={FORM_PAGAR} />
@@ -337,12 +344,12 @@ export default async function ConferenciaDiariaPage({
                   <td className="px-4 py-2">
                     {formatarData(c.dataVencimento)}
                     {vencida && (
-                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800 dark:bg-red-900/40 dark:text-red-400">
+                      <span className={`ml-2 ${ETIQUETA_VERMELHA}`}>
                         vencida
                       </span>
                     )}
                     {c.combustivel && (
-                      <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-400">
+                      <span className={`ml-2 ${ETIQUETA_AZUL}`}>
                         combustível
                       </span>
                     )}
@@ -376,7 +383,7 @@ export default async function ConferenciaDiariaPage({
                       <BotaoVerDescricao id={c.id} descricao={c.descricao} />
                       <Link
                         href={`/contas-a-pagar/${c.id}/editar?${qsVoltarPara}`}
-                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                        className={`ml-1 inline-block ${BOTAO_EDITAR}`}
                       >
                         Editar
                       </Link>

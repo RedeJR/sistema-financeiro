@@ -3,6 +3,7 @@ import { usuarioAtual } from "@/lib/auth";
 import { GRUPOS_NAV, MODULOS, MODULOS_AVULSOS, MODULOS_RODAPE } from "@/lib/modulos";
 import { sair } from "@/app/login/actions";
 import { GruposMenu } from "./grupos-menu";
+import { IconeMenu } from "./icone-menu";
 import type { Modulo } from "@/generated/prisma/client";
 
 const ROTA_POR_MODULO: Record<Modulo, string> = {
@@ -40,8 +41,9 @@ function ItemAvulso({ item }: { item: ItemMenu }) {
     return (
       <span
         title="Ainda não construído"
-        className="cursor-not-allowed rounded-md px-3 py-1.5 text-sm text-foreground/35"
+        className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground/35"
       >
+        <IconeMenu nome={item.valor} />
         {item.label}
       </span>
     );
@@ -49,8 +51,9 @@ function ItemAvulso({ item }: { item: ItemMenu }) {
   return (
     <Link
       href={item.href}
-      className="rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-foreground/85 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
     >
+      <IconeMenu nome={item.valor} />
       {item.label}
     </Link>
   );

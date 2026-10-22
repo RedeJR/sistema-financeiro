@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { formatarMoeda, paraDecimalString } from "@/lib/dinheiro";
 import type { DiaFluxoCaixa, LinhaFluxoCaixa } from "./consulta";
+import { CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -31,7 +32,7 @@ function paraNumero(texto: string): number {
 }
 
 const classeInput =
-  "w-full rounded-md border border-black/15 bg-transparent px-2 py-1 text-right text-sm outline-none focus:border-foreground/40 dark:border-white/20";
+  "w-full rounded-lg border border-black/15 bg-white px-2 py-1 text-right text-sm outline-none focus:border-blue-600 dark:border-white/20 dark:bg-transparent";
 
 type CamposManuais = { saldoInicial: string; recebimentos: string; despesasExtras: string };
 
@@ -95,7 +96,7 @@ const LinhaEditavel = memo(function LinhaEditavel({ linha, podeEditar, saldoInic
   const encadeado = saldoInicialForcado !== null;
 
   return (
-    <tr className="border-t border-black/5 dark:border-white/10">
+    <tr className="border-t border-black/5 hover:bg-black/[0.015] dark:border-white/10 dark:hover:bg-white/[0.03]">
       <td className="px-3 py-1.5">{linha.posto}</td>
       <td className="px-3 py-1.5">
         {podeEditar && <input type="hidden" name="chave" value={chave} />}
@@ -146,7 +147,7 @@ const LinhaEditavel = memo(function LinhaEditavel({ linha, podeEditar, saldoInic
           />
         )}
       </td>
-      <td className="px-3 py-1.5 text-right font-medium">{formatarMoeda(saldoFinal)}</td>
+      <td className="px-3 py-1.5 text-right font-semibold">{formatarMoeda(saldoFinal)}</td>
     </tr>
   );
 });
@@ -194,21 +195,21 @@ export function TabelaFluxoCaixa({ dias, podeEditar }: { dias: DiaFluxoCaixa[]; 
       {dias.map((dia, indiceDia) => {
         const totalDia = dia.linhas.reduce((s, l) => s + (saldoFinalRef.current[`${l.postoId}|${l.data}`] ?? l.saldoFinal), 0);
         return (
-          <section key={dia.data} className="space-y-2 rounded-xl border border-black/10 p-4 dark:border-white/15">
-            <h2 className="text-base font-medium capitalize">{formatarDataExibicao(dia.data)}</h2>
+          <section key={dia.data} className={`${CARTAO} space-y-3 p-5`}>
+            <h2 className="text-lg font-bold tracking-tight capitalize">{formatarDataExibicao(dia.data)}</h2>
             <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
               <table className="w-full text-sm">
-                <thead className="bg-black/5 dark:bg-white/5">
+                <thead className={CABECALHO_TABELA}>
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Posto</th>
-                    <th className="px-3 py-2 text-right font-medium">Saldo Inicial</th>
-                    <th className="px-3 py-2 text-right font-medium">Débito/Pix (média)</th>
-                    <th className="px-3 py-2 text-right font-medium">Crédito/Voucher (média)</th>
-                    <th className="px-3 py-2 text-right font-medium">Outros recebimentos</th>
-                    <th className="px-3 py-2 text-right font-medium">Combustíveis</th>
-                    <th className="px-3 py-2 text-right font-medium">Despesas</th>
-                    <th className="px-3 py-2 text-right font-medium">Despesas Extras</th>
-                    <th className="px-3 py-2 text-right font-medium">Saldo Final</th>
+                    <th className="px-3 py-2.5 text-left">Posto</th>
+                    <th className="px-3 py-2.5 text-right">Saldo Inicial</th>
+                    <th className="px-3 py-2.5 text-right">Débito/Pix</th>
+                    <th className="px-3 py-2.5 text-right">Crédito/Voucher</th>
+                    <th className="px-3 py-2.5 text-right">Outros recebimentos</th>
+                    <th className="px-3 py-2.5 text-right">Combustíveis</th>
+                    <th className="px-3 py-2.5 text-right">Despesas</th>
+                    <th className="px-3 py-2.5 text-right">Despesas Extras</th>
+                    <th className="px-3 py-2.5 text-right">Saldo Final</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,7 +239,7 @@ export function TabelaFluxoCaixa({ dias, podeEditar }: { dias: DiaFluxoCaixa[]; 
                 </tbody>
                 {dia.linhas.length > 0 && (
                   <tfoot>
-                    <tr className="border-t border-black/10 bg-black/5 font-medium dark:border-white/15 dark:bg-white/5">
+                    <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/15 dark:bg-blue-950/40">
                       <td className="px-3 py-2" colSpan={8}>
                         Saldo Final Rede
                       </td>
