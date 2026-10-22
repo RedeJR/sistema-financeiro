@@ -1,18 +1,23 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { usuarioAtual } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { statusDiarioPorPosto } from "@/lib/conciliacao";
 import { GraficoBarras } from "@/components/ui/grafico-barras";
 import { FaixaStatusDiario } from "@/components/ui/faixa-status-diario";
-import { BOTAO_SECUNDARIO, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
-
-// "Hoje" no fuso de armazenamento (datas de vencimento são gravadas como
-// UTC meia-noite, ver ContaAPagar no schema) — pega o dia corrente nesse
-// mesmo referencial, pra bater com o que tá no banco.
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { ProximosDias } from "@/components/painel/proximos-dias";
+import {
+  carregarInicio,
+  carregarRapido,
+  hojeNoBrasil,
+  horaNoBrasil,
+  type DadosInicio,
+  type PermissoesInicio,
+  type RapidoInicio,
+} from "@/lib/painel/inicio";
+import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
+import type { Modulo } from "@/generated/prisma/client";
 
 function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
@@ -22,14 +27,322 @@ function formatarDataExibicao(iso: string): string {
   return dataUTC(iso).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
-// N dias atrás, no mesmo referencial UTC-meia-noite usado pelas datas do
-// banco — período padrão do painel de conciliação. 45 dias dá folga
-// suficiente pra um "sem conciliar desde tal dia" aparecer inteiro na faixa,
-// mesmo se o buraco começou há um mês.
+function dataExtensa(d: Date): string {
+  const s = d.toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function diasAtras(n: number): string {
-  const hoje = new Date();
-  const d = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate() - n));
-  return d.toISOString().slice(0, 10);
+  const hoje = hojeNoBrasil();
+  hoje.setUTCDate(hoje.getUTCDate() - n);
+  return hoje.toISOString().slice(0, 10);
+}
+
+function saudacao(): string {
+  const h = horaNoBrasil();
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
+
+// Idade do dado em dias (data já vem em ISO) -> cor: em dia / atrasando / velho.
+function ChipDado({ iso, hoje }: { iso: string | null; hoje: Date }) {
+  if (!iso) return <span className="text-foreground/40">—</span>;
+  const dias = Math.round((hoje.getTime() - dataUTC(iso).getTime()) / 86400000);
+  const cor =
+    dias <= 1
+      ? "bg-[#E7F6EC] text-[#14693A] dark:bg-green-900/40 dark:text-green-400"
+      : dias <= 4
+        ? "bg-[#FFF3D6] text-[#7A4B00] dark:bg-amber-900/40 dark:text-amber-300"
+        : "bg-[#FDECEC] text-[#A12727] dark:bg-red-900/40 dark:text-red-400";
+  return (
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${cor}`} title={`${dias} dia${dias === 1 ? "" : "s"} atrás`}>
+      {formatarDataExibicao(iso).slice(0, 5)}
+    </span>
+  );
+}
+
+const COR_CELULA: Record<string, string> = {
+  conciliado: "#1F9D55",
+  divergente: "#D14343",
+  "falta-extrato": "#E0A100",
+  "falta-despesa": "#EC835A",
+  "sem-atividade": "#CBD1DA",
+};
+const ROTULO_CELULA: Record<string, string> = {
+  conciliado: "Conciliado",
+  divergente: "Divergente",
+  "falta-extrato": "Falta extrato",
+  "falta-despesa": "Falta despesa",
+  "sem-atividade": "Sem movimento",
+};
+const COR_ALERTA = { ruim: "bg-[#D14343]", atencao: "bg-[#E0A100]", ok: "bg-[#1F9D55]" } as const;
+
+// Esqueleto enquanto um bloco lento carrega (a previsão de recebimento, os extratos e as vendas
+// demoram mais que as contas a pagar — a tela aparece logo e esses blocos chegam depois).
+function Esqueleto({ altura = "h-40", className = "" }: { altura?: string; className?: string }) {
+  return (
+    <div className={`${CARTAO} ${altura} animate-pulse p-5 ${className}`} aria-busy="true">
+      <div className="h-4 w-40 rounded bg-black/10 dark:bg-white/10" />
+      <div className="mt-4 h-3 w-3/4 rounded bg-black/5 dark:bg-white/5" />
+      <div className="mt-2 h-3 w-1/2 rounded bg-black/5 dark:bg-white/5" />
+    </div>
+  );
+}
+
+// ---------------- blocos lentos (cada um espera sua parte dos dados) ----------------
+
+async function KpisRecebimento({ lento, rapido, rotuloDia }: { lento: Promise<DadosInicio>; rapido: RapidoInicio; rotuloDia: string }) {
+  const dados = await lento;
+  const receber = dados.receber;
+  if (!receber) return null;
+  const resultado = rapido.pagarNoDia ? receber.total - rapido.pagarNoDia.total : null;
+  return (
+    <>
+      <div className={`${CARTAO} min-w-[230px] flex-1 px-5 py-4`}>
+        <p className="text-[13px] text-foreground/60">
+          A receber {receber.diaISO === dados.dataRef ? rotuloDia : formatarDataExibicao(receber.diaISO)} (previsto)
+        </p>
+        <p className="mt-1.5 text-[28px] font-bold tracking-tight text-[#14693A] tabular-nums dark:text-green-400">{formatarMoeda(receber.total)}</p>
+        <p className="mt-1.5 text-[12.5px] text-foreground/60">
+          Débito/Pix <strong className="font-semibold text-foreground">{formatarMoeda(receber.debitoPix)}</strong> · Crédito/Voucher{" "}
+          <strong className="font-semibold text-foreground">{formatarMoeda(receber.creditoVoucher)}</strong>
+        </p>
+      </div>
+      {resultado !== null && (
+        <div className={`${CARTAO} min-w-[230px] flex-1 px-5 py-4`}>
+          <p className="text-[13px] text-foreground/60">Resultado previsto do dia</p>
+          <p
+            className={`mt-1.5 text-[28px] font-bold tracking-tight tabular-nums ${
+              resultado < 0 ? "text-[#A12727] dark:text-red-400" : "text-[#14693A] dark:text-green-400"
+            }`}
+          >
+            {resultado < 0 ? "− " : ""}
+            {formatarMoeda(Math.abs(resultado))}
+          </p>
+          <p className="mt-1.5 text-[12.5px] text-foreground/60">A receber menos a pagar. O saldo em conta não entra (é manual no Fluxo).</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+async function CartaoProximosDias({ lento, perm }: { lento: Promise<DadosInicio>; perm: PermissoesInicio }) {
+  const dados = await lento;
+  return (
+    <section className={`${CARTAO} min-w-0 flex-[999_1_560px] space-y-4 p-5`}>
+      <h2 className="text-[17px] font-bold tracking-tight">Próximos dias úteis{perm.contas && perm.fluxo ? " — a pagar x a receber" : ""}</h2>
+      <ProximosDias dias={dados.proximosDias} />
+      <p className="text-[13px] text-foreground/60">
+        Passe o mouse em cada dia para ver os valores.
+        {perm.fluxo && " A previsão de recebimento usa as vendas importadas + a média por dia da semana (mesma regra do Fluxo de Caixa)."}{" "}
+        {perm.fluxo && (
+          <Link href="/fluxo-de-caixa" className="font-semibold text-blue-700 dark:text-blue-300">
+            Abrir Fluxo de Caixa →
+          </Link>
+        )}
+      </p>
+    </section>
+  );
+}
+
+async function CartaoAtencao({ lento }: { lento: Promise<DadosInicio> }) {
+  const dados = await lento;
+  return (
+    <section className={`${CARTAO} min-w-0 flex-[1_1_340px] p-5`}>
+      <h2 className="mb-1 text-[17px] font-bold tracking-tight">Precisa da sua atenção</h2>
+      <div>
+        {dados.alertas.map((a, i) => (
+          <div key={i} className="flex items-start gap-3 border-t border-black/5 px-1 py-3 text-sm first:border-t-0 dark:border-white/10">
+            <span className={`mt-1.5 size-2 shrink-0 rounded-full ${COR_ALERTA[a.nivel]}`} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{a.titulo}</p>
+              <p className="mt-0.5 text-[13px] text-foreground/60">{a.detalhe}</p>
+            </div>
+            {a.href && (
+              <Link href={a.href} className="shrink-0 text-[13px] font-semibold text-blue-700 dark:text-blue-300">
+                {a.acao ?? "Ver"}
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function CartaoSituacao({
+  lento,
+  perm,
+  hoje,
+  rotuloDia,
+  podeVerConciliacao,
+}: {
+  lento: Promise<DadosInicio>;
+  perm: PermissoesInicio;
+  hoje: Date;
+  rotuloDia: string;
+  podeVerConciliacao: boolean;
+}) {
+  const dados = await lento;
+  if (dados.situacao.length === 0) return null;
+  return (
+    <section className={`${CARTAO} space-y-3 p-5`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[17px] font-bold tracking-tight">Situação por posto</h2>
+        <p className="text-[13px] text-foreground/60">Até quando temos dados de cada coisa e o que está pendente</p>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+        <table className="w-full min-w-[860px] text-sm">
+          <thead className={CABECALHO_TABELA}>
+            <tr>
+              <th className="px-3.5 py-2.5 text-left">Posto</th>
+              {perm.extratos && <th className="px-3.5 py-2.5 text-left">Último extrato</th>}
+              {perm.cartoes && <th className="px-3.5 py-2.5 text-left">Última venda de cartão</th>}
+              {perm.contas && <th className="px-3.5 py-2.5 text-right">A pagar {rotuloDia}</th>}
+              {perm.contas && <th className="px-3.5 py-2.5 text-right">Vencidas</th>}
+              {podeVerConciliacao && <th className="px-3.5 py-2.5 text-left">Conciliação (7 dias)</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {dados.situacao.map((s) => (
+              <tr key={s.postoId} className="border-t border-black/5 dark:border-white/10">
+                <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.posto}</td>
+                {perm.extratos && (
+                  <td className="px-3.5 py-2.5">
+                    <ChipDado iso={s.extratoAte} hoje={hoje} />
+                  </td>
+                )}
+                {perm.cartoes && (
+                  <td className="px-3.5 py-2.5">
+                    <ChipDado iso={s.vendasAte} hoje={hoje} />
+                  </td>
+                )}
+                {perm.contas && (
+                  <td className="px-3.5 py-2.5 text-right tabular-nums">
+                    {s.pagarNoDia > 0 ? formatarMoeda(s.pagarNoDia) : <span className="text-foreground/40">—</span>}
+                  </td>
+                )}
+                {perm.contas && (
+                  <td className={`px-3.5 py-2.5 text-right tabular-nums ${s.vencidas > 0 ? "font-semibold text-[#A12727] dark:text-red-400" : ""}`}>
+                    {s.vencidas > 0 ? formatarMoeda(s.vencidas) : <span className="text-foreground/40">—</span>}
+                  </td>
+                )}
+                {podeVerConciliacao && (
+                  <td className="px-3.5 py-2.5">
+                    {s.celulas.length > 0 ? (
+                      <span className="inline-flex gap-[3px]">
+                        {s.celulas.map((c) => (
+                          <span
+                            key={c.data.toISOString()}
+                            className="size-4 rounded"
+                            style={{ background: COR_CELULA[c.status] }}
+                            title={`${formatarDataExibicao(c.data.toISOString().slice(0, 10))} — ${ROTULO_CELULA[c.status]}`}
+                          />
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="text-foreground/40">—</span>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-foreground/60">
+        Datas: verde = em dia (até 1 dia), amarelo = 2 a 4 dias de atraso, vermelho = mais de 4 dias. Quadradinhos de conciliação: verde = conciliado,
+        vermelho = divergente, amarelo = falta extrato, laranja = falta despesa, cinza = sem movimento.
+      </p>
+    </section>
+  );
+}
+
+async function PainelConciliacao({
+  concPostoId,
+  concBancoId,
+  concDe,
+  concAte,
+}: {
+  concPostoId?: string;
+  concBancoId?: string;
+  concDe: string;
+  concAte: string;
+}) {
+  const [postos, bancos, linhasStatus] = await Promise.all([
+    prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    statusDiarioPorPosto({ postoId: concPostoId || undefined, bancoId: concBancoId || undefined, de: concDe, ate: concAte }),
+  ]);
+  const qs = new URLSearchParams({
+    ...(concPostoId ? { postoId: concPostoId } : {}),
+    ...(concBancoId ? { bancoId: concBancoId } : {}),
+    de: concDe,
+    ate: concAte,
+  }).toString();
+  return (
+    <section className={`${CARTAO} space-y-3 p-5`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-[17px] font-bold tracking-tight">Conciliação — Despesas x Extrato</h2>
+        <form className="flex flex-wrap items-end gap-2 text-sm">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="concPostoId" className="text-foreground/60">
+              Posto
+            </label>
+            <select id="concPostoId" name="concPostoId" defaultValue={concPostoId ?? ""} className={CAMPO}>
+              <option value="">Todos (por posto)</option>
+              {postos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="concBancoId" className="text-foreground/60">
+              Banco
+            </label>
+            <select id="concBancoId" name="concBancoId" defaultValue={concBancoId ?? ""} className={CAMPO}>
+              <option value="">Todos</option>
+              {bancos.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="concDe" className="text-foreground/60">
+              De
+            </label>
+            <input id="concDe" type="date" name="concDe" defaultValue={concDe} className={CAMPO} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="concAte" className="text-foreground/60">
+              até
+            </label>
+            <input id="concAte" type="date" name="concAte" defaultValue={concAte} className={CAMPO} />
+          </div>
+          <button type="submit" className={`${BOTAO_SECUNDARIO} font-medium`}>
+            Ver
+          </button>
+        </form>
+      </div>
+      <p className="text-sm text-foreground/60">
+        {formatarDataExibicao(concDe)} até {formatarDataExibicao(concAte)} — cada quadradinho é um dia. Passe o mouse pra ver os valores; um buraco na
+        faixa (ou os últimos dias em amarelo) é extrato que ainda não chegou ou não foi categorizado como &quot;Despesas Pagas&quot;.
+      </p>
+      {linhasStatus.length > 0 ? (
+        <FaixaStatusDiario linhas={linhasStatus} />
+      ) : (
+        <p className="py-10 text-center text-sm text-foreground/50">Nenhum dado de despesa paga ou extrato nesse período.</p>
+      )}
+      <div className="pt-1 text-right">
+        <Link href={`/extratos/conciliacao?${qs}`} className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+          Ver detalhes em Conciliação de Extratos →
+        </Link>
+      </div>
+    </section>
+  );
 }
 
 export default async function Home({
@@ -38,247 +351,186 @@ export default async function Home({
   searchParams: Promise<{ data?: string; concPostoId?: string; concBancoId?: string; concDe?: string; concAte?: string }>;
 }) {
   const { data, concPostoId, concBancoId, concDe, concAte } = await searchParams;
-  const dataSelecionada = data || hojeISO();
-  const concDeSelecionada = concDe || diasAtras(45);
-  const concAteSelecionada = concAte || hojeISO();
+  const hoje = hojeNoBrasil();
+  const dataValida = data && /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : null;
+  const dataRef = dataValida ? dataUTC(dataValida) : hoje;
 
-  // Painel de Contas a Pagar é dado financeiro de verdade — só mostra pra
-  // quem tem permissão de visualizar o módulo (mesma checagem de
-  // exigirPermissao, mas sem redirecionar a home inteira: quem não pode ver
-  // só não vê essa seção).
   const usuario = await usuarioAtual();
-  const podeVerContasAPagar = !!usuario?.permissoes.find(
-    (p) => p.modulo === "CONTAS_A_PAGAR"
-  )?.podeVisualizar;
+  const pode = (m: Modulo) => !!usuario?.permissoes.find((p) => p.modulo === m && (p.podeVisualizar || p.podeEditar));
+  const podeEditarM = (m: Modulo) => !!usuario?.permissoes.find((p) => p.modulo === m && p.podeEditar);
 
-  // Painel de conciliação cruza dado de dois módulos (Despesas Pagas e
-  // Extratos) — só mostra pra quem pode ver os dois.
-  const podeVerConciliacao =
-    !!usuario?.permissoes.find((p) => p.modulo === "DESPESAS_PAGAS")?.podeVisualizar &&
-    !!usuario?.permissoes.find((p) => p.modulo === "EXTRATOS")?.podeVisualizar;
+  const perm: PermissoesInicio = {
+    contas: pode("CONTAS_A_PAGAR"),
+    combustiveis: pode("COMBUSTIVEIS_A_PAGAR"),
+    fluxo: pode("FLUXO_DE_CAIXA"),
+    extratos: pode("EXTRATOS"),
+    cartoes: pode("CARTOES"),
+    despesasPagas: pode("DESPESAS_PAGAS"),
+    entrePostos: pode("ENTRE_POSTOS"),
+  };
+  const podeVerConciliacao = perm.despesasPagas && perm.extratos;
 
-  // Combustível é ContaAPagar com `combustivel: true` — só entra na série
-  // laranja do gráfico pra quem também pode ver Combustíveis a Pagar; sem
-  // essa permissão, nem entra na consulta (não só zera o valor).
-  const podeVerCombustiveis = !!usuario?.permissoes.find(
-    (p) => p.modulo === "COMBUSTIVEIS_A_PAGAR"
-  )?.podeVisualizar;
+  // A parte rápida (contas a pagar) aparece na hora; a parte lenta (previsão, extratos, vendas) já
+  // começa a carregar agora e chega por blocos, sem travar a tela.
+  const lento = carregarInicio({ dataRef, hoje, perm });
+  lento.catch(() => {}); // erro é tratado onde o bloco é aguardado
+  const rapido = await carregarRapido({ dataRef, perm });
 
-  let dadosGrafico: { label: string; despesas: number; combustiveis: number }[] = [];
-  let totalGeral = 0;
-  let totalContas = 0;
-
-  if (podeVerContasAPagar) {
-    const contas = await prisma.contaAPagar.findMany({
-      where: {
-        dataVencimento: dataUTC(dataSelecionada),
-        ...(podeVerCombustiveis ? {} : { combustivel: false }),
-      },
-      select: { valor: true, combustivel: true, posto: { select: { nome: true } } },
-    });
-    totalContas = contas.length;
-    const porPosto = new Map<string, { despesas: number; combustiveis: number }>();
-    for (const c of contas) {
-      const atual = porPosto.get(c.posto.nome) ?? { despesas: 0, combustiveis: 0 };
-      if (c.combustivel) atual.combustiveis += Number(c.valor);
-      else atual.despesas += Number(c.valor);
-      porPosto.set(c.posto.nome, atual);
-    }
-    dadosGrafico = [...porPosto.entries()]
-      .map(([label, v]) => ({ label, ...v }))
-      .sort((a, b) => b.despesas + b.combustiveis - (a.despesas + a.combustiveis));
-    totalGeral = dadosGrafico.reduce((s, d) => s + d.despesas + d.combustiveis, 0);
-  }
-
-  // Painel de conciliação: uma linha por posto, uma faixa de dias do
-  // período — ver src/lib/conciliacao.ts (statusDiarioPorPosto) e o
-  // componente FaixaStatusDiario pro porquê desse formato (não é gráfico de
-  // valor, é "bater o olho e achar o buraco").
-  let postosConciliacao: { id: string; nome: string }[] = [];
-  let bancosConciliacao: { id: string; nome: string }[] = [];
-  let linhasStatus: Awaited<ReturnType<typeof statusDiarioPorPosto>> = [];
-
-  if (podeVerConciliacao) {
-    const [postos, bancos, status] = await Promise.all([
-      prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-      prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-      statusDiarioPorPosto({
-        postoId: concPostoId || undefined,
-        bancoId: concBancoId || undefined,
-        de: concDeSelecionada,
-        ate: concAteSelecionada,
-      }),
-    ]);
-    postosConciliacao = postos;
-    bancosConciliacao = bancos;
-    linhasStatus = status;
-  }
-
-  const qsConciliacaoExtratos = new URLSearchParams({
-    ...(concPostoId ? { postoId: concPostoId } : {}),
-    ...(concBancoId ? { bancoId: concBancoId } : {}),
-    de: concDeSelecionada,
-    ate: concAteSelecionada,
-  }).toString();
+  const ehHoje = rapido.dataRef === hoje.toISOString().slice(0, 10);
+  const rotuloDia = ehHoje ? "hoje" : formatarDataExibicao(rapido.dataRef);
+  const primeiroNome = usuario?.nome?.split(" ")[0] ?? "";
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-6">
-        <h1 className={TITULO_PAGINA}>Sistema Financeiro</h1>
-        <p className="text-foreground/70">
-          Conciliação de extratos bancários e contas a pagar. Comece pelos
-          Cadastros — é a base que os outros módulos vão usar.
-        </p>
-        <Link
-          href="/cadastros"
-          className="inline-block rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-        >
-          Ir para Cadastros →
-        </Link>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className={TITULO_PAGINA}>
+            {saudacao()}
+            {primeiroNome ? `, ${primeiroNome}` : ""}
+          </h1>
+          <p className="mt-1.5 text-sm text-foreground/60">
+            {dataExtensa(dataRef)}
+            {!ehHoje && " (dia escolhido)"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm font-medium">
+          {podeEditarM("EXTRATOS") && (
+            <Link href="/extratos/importar" className={BOTAO_SECUNDARIO}>
+              Importar extrato
+            </Link>
+          )}
+          {podeEditarM("DESPESAS_PAGAS") && (
+            <Link href="/despesas-pagas/nova" className={BOTAO_SECUNDARIO}>
+              + Despesa avulsa
+            </Link>
+          )}
+          {podeEditarM("CONTAS_A_PAGAR") && (
+            <Link href="/contas-a-pagar/novo" className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">
+              + Nova conta
+            </Link>
+          )}
+          {!usuario?.permissoes.length && (
+            <Link href="/cadastros" className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">
+              Ir para Cadastros →
+            </Link>
+          )}
+        </div>
+      </header>
+
+      {(rapido.pagarNoDia || rapido.vencidas || perm.fluxo) && (
+        <section aria-label="Indicadores do dia" className="flex flex-wrap gap-4">
+          {rapido.pagarNoDia && (
+            <div className={`${CARTAO} min-w-[230px] flex-1 px-5 py-4`}>
+              <p className="text-[13px] text-foreground/60">A pagar {rotuloDia}</p>
+              <p className="mt-1.5 text-[28px] font-bold tracking-tight tabular-nums">{formatarMoeda(rapido.pagarNoDia.total)}</p>
+              <p className="mt-1.5 text-[12.5px] text-foreground/60">
+                {rapido.pagarNoDia.qtd} conta{rapido.pagarNoDia.qtd === 1 ? "" : "s"} em aberto
+                {perm.combustiveis && (
+                  <>
+                    {" "}
+                    · combustíveis <strong className="font-semibold text-foreground">{formatarMoeda(rapido.pagarNoDia.combustiveis)}</strong>
+                  </>
+                )}{" "}
+                · despesas <strong className="font-semibold text-foreground">{formatarMoeda(rapido.pagarNoDia.despesas)}</strong>
+              </p>
+            </div>
+          )}
+          {rapido.vencidas && (
+            <div
+              className={`min-w-[230px] flex-1 rounded-xl border px-5 py-4 ${
+                rapido.vencidas.qtd > 0
+                  ? "border-[#F5C2C2] bg-[#FFF8F8] dark:border-red-900 dark:bg-red-950/20"
+                  : "border-black/10 bg-white dark:border-white/15 dark:bg-white/[0.03]"
+              }`}
+            >
+              <p className={`text-[13px] ${rapido.vencidas.qtd > 0 ? "text-[#A12727] dark:text-red-400" : "text-foreground/60"}`}>Vencidas em aberto</p>
+              <p
+                className={`mt-1.5 text-[28px] font-bold tracking-tight tabular-nums ${
+                  rapido.vencidas.qtd > 0 ? "text-[#A12727] dark:text-red-400" : ""
+                }`}
+              >
+                {formatarMoeda(rapido.vencidas.total)}
+              </p>
+              <p className="mt-1.5 text-[12.5px] text-foreground/60">
+                {rapido.vencidas.qtd === 0 ? (
+                  "Nenhuma conta vencida sem pagar"
+                ) : (
+                  <>
+                    {rapido.vencidas.qtd} conta{rapido.vencidas.qtd === 1 ? "" : "s"} antes de {formatarDataExibicao(rapido.dataRef)} ·{" "}
+                    <Link href={`/conferencia-diaria?ate=${rapido.vencidas.ateISO}`} className="font-semibold text-blue-700 dark:text-blue-300">
+                      Ver vencidas →
+                    </Link>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+          {perm.fluxo && (
+            <Suspense
+              fallback={
+                <>
+                  <Esqueleto altura="h-[116px]" className="min-w-[230px] flex-1" />
+                  <Esqueleto altura="h-[116px]" className="min-w-[230px] flex-1" />
+                </>
+              }
+            >
+              <KpisRecebimento lento={lento} rapido={rapido} rotuloDia={rotuloDia} />
+            </Suspense>
+          )}
+        </section>
+      )}
+
+      <div className="flex flex-wrap items-stretch gap-4">
+        {(perm.contas || perm.fluxo) && (
+          <Suspense fallback={<Esqueleto altura="h-72" className="min-w-0 flex-[999_1_560px]" />}>
+            <CartaoProximosDias lento={lento} perm={perm} />
+          </Suspense>
+        )}
+        <Suspense fallback={<Esqueleto altura="h-72" className="min-w-0 flex-[1_1_340px]" />}>
+          <CartaoAtencao lento={lento} />
+        </Suspense>
       </div>
 
-      {podeVerContasAPagar && (
-        <section className="space-y-3 rounded-xl border border-black/10 p-4 dark:border-white/15">
+      <Suspense fallback={<Esqueleto altura="h-64" />}>
+        <CartaoSituacao lento={lento} perm={perm} hoje={hoje} rotuloDia={rotuloDia} podeVerConciliacao={podeVerConciliacao} />
+      </Suspense>
+
+      {perm.contas && (
+        <section className={`${CARTAO} space-y-3 p-5`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold tracking-tight">Contas a Pagar do dia</h2>
+            <h2 className="text-[17px] font-bold tracking-tight">A pagar {rotuloDia}, por posto</h2>
             <form className="flex items-center gap-2 text-sm">
               <label htmlFor="data" className="text-foreground/60">
-                Data
+                Dia
               </label>
-              <input
-                id="data"
-                type="date"
-                name="data"
-                defaultValue={dataSelecionada}
-                className={CAMPO}
-              />
-              <button
-                type="submit"
-                className={`${BOTAO_SECUNDARIO} font-medium`}
-              >
+              <input id="data" type="date" name="data" defaultValue={rapido.dataRef} className={CAMPO} />
+              <button type="submit" className={`${BOTAO_SECUNDARIO} font-medium`}>
                 Ver
               </button>
             </form>
           </div>
-
-          <p className="text-sm text-foreground/60">
-            {totalContas} conta{totalContas === 1 ? "" : "s"} vencendo em{" "}
-            {formatarDataExibicao(dataSelecionada)} — total {formatarMoeda(totalGeral)}
-          </p>
-
-          {dadosGrafico.length > 0 ? (
-            <GraficoBarras dados={dadosGrafico} />
+          {rapido.porPosto.length > 0 ? (
+            <GraficoBarras dados={rapido.porPosto} />
           ) : (
-            <p className="py-10 text-center text-sm text-foreground/50">
-              Nenhuma conta a pagar vencendo nessa data.
-            </p>
+            <p className="py-10 text-center text-sm text-foreground/50">Nenhuma conta em aberto vencendo nesse dia.</p>
           )}
-
           <div className="pt-1 text-right">
-            <Link
-              href={`/contas-a-pagar?de=${dataSelecionada}&ate=${dataSelecionada}`}
-              className="text-sm text-foreground/60 underline"
-            >
-              Ver essas contas em Contas a Pagar →
+            <Link href={`/conferencia-diaria?de=${rapido.dataRef}&ate=${rapido.dataRef}`} className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+              Ver essas contas na Conferência Diária →
             </Link>
           </div>
         </section>
       )}
 
       {podeVerConciliacao && (
-        <section className="space-y-3 rounded-xl border border-black/10 p-4 dark:border-white/15">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold tracking-tight">Conciliação — Despesas x Extrato</h2>
-            <form className="flex flex-wrap items-end gap-2 text-sm">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="concPostoId" className="text-foreground/60">
-                  Posto
-                </label>
-                <select
-                  id="concPostoId"
-                  name="concPostoId"
-                  defaultValue={concPostoId ?? ""}
-                  className={CAMPO}
-                >
-                  <option value="">Todos (por posto)</option>
-                  {postosConciliacao.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="concBancoId" className="text-foreground/60">
-                  Banco
-                </label>
-                <select
-                  id="concBancoId"
-                  name="concBancoId"
-                  defaultValue={concBancoId ?? ""}
-                  className={CAMPO}
-                >
-                  <option value="">Todos</option>
-                  {bancosConciliacao.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="concDe" className="text-foreground/60">
-                  De
-                </label>
-                <input
-                  id="concDe"
-                  type="date"
-                  name="concDe"
-                  defaultValue={concDeSelecionada}
-                  className={CAMPO}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="concAte" className="text-foreground/60">
-                  até
-                </label>
-                <input
-                  id="concAte"
-                  type="date"
-                  name="concAte"
-                  defaultValue={concAteSelecionada}
-                  className={CAMPO}
-                />
-              </div>
-              <button
-                type="submit"
-                className={`${BOTAO_SECUNDARIO} font-medium`}
-              >
-                Ver
-              </button>
-            </form>
-          </div>
-
-          <p className="text-sm text-foreground/60">
-            {formatarDataExibicao(concDeSelecionada)} até {formatarDataExibicao(concAteSelecionada)} — cada
-            quadradinho é um dia. Passe o mouse pra ver os valores; um buraco na faixa (ou os últimos dias em
-            amarelo) é extrato que ainda não chegou ou não foi categorizado como &quot;Despesas Pagas&quot;.
-          </p>
-
-          {linhasStatus.length > 0 ? (
-            <FaixaStatusDiario linhas={linhasStatus} />
-          ) : (
-            <p className="py-10 text-center text-sm text-foreground/50">
-              Nenhum dado de despesa paga ou extrato nesse período.
-            </p>
-          )}
-
-          <div className="pt-1 text-right">
-            <Link href={`/extratos/conciliacao?${qsConciliacaoExtratos}`} className="text-sm text-foreground/60 underline">
-              Ver detalhes em Conciliação de Extratos →
-            </Link>
-          </div>
-        </section>
+        <Suspense fallback={<Esqueleto altura="h-56" />}>
+          <PainelConciliacao
+            concPostoId={concPostoId}
+            concBancoId={concBancoId}
+            concDe={concDe || diasAtras(45)}
+            concAte={concAte || hoje.toISOString().slice(0, 10)}
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -102,20 +102,61 @@ export async function previsaoDeRecebimentos(params: {
   const minDia = dataUTC(dias[0]);
   const maxDia = dataUTC(dias[dias.length - 1]);
 
-  const adquirentes = await prisma.adquirenteCartao.findMany({ select: { id: true, nome: true } });
+  // Todas as consultas ao banco saem juntas (em paralelo): cada uma sozinha é rápida, mas
+  // uma atrás da outra o painel inicial e o Fluxo ficavam lentos com a latência do banco.
+  const ontem = somarDias(hoje, -1);
+  const limiteReal = ontem < maxDia ? ontem : maxDia;
+  const [adquirentes, pagamentos, ajustes, ultimas, historico, bancos, lancamentosAgrupados, categorias] = await Promise.all([
+    prisma.adquirenteCartao.findMany({ select: { id: true, nome: true } }),
+    prisma.transacaoCartao.groupBy({
+      by: ["postoId", "adquirenteId", "dataPagamento", "tipoVenda"],
+      where: {
+        postoId: { in: postoIds },
+        valorLiquido: { not: null },
+        dataPagamento: { gte: somarDias(minDia, -10), lte: maxDia },
+        ...corteVenda,
+      },
+      _sum: { valorLiquido: true },
+    }),
+    // Antecipações cadastradas: tiram o valor dos dias antecipados e põem o líquido no dia em que caiu.
+    simulacao ? Promise.resolve([]) : calcularAjustesAntecipacao({ postoId: postoIds, dataInicio: somarDias(minDia, -10), dataFim: maxDia }),
+    prisma.transacaoCartao.groupBy({
+      by: ["postoId", "adquirenteId"],
+      where: { postoId: { in: postoIds }, adquirente: { nome: { in: MAQUININHAS } }, dataVenda: { gte: somarDias(hoje, -60), ...(simulacao ? { lte: dataUTC(simulacao.vendasAte) } : {}) } },
+      _max: { dataVenda: true },
+    }),
+    // Histórico das últimas semanas (janela larga e fixa; o corte por adquirente é feito em memória).
+    prisma.transacaoCartao.groupBy({
+      by: ["postoId", "adquirenteId", "dataVenda", "tipoVenda", "dataPagamento"],
+      where: {
+        postoId: { in: postoIds },
+        adquirente: { nome: { in: MAQUININHAS } },
+        valorLiquido: { not: null },
+        dataPagamento: { not: null },
+        dataVenda: { gte: somarDias(hoje, -(SEMANAS_DE_HISTORICO * 7 + 21)), lte: simulacao ? dataUTC(simulacao.vendasAte) : hoje },
+      },
+      _sum: { valorLiquido: true },
+    }),
+    prisma.lancamentoExtrato.groupBy({
+      by: ["postoId", "bancoId"],
+      where: { postoId: { in: postoIds }, data: { gte: somarDias(hoje, -40) } },
+      _max: { data: true },
+      _count: { _all: true },
+    }),
+    // Realizado: créditos do extrato já somados por posto/dia/categoria (bem menos linhas que trazer lançamento a lançamento).
+    !simulacao && limiteReal >= minDia
+      ? prisma.lancamentoExtrato.groupBy({
+          by: ["postoId", "data", "categoriaId", "tipoAdquirente"],
+          where: { postoId: { in: postoIds }, valor: { gt: 0 }, data: { gte: somarDias(minDia, -10), lte: limiteReal } },
+          _sum: { valor: true },
+        })
+      : Promise.resolve([]),
+    prisma.categoriaExtrato.findMany({ select: { id: true, nome: true, tipo: true } }),
+  ]);
   const nomeAdq = new Map(adquirentes.map((a) => [a.id, a.nome]));
+  const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
 
   // ---------------- 2) CONHECIDO: o que as vendas importadas agendam ----------------
-  const pagamentos = await prisma.transacaoCartao.groupBy({
-    by: ["postoId", "adquirenteId", "dataPagamento", "tipoVenda"],
-    where: {
-      postoId: { in: postoIds },
-      valorLiquido: { not: null },
-      dataPagamento: { gte: somarDias(minDia, -10), lte: maxDia },
-      ...corteVenda,
-    },
-    _sum: { valorLiquido: true },
-  });
   const conhecido = new Map<string, Par>();
   for (const p of pagamentos) {
     if (!p.dataPagamento) continue;
@@ -124,21 +165,12 @@ export async function previsaoDeRecebimentos(params: {
     const dia = diaUtilDe(p.dataPagamento);
     if (diasSet.has(dia)) somar(conhecido, `${p.postoId}|${dia}`, grupo, Number(p._sum.valorLiquido ?? 0));
   }
-  // Antecipações cadastradas: tiram o valor dos dias antecipados e põem o líquido no dia em que caiu.
-  const ajustes = simulacao
-    ? []
-    : await calcularAjustesAntecipacao({ postoId: postoIds, dataInicio: somarDias(minDia, -10), dataFim: maxDia });
   for (const a of ajustes) {
     const dia = diaUtilDe(dataUTC(a.data));
     if (diasSet.has(dia)) somar(conhecido, `${a.postoId}|${dia}`, "cred", a.delta);
   }
 
   // ---------------- 3) ESTIMADO: vendas ainda não importadas ----------------
-  const ultimas = await prisma.transacaoCartao.groupBy({
-    by: ["postoId", "adquirenteId"],
-    where: { postoId: { in: postoIds }, adquirente: { nome: { in: MAQUININHAS } }, ...corteVenda },
-    _max: { dataVenda: true },
-  });
   const maisRecente = ultimas.reduce<Date | null>((m, u) => (u._max.dataVenda && (!m || u._max.dataVenda > m) ? u._max.dataVenda : m), null);
   const baseAte = new Map<string, Date>(); // posto|adquirente -> último dia de venda importado (só adquirentes ativas)
   const vendasAtePosto = new Map<string, Date>();
@@ -155,18 +187,6 @@ export async function previsaoDeRecebimentos(params: {
 
   const estimado = new Map<string, Par>();
   if (baseAte.size > 0) {
-    const menorBase = [...baseAte.values()].reduce((m, d) => (d < m ? d : m));
-    const historico = await prisma.transacaoCartao.groupBy({
-      by: ["postoId", "adquirenteId", "dataVenda", "tipoVenda", "dataPagamento"],
-      where: {
-        postoId: { in: postoIds },
-        adquirente: { nome: { in: MAQUININHAS } },
-        valorLiquido: { not: null },
-        dataPagamento: { not: null },
-        dataVenda: { gte: somarDias(menorBase, -(SEMANAS_DE_HISTORICO * 7)), lte: [...baseAte.values()].reduce((m, d) => (d > m ? d : m)) },
-      },
-      _sum: { valorLiquido: true },
-    });
     // média de venda líquida por (posto, adquirente, tipo, atraso, dia da semana da venda)
     const media = new Map<string, { postoId: string; adquirenteId: string; grupo: Grupo; lag: number; dow: number; soma: number }>();
     for (const h of historico) {
@@ -195,14 +215,6 @@ export async function previsaoDeRecebimentos(params: {
   }
 
   // ---------------- 1) REALIZADO: extrato dos dias passados ----------------
-  const ontem = somarDias(hoje, -1);
-  const limiteReal = ontem < maxDia ? ontem : maxDia;
-  const bancos = await prisma.lancamentoExtrato.groupBy({
-    by: ["postoId", "bancoId"],
-    where: { postoId: { in: postoIds }, data: { gte: somarDias(hoje, -40) } },
-    _max: { data: true },
-    _count: { _all: true },
-  });
   const extratoAte = new Map<string, Date>(); // menor "último dia" entre as contas bancárias ativas do posto
   for (const b of bancos) {
     if (b._count._all < MIN_LANCAMENTOS_BANCO_ATIVO || !b._max.data) continue;
@@ -210,22 +222,16 @@ export async function previsaoDeRecebimentos(params: {
     if (!atual || b._max.data < atual) extratoAte.set(b.postoId, b._max.data);
   }
   const realizado = new Map<string, Par>();
-  if (limiteReal >= minDia) {
-    const lancamentos = await prisma.lancamentoExtrato.findMany({
-      where: { postoId: { in: postoIds }, valor: { gt: 0 }, data: { gte: somarDias(minDia, -10), lte: limiteReal } },
-      select: { postoId: true, data: true, valor: true, tipoAdquirente: true, categoria: { select: { nome: true, tipo: true } } },
-    });
-    for (const l of lancamentos) {
-      const c = l.categoria;
-      if (!c) continue;
-      let grupo: Grupo | null = null;
-      if (c.tipo === "ADQUIRENTE") grupo = l.tipoAdquirente === "DEBITO" ? "deb" : "cred";
-      else if (c.tipo === "VOUCHER" && !CATEGORIAS_FORA_DO_FLUXO.has(c.nome)) grupo = "cred";
-      else if (c.nome === "PIX") grupo = "deb";
-      if (!grupo) continue;
-      const dia = diaUtilDe(l.data);
-      if (diasSet.has(dia)) somar(realizado, `${l.postoId}|${dia}`, grupo, Number(l.valor));
-    }
+  for (const l of lancamentosAgrupados) {
+    const c = l.categoriaId ? categoriaPorId.get(l.categoriaId) : null;
+    if (!c) continue;
+    let grupo: Grupo | null = null;
+    if (c.tipo === "ADQUIRENTE") grupo = l.tipoAdquirente === "DEBITO" ? "deb" : "cred";
+    else if (c.tipo === "VOUCHER" && !CATEGORIAS_FORA_DO_FLUXO.has(c.nome)) grupo = "cred";
+    else if (c.nome === "PIX") grupo = "deb";
+    if (!grupo) continue;
+    const dia = diaUtilDe(l.data);
+    if (diasSet.has(dia)) somar(realizado, `${l.postoId}|${dia}`, grupo, Number(l._sum.valor ?? 0));
   }
 
   // ---------------- junta as camadas ----------------
