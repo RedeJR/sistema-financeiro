@@ -52,6 +52,7 @@ export type PostoSituacao = {
   postoId: string;
   posto: string;
   extratoAte: string | null;
+  extratoBanco: string | null; // conta bancária mais atrasada do posto (a que define o "último extrato")
   vendasAte: string | null;
   pagarNoDia: number;
   vencidas: number;
@@ -129,6 +130,7 @@ async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: Permiss
         _max: { dataVenda: true },
       })
     : null;
+  const pBancos = perm.extratos ? prisma.banco.findMany({ select: { id: true, nome: true } }) : null;
   const pCelulas = perm.despesasPagas && perm.extratos ? statusDiarioPorPosto({ de: iso(somarDias(hoje, -6)), ate: hojeISO }) : null;
   const pDiasSemLancamento =
     perm.despesasPagas && perm.extratos
@@ -240,12 +242,17 @@ async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: Permiss
 
   // ---------- até quando temos extrato e venda de cartão de cada posto ----------
   const extratoAte = new Map<string, Date>();
+  const extratoBanco = new Map<string, string>();
   if (perm.extratos) {
-    const bancos = (await pExtrato)!;
+    const [bancos, nomesBancos] = await Promise.all([pExtrato!, pBancos!]);
+    const nomeBanco = new Map(nomesBancos.map((b) => [b.id, b.nome]));
     for (const b of bancos) {
       if (b._count._all < MIN_LANCAMENTOS_BANCO_ATIVO || !b._max.data) continue;
       const atual = extratoAte.get(b.postoId);
-      if (!atual || b._max.data < atual) extratoAte.set(b.postoId, b._max.data);
+      if (!atual || b._max.data < atual) {
+        extratoAte.set(b.postoId, b._max.data);
+        extratoBanco.set(b.postoId, nomeBanco.get(b.bancoId) ?? "");
+      }
     }
   }
   const vendasAte = new Map<string, Date>();
@@ -277,6 +284,7 @@ async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: Permiss
       postoId: id,
       posto: nomePosto.get(id) ?? id,
       extratoAte: extratoAte.has(id) ? iso(extratoAte.get(id)!) : null,
+      extratoBanco: extratoBanco.get(id) || null,
       vendasAte: vendasAte.has(id) ? iso(vendasAte.get(id)!) : null,
       pagarNoDia: pagarPorPosto.get(id) ?? 0,
       vencidas: vencidasPorPosto.get(id) ?? 0,
@@ -301,7 +309,7 @@ async function calcularInicio(params: { dataRef: Date; hoje: Date; perm: Permiss
       alertas.push({
         nivel: "ruim",
         titulo: `${velhos.length} posto${velhos.length === 1 ? "" : "s"} com extrato desatualizado`,
-        detalhe: velhos.slice(0, 4).map(([id, d]) => `${nomePosto.get(id) ?? id} (até ${dm(iso(d))})`).join(", ") + (velhos.length > 4 ? ` e mais ${velhos.length - 4}` : ""),
+        detalhe: velhos.slice(0, 4).map(([id, d]) => `${nomePosto.get(id) ?? id}${extratoBanco.get(id) ? ` · ${extratoBanco.get(id)}` : ""} (até ${dm(iso(d))})`).join(", ") + (velhos.length > 4 ? ` e mais ${velhos.length - 4}` : ""),
         href: "/extratos/importar",
         acao: "Importar",
       });

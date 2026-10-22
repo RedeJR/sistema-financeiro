@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { prisma } from "@/lib/prisma";
 import { usuarioAtual } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { statusDiarioPorPosto } from "@/lib/conciliacao";
-import { GraficoBarras } from "@/components/ui/grafico-barras";
-import { FaixaStatusDiario } from "@/components/ui/faixa-status-diario";
 import { ProximosDias } from "@/components/painel/proximos-dias";
 import {
   carregarInicio,
@@ -16,7 +12,7 @@ import {
   type PermissoesInicio,
   type RapidoInicio,
 } from "@/lib/painel/inicio";
-import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
+import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import type { Modulo } from "@/generated/prisma/client";
 
 function dataUTC(iso: string): Date {
@@ -32,19 +28,13 @@ function dataExtensa(d: Date): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function diasAtras(n: number): string {
-  const hoje = hojeNoBrasil();
-  hoje.setUTCDate(hoje.getUTCDate() - n);
-  return hoje.toISOString().slice(0, 10);
-}
-
 function saudacao(): string {
   const h = horaNoBrasil();
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 }
 
 // Idade do dado em dias (data já vem em ISO) -> cor: em dia / atrasando / velho.
-function ChipDado({ iso, hoje }: { iso: string | null; hoje: Date }) {
+function ChipDado({ iso, hoje, banco }: { iso: string | null; hoje: Date; banco?: string | null }) {
   if (!iso) return <span className="text-foreground/40">—</span>;
   const dias = Math.round((hoje.getTime() - dataUTC(iso).getTime()) / 86400000);
   const cor =
@@ -54,8 +44,11 @@ function ChipDado({ iso, hoje }: { iso: string | null; hoje: Date }) {
         ? "bg-[#FFF3D6] text-[#7A4B00] dark:bg-amber-900/40 dark:text-amber-300"
         : "bg-[#FDECEC] text-[#A12727] dark:bg-red-900/40 dark:text-red-400";
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${cor}`} title={`${dias} dia${dias === 1 ? "" : "s"} atrás`}>
-      {formatarDataExibicao(iso).slice(0, 5)}
+    <span className="inline-flex items-center gap-2">
+      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${cor}`} title={`${dias} dia${dias === 1 ? "" : "s"} atrás`}>
+        {formatarDataExibicao(iso).slice(0, 5)}
+      </span>
+      {banco && <span className="text-[13px] text-foreground/70">{banco}</span>}
     </span>
   );
 }
@@ -195,7 +188,7 @@ async function CartaoSituacao({
           <thead className={CABECALHO_TABELA}>
             <tr>
               <th className="px-3.5 py-2.5 text-left">Posto</th>
-              {perm.extratos && <th className="px-3.5 py-2.5 text-left">Último extrato</th>}
+              {perm.extratos && <th className="px-3.5 py-2.5 text-left">Último extrato (banco mais atrasado)</th>}
               {perm.cartoes && <th className="px-3.5 py-2.5 text-left">Última venda de cartão</th>}
               {perm.contas && <th className="px-3.5 py-2.5 text-right">A pagar {rotuloDia}</th>}
               {perm.contas && <th className="px-3.5 py-2.5 text-right">Vencidas</th>}
@@ -208,7 +201,7 @@ async function CartaoSituacao({
                 <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.posto}</td>
                 {perm.extratos && (
                   <td className="px-3.5 py-2.5">
-                    <ChipDado iso={s.extratoAte} hoje={hoje} />
+                    <ChipDado iso={s.extratoAte} hoje={hoje} banco={s.extratoBanco} />
                   </td>
                 )}
                 {perm.cartoes && (
@@ -257,100 +250,12 @@ async function CartaoSituacao({
   );
 }
 
-async function PainelConciliacao({
-  concPostoId,
-  concBancoId,
-  concDe,
-  concAte,
-}: {
-  concPostoId?: string;
-  concBancoId?: string;
-  concDe: string;
-  concAte: string;
-}) {
-  const [postos, bancos, linhasStatus] = await Promise.all([
-    prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    statusDiarioPorPosto({ postoId: concPostoId || undefined, bancoId: concBancoId || undefined, de: concDe, ate: concAte }),
-  ]);
-  const qs = new URLSearchParams({
-    ...(concPostoId ? { postoId: concPostoId } : {}),
-    ...(concBancoId ? { bancoId: concBancoId } : {}),
-    de: concDe,
-    ate: concAte,
-  }).toString();
-  return (
-    <section className={`${CARTAO} space-y-3 p-5`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[17px] font-bold tracking-tight">Conciliação — Despesas x Extrato</h2>
-        <form className="flex flex-wrap items-end gap-2 text-sm">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="concPostoId" className="text-foreground/60">
-              Posto
-            </label>
-            <select id="concPostoId" name="concPostoId" defaultValue={concPostoId ?? ""} className={CAMPO}>
-              <option value="">Todos (por posto)</option>
-              {postos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="concBancoId" className="text-foreground/60">
-              Banco
-            </label>
-            <select id="concBancoId" name="concBancoId" defaultValue={concBancoId ?? ""} className={CAMPO}>
-              <option value="">Todos</option>
-              {bancos.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="concDe" className="text-foreground/60">
-              De
-            </label>
-            <input id="concDe" type="date" name="concDe" defaultValue={concDe} className={CAMPO} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="concAte" className="text-foreground/60">
-              até
-            </label>
-            <input id="concAte" type="date" name="concAte" defaultValue={concAte} className={CAMPO} />
-          </div>
-          <button type="submit" className={`${BOTAO_SECUNDARIO} font-medium`}>
-            Ver
-          </button>
-        </form>
-      </div>
-      <p className="text-sm text-foreground/60">
-        {formatarDataExibicao(concDe)} até {formatarDataExibicao(concAte)} — cada quadradinho é um dia. Passe o mouse pra ver os valores; um buraco na
-        faixa (ou os últimos dias em amarelo) é extrato que ainda não chegou ou não foi categorizado como &quot;Despesas Pagas&quot;.
-      </p>
-      {linhasStatus.length > 0 ? (
-        <FaixaStatusDiario linhas={linhasStatus} />
-      ) : (
-        <p className="py-10 text-center text-sm text-foreground/50">Nenhum dado de despesa paga ou extrato nesse período.</p>
-      )}
-      <div className="pt-1 text-right">
-        <Link href={`/extratos/conciliacao?${qs}`} className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-          Ver detalhes em Conciliação de Extratos →
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string; concPostoId?: string; concBancoId?: string; concDe?: string; concAte?: string }>;
+  searchParams: Promise<{ data?: string }>;
 }) {
-  const { data, concPostoId, concBancoId, concDe, concAte } = await searchParams;
+  const { data } = await searchParams;
   const hoje = hojeNoBrasil();
   const dataValida = data && /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : null;
   const dataRef = dataValida ? dataUTC(dataValida) : hoje;
@@ -372,9 +277,10 @@ export default async function Home({
 
   // A parte rápida (contas a pagar) aparece na hora; a parte lenta (previsão, extratos, vendas) já
   // começa a carregar agora e chega por blocos, sem travar a tela.
+  const rapido = await carregarRapido({ dataRef, perm });
+  // Só depois de a parte rápida estar pronta é que a lenta começa: assim as duas não disputam as conexões do banco.
   const lento = carregarInicio({ dataRef, hoje, perm });
   lento.catch(() => {}); // erro é tratado onde o bloco é aguardado
-  const rapido = await carregarRapido({ dataRef, perm });
 
   const ehHoje = rapido.dataRef === hoje.toISOString().slice(0, 10);
   const rotuloDia = ehHoje ? "hoje" : formatarDataExibicao(rapido.dataRef);
@@ -494,44 +400,6 @@ export default async function Home({
       <Suspense fallback={<Esqueleto altura="h-64" />}>
         <CartaoSituacao lento={lento} perm={perm} hoje={hoje} rotuloDia={rotuloDia} podeVerConciliacao={podeVerConciliacao} />
       </Suspense>
-
-      {perm.contas && (
-        <section className={`${CARTAO} space-y-3 p-5`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-[17px] font-bold tracking-tight">A pagar {rotuloDia}, por posto</h2>
-            <form className="flex items-center gap-2 text-sm">
-              <label htmlFor="data" className="text-foreground/60">
-                Dia
-              </label>
-              <input id="data" type="date" name="data" defaultValue={rapido.dataRef} className={CAMPO} />
-              <button type="submit" className={`${BOTAO_SECUNDARIO} font-medium`}>
-                Ver
-              </button>
-            </form>
-          </div>
-          {rapido.porPosto.length > 0 ? (
-            <GraficoBarras dados={rapido.porPosto} />
-          ) : (
-            <p className="py-10 text-center text-sm text-foreground/50">Nenhuma conta em aberto vencendo nesse dia.</p>
-          )}
-          <div className="pt-1 text-right">
-            <Link href={`/conferencia-diaria?de=${rapido.dataRef}&ate=${rapido.dataRef}`} className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-              Ver essas contas na Conferência Diária →
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {podeVerConciliacao && (
-        <Suspense fallback={<Esqueleto altura="h-56" />}>
-          <PainelConciliacao
-            concPostoId={concPostoId}
-            concBancoId={concBancoId}
-            concDe={concDe || diasAtras(45)}
-            concAte={concAte || hoje.toISOString().slice(0, 10)}
-          />
-        </Suspense>
-      )}
     </div>
   );
 }
