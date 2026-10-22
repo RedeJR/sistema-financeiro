@@ -7,7 +7,6 @@ import { agruparEmBlocos, buscarVendasAReceber, formatarPeriodoVendas, type Base
 import { BotaoImprimir } from "../botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
-import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -53,7 +52,6 @@ export default async function VendasAReceberPage({
 
   return (
     <div className="space-y-6">
-      <OrientacaoImpressao />
       <CabecalhoImpressao titulo="Valores a receber" detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${inicio} a ${fim}` }, { rotulo: "Base", valor: descricaoBase }]} />
 
       <p className="text-sm text-foreground/60 print:hidden">

@@ -8,7 +8,6 @@ import { buscarRelatorioCampoExtrato, listarCategoriasRelatorioExtrato } from "@
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
-import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -60,8 +59,7 @@ export default async function RelatoriosExtratosPage({
 
   return (
     <div className="space-y-6">
-      <OrientacaoImpressao />
-      <CabecalhoImpressao titulo={`Relatório de Extrato — ${nomeCategoria}`} detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${de} a ${ate}` }]} />
+      <CabecalhoImpressao titulo={`Relatório de Extrato — ${nomeCategoria}`} detalhes={[{ rotulo: "Posto", valor: !postoNome ? "Todos os postos" : postoNome.length > 70 ? `${blocos?.length ?? postoIds.length} postos selecionados` : postoNome }, { rotulo: "Período", valor: `${de} a ${ate}` }]} />
 
       <div className="flex items-center justify-between print:hidden">
         <div>
@@ -163,7 +161,10 @@ export default async function RelatoriosExtratosPage({
       {blocos && (
         <div className="space-y-4">
           {blocos.map((b) => (
-            <div key={b.postoId} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
+            <div
+              key={b.postoId}
+              className={`overflow-hidden rounded-lg border border-black/10 dark:border-white/15 print:break-inside-avoid ${b.linhas.length === 0 ? "print:hidden" : ""}`}
+            >
               <div className="border-b border-black/10 bg-blue-950/10 px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
                 {b.postoNome}
               </div>
@@ -202,6 +203,12 @@ export default async function RelatoriosExtratosPage({
               </table>
             </div>
           ))}
+
+          {blocos.some((b) => b.linhas.length === 0) && (
+            <p className="hidden text-[9px] text-gray-500 print:block">
+              Sem lançamentos no período: {blocos.filter((b) => b.linhas.length === 0).map((b) => b.postoNome).join(", ")}.
+            </p>
+          )}
 
           {blocos.length > 1 && (
             <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">

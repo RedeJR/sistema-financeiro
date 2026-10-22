@@ -75,6 +75,7 @@ body {
      rodapé de totais aparece uma vez só (no fim), não em todas as páginas. */
   thead {
     display: table-header-group;
+    position: static !important;
   }
   tfoot {
     display: table-row-group;

@@ -7,7 +7,6 @@ import { BotaoImprimir } from "./botao-imprimir";
 import { registrarConferenciaCaixa } from "./actions";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
-import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -60,7 +59,6 @@ export default async function RelatorioCaixaPage({
 
   return (
     <div className="space-y-6">
-      <OrientacaoImpressao />
       <CabecalhoImpressao titulo="Relatório de Caixa" detalhes={[{ rotulo: "Posto", valor: postoNome }, { rotulo: "Turno", valor: `${formatarTurno(inicio)} a ${formatarTurno(fim)}` }]} />
 
       <div className="flex flex-wrap items-end gap-3 text-sm print:hidden">
