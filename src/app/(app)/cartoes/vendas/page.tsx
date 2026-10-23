@@ -9,6 +9,8 @@ import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
+import { padraoDeDatas } from "@/lib/datas-padrao";
+import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -28,7 +30,11 @@ export default async function VendasCartoesPage({
     adquirenteId?: string | string[];
   }>;
 }) {
-  const { postoId, inicio, fim, adquirenteId } = await searchParams;
+  const { postoId, inicio: inicioParam, fim: fimParam, adquirenteId } = await searchParams;
+  const padraoData = padraoDeDatas(inicioParam, fimParam, "ontem");
+  const inicio = padraoData.de;
+  const fim = padraoData.ate;
+  const padrao = padraoData.padrao;
   const postoIds = paraLista(postoId);
   const adquirenteIds = adquirenteId ? (Array.isArray(adquirenteId) ? adquirenteId : [adquirenteId]) : [];
 
@@ -70,6 +76,7 @@ export default async function VendasCartoesPage({
         extrato. Serve pra conferir se o arquivo foi lido certo.
       </p>
 
+      {padrao && inicio && <AvisoPadraoDia modo="ontem" dia={inicio} />}
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">

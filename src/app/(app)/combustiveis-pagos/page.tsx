@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
+import { padraoDeDatas } from "@/lib/datas-padrao";
+import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 
 function formatarData(d: Date | null): string {
   return d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
@@ -28,7 +30,7 @@ export default async function CombustiveisPagosPage({
   const filtros = await searchParams;
   const postoIds = paraArray(filtros.postoId);
   const fornecedorIds = paraArray(filtros.fornecedorId);
-  const { de, ate } = filtros;
+  const { de, ate, padrao } = padraoDeDatas(filtros.de, filtros.ate, "ontem");
 
   const [contas, postos, fornecedores] = await Promise.all([
     prisma.contaAPagar.findMany({
@@ -68,6 +70,7 @@ export default async function CombustiveisPagosPage({
         pro que ainda está em aberto.
       </p>
 
+      {padrao && <AvisoPadraoDia modo="ontem" dia={de!} />}
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">

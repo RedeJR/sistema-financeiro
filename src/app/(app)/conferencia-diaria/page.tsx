@@ -69,7 +69,7 @@ export default async function ConferenciaDiariaPage({
   const hoje = hojeUTC();
   // Padrão: só o dia atual (22 a 22, por exemplo). Pra ver o que já venceu, é só
   // esvaziar a data inicial — aí vem tudo até a data final.
-  const padraoDia = !de && !ate;
+  const padraoDia = de === undefined && ate === undefined;
   const deEfetivo = padraoDia ? paraDataInput(hoje) : de;
   const ateEfetivo = padraoDia ? paraDataInput(hoje) : ate;
 

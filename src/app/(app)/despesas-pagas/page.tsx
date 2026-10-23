@@ -18,6 +18,8 @@ import { buscarDespesasPagas, type FiltrosDespesasPagas } from "./consulta";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { Paginacao } from "@/components/ui/paginacao";
 import { lerParamsLista, paginar } from "@/lib/lista";
+import { padraoDeDatas } from "@/lib/datas-padrao";
+import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -118,7 +120,10 @@ export default async function DespesasPagasPage({
   const podeEditarExtratos = await podeEditarModulo("EXTRATOS");
   const podeEditar = podeEditarDespesas;
 
-  const filtros = await searchParams;
+  const filtrosBrutos = await searchParams;
+  const padraoData = padraoDeDatas(filtrosBrutos.de, filtrosBrutos.ate, "ontem");
+  const filtros = { ...filtrosBrutos, de: padraoData.de, ate: padraoData.ate };
+  const padrao = padraoData.padrao;
   const { postoId, postoDono, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
   const postoIds = paraLista(postoId);
 
@@ -154,7 +159,7 @@ export default async function DespesasPagasPage({
     // Sem data escolhida, o aviso começa em 01/09/2026 — pedido da usuária
     // em 08/10/2026 ("tira os avisos da conciliação de despesas do mês 08").
     // Escolhendo "Pago de", dá pra olhar um mês anterior de propósito.
-    conferenciaTotalDiario({ postoId: postoIds, de: de || "2026-09-01", ate }),
+    conferenciaTotalDiario({ postoId: postoIds, de: padrao ? "2026-09-01" : de || "2026-09-01", ate: padrao ? undefined : ate }),
   ]);
   // Só o que falta lançar (extrato > despesas) — o caso que a usuária pediu
   // pra avisar. O outro sentido (despesa > extrato) já aparece como
@@ -249,6 +254,7 @@ export default async function DespesasPagasPage({
         </div>
       </section>
 
+      {padrao && <AvisoPadraoDia modo="ontem" dia={de!} />}
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="q" className="text-foreground/60">

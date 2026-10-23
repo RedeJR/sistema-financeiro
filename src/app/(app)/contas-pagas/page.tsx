@@ -12,6 +12,8 @@ import {
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { padraoDeDatas } from "@/lib/datas-padrao";
+import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 
 // Mesma tela do botão "Relatório (imprimir / PDF)" de Contas a Pagar (pedido
 // da usuária) — reaproveita a consulta e o agrupamento de lá (buscarRelatorio
@@ -43,7 +45,10 @@ type Filtros = {
 export default async function ContasPagasPage({ searchParams }: { searchParams: Promise<Filtros> }) {
   await exigirPermissao("CONTAS_PAGAS", "visualizar");
 
-  const filtros = await searchParams;
+  const filtrosBrutos = await searchParams;
+  const padraoData = padraoDeDatas(filtrosBrutos.de, filtrosBrutos.ate, "ontem");
+  const filtros = { ...filtrosBrutos, de: padraoData.de, ate: padraoData.ate };
+  const padrao = padraoData.padrao;
   const postoIdsSelecionados = paraArray(filtros.postoId);
   const fornecedorIdsSelecionados = paraArray(filtros.fornecedorId);
   const planoContaIdsSelecionados = paraArray(filtros.planoContaId);
@@ -89,6 +94,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
       </div>
       <CabecalhoImpressao titulo="Contas Pagas" />
 
+      {padrao && <AvisoPadraoDia modo="ontem" dia={filtros.de!} />}
       <form className="space-y-1.5 text-sm print:hidden">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">

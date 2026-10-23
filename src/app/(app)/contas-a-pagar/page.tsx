@@ -15,6 +15,8 @@ import { lerParamsLista, ordenar, paginar } from "@/lib/lista";
 import { BOTAO_EDITAR, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { ComentarioHover } from "@/components/ui/comentario-hover";
+import { padraoDeDatas } from "@/lib/datas-padrao";
+import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 
 const MENSAGENS_ERRO: Record<string, string> = {
   "ja-paga": "Essa conta já foi paga — não dá mais pra excluir por aqui. Desfaça o pagamento em Despesas Pagas primeiro.",
@@ -73,7 +75,8 @@ export default async function ContasAPagarPage({
 
   await gerarOcorrenciasRecorrentesPendentes();
 
-  const { postoId, status, de, ate, q, erro, ordem, dir, pagina, porPagina } = await searchParams;
+  const { postoId, status, de: deParam, ate: ateParam, q, erro, ordem, dir, pagina, porPagina } = await searchParams;
+  const { de, ate, padrao } = padraoDeDatas(deParam, ateParam, "hoje");
   const busca = q?.trim();
   const postoIds = paraLista(postoId);
 
@@ -197,6 +200,7 @@ export default async function ContasAPagarPage({
         </div>
       </section>
 
+      {padrao && <AvisoPadraoDia modo="hoje" dia={de!} />}
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="q" className="text-foreground/60">

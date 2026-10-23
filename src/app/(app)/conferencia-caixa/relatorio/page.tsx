@@ -225,7 +225,7 @@ export default async function RelatorioCaixaPage({
             <div className="border-b border-black/10 bg-black/[0.02] px-4 py-1.5 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-white/[0.02]">
               Detalhamento das vendas
             </div>
-            <div className="max-h-[32rem] overflow-y-auto">
+            <div className="max-h-[32rem] overflow-y-auto print:max-h-none print:overflow-visible">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-black/[0.02] dark:bg-white/[0.02]">
                   <tr>
