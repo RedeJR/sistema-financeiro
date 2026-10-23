@@ -7,6 +7,7 @@ import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 import { BotaoImprimir } from "../relatorios/botao-imprimir";
+import { guardarSaldoInicial } from "../actions";
 
 function formatarNumero(v: number): string {
   if (Math.round(v * 100) === 0) return "";
@@ -194,6 +195,22 @@ export default async function FechamentoPage({
                 Revisar agora →
               </Link>
             </p>
+          )}
+
+          {resultado.saldoInicialOrigem === "INFORMADO" && postoId && bancoId && (
+            <form action={guardarSaldoInicial} className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 bg-[#EEF4FF] px-4 py-2.5 text-[13px] text-blue-950 print:hidden">
+              <input type="hidden" name="postoId" value={postoId} />
+              <input type="hidden" name="bancoId" value={bancoId} />
+              <input type="hidden" name="mes" value={mesValor} />
+              <input type="hidden" name="saldoInicial" value={String(resultado.saldoInicial).replace(".", ",")} />
+              <span>
+                Esse saldo inicial ({formatarMoedaBR(resultado.saldoInicial)}) foi digitado por você. Quer deixá-lo guardado como o saldo do fim do mês
+                anterior? Nos próximos fechamentos o campo pode ficar em branco.
+              </span>
+              <button type="submit" className="rounded-lg bg-blue-700 px-3 py-1.5 font-semibold text-white hover:bg-blue-800">
+                Guardar como saldo inicial
+              </button>
+            </form>
           )}
 
           <section aria-label="Resumo do mês" className="flex flex-wrap gap-3">

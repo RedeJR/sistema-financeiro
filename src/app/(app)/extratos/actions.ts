@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { paraDecimalString } from "@/lib/dinheiro";
 import { importarExtratos, type ResultadoArquivo } from "@/lib/extratos/importar";
 
 // Duas telas: /extratos é o resumo (só leitura, agrupado por dia/categoria)
@@ -175,6 +176,27 @@ export async function excluirLancamentosEmMassa(formData: FormData) {
 // errado, arquivo errado). Se alguma linha já foi ligada a uma despesa, dividida
 // ou vinculada a um empréstimo entre postos, não apaga nada e avisa: desfazer isso
 // é decisão consciente, não efeito colateral de cancelar.
+// Guarda o saldo inicial digitado no Fechamento como saldo do banco no FIM do mês anterior. Daí em
+// diante o campo pode ficar em branco: o Fechamento usa esse saldo e confere com o do arquivo.
+export async function guardarSaldoInicial(formData: FormData) {
+  await exigirPermissao("EXTRATOS", "editar");
+  const postoId = String(formData.get("postoId") ?? "");
+  const bancoId = String(formData.get("bancoId") ?? "");
+  const mes = String(formData.get("mes") ?? ""); // YYYY-MM
+  const valorTexto = String(formData.get("saldoInicial") ?? "");
+  const m = mes.match(/^(\d{4})-(\d{2})$/);
+  const decimal = paraDecimalString(valorTexto);
+  if (!postoId || !bancoId || !m || decimal === null) return;
+  const diaAnterior = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 0)); // último dia do mês anterior
+  await prisma.saldoBancario.upsert({
+    where: { postoId_bancoId_data: { postoId, bancoId, data: diaAnterior } },
+    create: { postoId, bancoId, data: diaAnterior, saldo: decimal, arquivoOrigem: "MANUAL" },
+    update: { saldo: decimal, arquivoOrigem: "MANUAL" },
+  });
+  revalidatePath("/extratos/fechamento");
+  redirect(`/extratos/fechamento?postoId=${postoId}&bancoId=${bancoId}&mes=${mes}`);
+}
+
 export async function cancelarImportacao(formData: FormData) {
   await exigirPermissao("EXTRATOS", "editar");
   const importacaoId = formData.get("importacaoId");

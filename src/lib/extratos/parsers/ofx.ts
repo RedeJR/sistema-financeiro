@@ -165,9 +165,17 @@ export function lerSaldoOfx(buffer: Buffer): { saldo: number; data: Date | null 
   if (!valor) return null;
   const saldo = parseValorOfx(valor);
   if (Number.isNaN(saldo)) return null;
-  const dataValida = (d: Date | null) => (d && d.getUTCFullYear() >= 2000 ? d : null);
-  const dtasof = extrairCampo(bloco, "DTASOF");
-  const dtend = extrairCampo(texto, "DTEND");
-  const data = dataValida(dtasof ? parseDataOfx(dtasof) : null) ?? dataValida(dtend ? parseDataOfx(dtend) : null);
+  // Data/hora a que o saldo se refere. Com horário 00:00:00 (Stone: "20261021000000") o saldo é o do
+  // COMEÇO daquele dia, ou seja, do fim do dia anterior. Sem horário de meia-noite (ex: Bradesco manda
+  // 12:00 no fim do período) vale o próprio dia.
+  const dataDoSaldo = (bruto: string | null): Date | null => {
+    if (!bruto) return null;
+    const d = parseDataOfx(bruto);
+    if (!d || d.getUTCFullYear() < 2000) return null;
+    const meiaNoite = /^\d{8}0{6}/.test(bruto);
+    if (meiaNoite) d.setUTCDate(d.getUTCDate() - 1);
+    return d;
+  };
+  const data = dataDoSaldo(extrairCampo(bloco, "DTASOF")) ?? dataDoSaldo(extrairCampo(texto, "DTEND"));
   return { saldo, data };
 }

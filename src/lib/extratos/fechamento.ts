@@ -210,10 +210,11 @@ export async function gerarFechamento(params: {
   } else if (antes) {
     saldoInicial = Number(antes.saldo) + (await somaMovimento(antes.data, diaAnterior));
     saldoInicialOrigem = "BANCO_MES_ANTERIOR";
+    const quem = antes.arquivoOrigem === "MANUAL" ? "Saldo cadastrado por você" : "Saldo do banco";
     saldoInicialObs =
       antes.data.getTime() === diaAnterior.getTime()
-        ? `Saldo do banco em ${ddmm(antes.data)} (fim do mês anterior).`
-        : `Saldo do banco em ${ddmm(antes.data)} somado ao movimento até o fim do mês anterior.`;
+        ? `${quem} em ${ddmm(antes.data)} (fim do mês anterior).`
+        : `${quem} em ${ddmm(antes.data)} somado ao movimento até o fim do mês anterior.`;
   } else if (noMesOuDepois) {
     saldoInicial = Number(noMesOuDepois.saldo) - (await somaMovimento(diaAnterior, noMesOuDepois.data));
     saldoInicialOrigem = "BANCO_POSTERIOR";
