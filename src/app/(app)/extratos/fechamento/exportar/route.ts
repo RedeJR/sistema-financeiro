@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
   // tratava o único ponto decimal como separador de milhar e removia ele —
   // "57506.24" virava 5750624, 100x maior. Bug antigo (já existia na versão
   // CSV), só ficava invisível enquanto o saldo inicial usado era 0.
-  const saldoInicialNum = Number(params.get("saldoInicial") ?? "0");
+  // Ausente = automático (saldo que o banco mandou no arquivo do extrato).
+  const saldoParam = params.get("saldoInicial");
+  const saldoInicialNum = saldoParam !== null && saldoParam.trim() !== "" ? Number(saldoParam) : undefined;
 
   if (!postoId || !bancoId || !mes) {
     return new Response("Escolha um posto, um banco e um mês.", { status: 400 });
@@ -36,13 +38,24 @@ export async function GET(request: NextRequest) {
 
   const resultado = await gerarFechamento({ postoId, bancoId, ano, mes: mesNum, saldoInicial: saldoInicialNum });
 
-  const cabecalho = ["Dia", ...resultado.categorias.map((c) => c.nome), "Saldo"];
+  const temSemCategoria = resultado.linhas.some((l) => Math.round(l.semCategoria * 100) !== 0);
+  const cabecalho = ["Dia", ...resultado.categorias.map((c) => c.nome), ...(temSemCategoria ? ["Sem categoria"] : []), "Saldo"];
   // Célula vazia em vez de 0 — mais fácil de ler numa planilha com muitas
   // colunas de categoria, igual o CSV anterior já fazia.
   const numOuVazio = (v: number) => (Math.round(v * 100) === 0 ? "" : v);
 
-  const linhas = resultado.linhas.map((l) => [l.dia, ...l.porCategoria.map(numOuVazio), numOuVazio(l.saldoAcumulado)]);
-  const linhaTotal = ["Total", ...resultado.totalPorCategoria.map(numOuVazio), numOuVazio(resultado.saldoFinal)];
+  const linhas = resultado.linhas.map((l) => [
+    l.dia,
+    ...l.porCategoria.map(numOuVazio),
+    ...(temSemCategoria ? [numOuVazio(l.semCategoria)] : []),
+    numOuVazio(l.saldoAcumulado),
+  ]);
+  const linhaTotal = [
+    "Total",
+    ...resultado.totalPorCategoria.map(numOuVazio),
+    ...(temSemCategoria ? [numOuVazio(resultado.totalSemCategoria)] : []),
+    numOuVazio(resultado.saldoFinal),
+  ];
 
   const titulo = `FECHAMENTO - ${MESES_PT[resultado.mes]}/${resultado.ano} - ${resultado.postoNome} - ${resultado.bancoNome}`;
   const aoa: (string | number)[][] = [[titulo], cabecalho, ...linhas, linhaTotal];

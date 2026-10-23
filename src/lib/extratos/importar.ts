@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { parseOfx } from "./parsers/ofx";
+import { parseOfx, lerSaldoOfx } from "./parsers/ofx";
 import { sugerirCategoria } from "./categorizer";
 import { normalizarCodigoBanco } from "./bancos";
 
@@ -83,6 +83,25 @@ export async function importarExtratos(params: {
         vistosPorDocumento.add(k);
         return true;
       });
+
+      // Saldo do banco informado no arquivo: guarda pra conferir o extrato e achar o saldo inicial do mês.
+      // O arquivo pode ter sido gerado com lançamentos de hoje (dia aberto, que o sistema não importa),
+      // então o saldo é levado pro FIM do último dia fechado: tira do saldo as linhas posteriores a esse dia.
+      const saldoArquivo = lerSaldoOfx(arq.buffer);
+      if (saldoArquivo) {
+        const ontem = new Date(hojeNoBrasil());
+        ontem.setUTCDate(ontem.getUTCDate() - 1);
+        const ultimaLinha = semLinhaControle.reduce((m, l) => (l.data > m ? l.data : m), semLinhaControle[0]?.data ?? ontem);
+        const dataRefSaldo = saldoArquivo.data ?? ultimaLinha;
+        const dataSaldo = dataRefSaldo < ontem ? dataRefSaldo : ontem;
+        const depoisDoCorte = semLinhaControle.filter((l) => l.data > dataSaldo).reduce((s, l) => s + l.valor, 0);
+        const saldoNaData = Math.round((saldoArquivo.saldo - depoisDoCorte) * 100) / 100;
+        await prisma.saldoBancario.upsert({
+          where: { postoId_bancoId_data: { postoId, bancoId, data: dataSaldo } },
+          create: { postoId, bancoId, data: dataSaldo, saldo: saldoNaData.toFixed(2), arquivoOrigem: arq.nome },
+          update: { saldo: saldoNaData.toFixed(2), arquivoOrigem: arq.nome },
+        });
+      }
 
       if (semLinhaControle.length === 0) {
         resultados.push({

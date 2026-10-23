@@ -151,3 +151,23 @@ export const parseOfx: ParserBanco = async (buffer) => {
 
   return out;
 };
+
+// Saldo que o banco informa no próprio arquivo (<LEDGERBAL>): valor (BALAMT) e data/hora a que ele se
+// refere (DTASOF). Os lançamentos continuam vindo de parseOfx; isto só lê o saldo, que ajuda a
+// conferir se o sistema tem todas as linhas. Retorna null se o arquivo não trouxer saldo.
+// O Bradesco manda DTASOF zerado ("00000000"); aí vale o fim do período do arquivo (DTEND), que é o dia da
+// exportação. Sem nenhuma das duas datas, `data` fica null (quem chama usa o último dia com lançamento).
+export function lerSaldoOfx(buffer: Buffer): { saldo: number; data: Date | null } | null {
+  const texto = bufferParaTexto(buffer);
+  const bloco = extrairBlocos(texto, "LEDGERBAL")[0];
+  if (!bloco) return null;
+  const valor = extrairCampo(bloco, "BALAMT");
+  if (!valor) return null;
+  const saldo = parseValorOfx(valor);
+  if (Number.isNaN(saldo)) return null;
+  const dataValida = (d: Date | null) => (d && d.getUTCFullYear() >= 2000 ? d : null);
+  const dtasof = extrairCampo(bloco, "DTASOF");
+  const dtend = extrairCampo(texto, "DTEND");
+  const data = dataValida(dtasof ? parseDataOfx(dtasof) : null) ?? dataValida(dtend ? parseDataOfx(dtend) : null);
+  return { saldo, data };
+}

@@ -23,6 +23,7 @@ model Posto {
   cnpj                            String?                   @unique
   ativo                           Boolean                   @default(true)
   contasAPagar                    ContaAPagar[]
+  saldosBancarios                 SaldoBancario[]
   // Contas pagas onde ESSE posto foi quem realmente pagou (banco de conta
   // dele), mesmo quando a despesa em si (`contasAPagar` acima) pertence a
   // outro posto — ver ContaAPagar.postoPagamentoId.
@@ -73,6 +74,7 @@ model Banco {
   // ContaAPagar.bancoPrevistoId).
   contasPrevistas ContaAPagar[] @relation("BancoPrevisto")
   lancamentos   LancamentoExtrato[]
+  saldosBancarios SaldoBancario[]
   // Domicílio bancário das taxas de cartão — em qual conta a adquirente
   // deposita o repasse (ver TaxaCartao), usado futuramente pra conciliar
   // contra o extrato dessa conta.
@@ -805,4 +807,23 @@ model PainelSnapshot {
   atualizadoEm DateTime @default(now())
 
   @@map("painel_snapshots")
+}
+
+// Saldo do banco informado no próprio arquivo OFX (LEDGERBAL) no momento da importação,
+// já ajustado pro FIM do dia `data` (tira do saldo as linhas do dia de hoje que o sistema
+// não importa). Serve pra conferir o extrato: saldo do banco x saldo calculado pelo sistema,
+// e pra descobrir o saldo inicial de um mês sem digitar. Ver src/lib/extratos/importar.ts.
+model SaldoBancario {
+  id             String   @id @default(cuid())
+  postoId        String
+  posto          Posto    @relation(fields: [postoId], references: [id], onDelete: Cascade)
+  bancoId        String
+  banco          Banco    @relation(fields: [bancoId], references: [id], onDelete: Cascade)
+  data           DateTime @db.Date
+  saldo          Decimal  @db.Decimal(14, 2)
+  arquivoOrigem  String
+  atualizadoEm   DateTime @default(now()) @updatedAt
+
+  @@unique([postoId, bancoId, data])
+  @@map("saldos_bancarios")
 }

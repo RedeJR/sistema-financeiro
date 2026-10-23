@@ -44,21 +44,25 @@ export default async function FechamentoPage({
   const [anoStr, mesStr] = mesValor.split("-");
   const ano = Number(anoStr);
   const mesNum = Number(mesStr);
-  const saldoInicialNum = Number(paraDecimalString(saldoInicial ?? "0") ?? "0");
+  // Em branco = automático (saldo que o banco mandou no arquivo); digitado = vale o digitado.
+  const saldoInformado = saldoInicial?.trim() ? Number(paraDecimalString(saldoInicial) ?? "0") : undefined;
 
   // Banco é obrigatório igual o posto — sem isso, lançamentos de contas
   // diferentes (ex: Bradesco e PagSeguro do mesmo posto) se misturariam num
   // saldo só, que não corresponde a nenhum extrato de verdade.
   const resultado =
     postoId && bancoId && ano && mesNum
-      ? await gerarFechamento({ postoId, bancoId, ano, mes: mesNum, saldoInicial: saldoInicialNum })
+      ? await gerarFechamento({ postoId, bancoId, ano, mes: mesNum, saldoInicial: saldoInformado })
       : null;
+
+  const temSemCategoria = !!resultado && resultado.linhas.some((l) => Math.round(l.semCategoria * 100) !== 0);
+  const colunasCategoria = resultado ? resultado.categorias.length + (temSemCategoria ? 1 : 0) : 0;
 
   const qs = new URLSearchParams({
     ...(postoId ? { postoId } : {}),
     ...(bancoId ? { bancoId } : {}),
     mes: mesValor,
-    saldoInicial: String(saldoInicialNum),
+    ...(saldoInformado !== undefined ? { saldoInicial: String(saldoInformado) } : {}),
   }).toString();
 
   return (
@@ -81,8 +85,9 @@ export default async function FechamentoPage({
         </Link>
       </div>
       <p className="text-sm text-foreground/60 print:hidden">
-        Soma os lançamentos já categorizados por dia × categoria, num único posto e mês, com saldo
-        acumulado. Lançamentos sem categoria ficam de fora da soma.
+        Soma os lançamentos por dia × categoria, num único posto e mês, com saldo acumulado. O saldo inicial vem
+        do saldo que o banco mandou no arquivo do extrato; os lançamentos ainda sem categoria entram numa coluna
+        própria, pro saldo bater com o do banco.
       </p>
 
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
@@ -143,15 +148,15 @@ export default async function FechamentoPage({
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="saldoInicial" className="text-foreground/60">
-            Saldo inicial
+            Saldo inicial <span className="text-foreground/40">(opcional)</span>
           </label>
           <input
             id="saldoInicial"
             type="text"
             inputMode="decimal"
             name="saldoInicial"
-            defaultValue={saldoInicial ?? "0"}
-            placeholder="0,00"
+            defaultValue={saldoInicial ?? ""}
+            placeholder="automático"
             className="w-32 rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20"
           />
         </div>
@@ -183,8 +188,8 @@ export default async function FechamentoPage({
 
           {resultado.semCategoria > 0 && (
             <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 print:hidden dark:bg-amber-950/40 dark:text-amber-400">
-              {resultado.semCategoria} lançamento{resultado.semCategoria === 1 ? "" : "s"} sem categoria
-              nesse mês não {resultado.semCategoria === 1 ? "entrou" : "entraram"} na soma abaixo.{" "}
+              {resultado.semCategoria} lançamento{resultado.semCategoria === 1 ? "" : "s"} sem categoria nesse mês
+              ({formatarMoedaBR(resultado.totalSemCategoria)}) — {resultado.semCategoria === 1 ? "aparece" : "aparecem"} na coluna &quot;Sem categoria&quot;.{" "}
               <Link href={`/extratos?postoId=${postoId}&bancoId=${bancoId}&categoria=sem`} className="underline">
                 Revisar agora →
               </Link>
@@ -195,33 +200,64 @@ export default async function FechamentoPage({
             <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
               <p className="text-[12px] text-foreground/60">Saldo inicial</p>
               <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.saldoInicial)}`}>{formatarMoedaBR(resultado.saldoInicial)}</p>
+              <p className="mt-1 text-[10.5px] leading-snug text-foreground/50">{resultado.saldoInicialObs}</p>
             </div>
             <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
-              <p className="text-[12px] text-foreground/60">Movimento do mês (categorizado)</p>
-              <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.totalGeral)}`}>{formatarMoedaBR(resultado.totalGeral)}</p>
+              <p className="text-[12px] text-foreground/60">Movimento do mês</p>
+              <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.totalGeral + resultado.totalSemCategoria)}`}>
+                {formatarMoedaBR(resultado.totalGeral + resultado.totalSemCategoria)}
+              </p>
+              {resultado.semCategoria > 0 && (
+                <p className="mt-1 text-[10.5px] leading-snug text-amber-700">
+                  inclui {formatarMoedaBR(resultado.totalSemCategoria)} ainda sem categoria
+                </p>
+              )}
             </div>
             <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
-              <p className="text-[12px] text-foreground/60">Saldo final</p>
+              <p className="text-[12px] text-foreground/60">Saldo final calculado</p>
               <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.saldoFinal)}`}>{formatarMoedaBR(resultado.saldoFinal)}</p>
             </div>
-            {resultado.semCategoria > 0 && (
-              <div className="hidden min-w-[160px] flex-1 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 print:block">
-                <p className="text-[12px]">Atenção</p>
-                <p className="mt-1 text-[12px] font-semibold">
-                  {resultado.semCategoria} lançamento{resultado.semCategoria === 1 ? "" : "s"} sem categoria fora da soma
-                </p>
-              </div>
-            )}
+            <div
+              className={`min-w-[160px] flex-1 rounded-xl border px-4 py-3 ${
+                !resultado.saldoBanco
+                  ? "border-black/10 bg-white dark:border-white/15 dark:bg-white/[0.03]"
+                  : Math.abs(resultado.saldoBanco.diferenca) < 0.005
+                    ? "border-[#BFE5CB] bg-[#F3FBF5]"
+                    : "border-[#F5C2C2] bg-[#FFF8F8]"
+              }`}
+            >
+              <p className="text-[12px] text-foreground/60">
+                Saldo do banco{resultado.saldoBanco ? ` em ${formatarDataBR(resultado.saldoBanco.data)}` : ""}
+              </p>
+              {resultado.saldoBanco ? (
+                <>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{formatarMoedaBR(resultado.saldoBanco.valor)}</p>
+                  {Math.abs(resultado.saldoBanco.diferenca) < 0.005 ? (
+                    <p className="mt-1 text-[10.5px] font-semibold text-[#14693A]">Confere com o calculado ✓</p>
+                  ) : (
+                    <p className="mt-1 text-[10.5px] leading-snug font-semibold text-[#A12727]">
+                      Diferença de {formatarMoedaBR(resultado.saldoBanco.diferenca)} — o banco tem{" "}
+                      {resultado.saldoBanco.diferenca > 0 ? "mais" : "menos"} que o calculado até essa data (falta ou sobra lançamento).
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-xl font-bold text-foreground/40">—</p>
+                  <p className="mt-1 text-[10.5px] leading-snug text-foreground/50">Sem saldo do banco guardado neste mês. Reimporte o último extrato desse banco.</p>
+                </>
+              )}
+            </div>
           </section>
 
           <div className={`${CARTAO} overflow-x-auto`}>
             {/* Letra menor quanto mais colunas de categoria, pra caber numa página só. */}
             <table
-               className={`tabela-compacta ${resultado.categorias.length > 12 ? "cabecalho-vertical" : ""} w-full text-sm`}
+               className={`tabela-compacta ${colunasCategoria > 12 ? "cabecalho-vertical" : ""} w-full text-sm`}
               style={
                 {
-                  "--print-td": resultado.categorias.length > 16 ? "6px" : resultado.categorias.length > 11 ? "7px" : "8.5px",
-                  "--print-th": resultado.categorias.length > 16 ? "5px" : resultado.categorias.length > 11 ? "6px" : "7.5px",
+                  "--print-td": colunasCategoria > 16 ? "6px" : colunasCategoria > 11 ? "7px" : "8.5px",
+                  "--print-th": colunasCategoria > 16 ? "5px" : colunasCategoria > 11 ? "6px" : "7.5px",
                 } as React.CSSProperties
               }
             >
@@ -235,6 +271,7 @@ export default async function FechamentoPage({
                       {c.nome}
                     </th>
                   ))}
+                  {temSemCategoria && <th className="px-3 py-2.5 text-right whitespace-nowrap">Sem categoria</th>}
                   <th className="px-3 py-2.5 text-right whitespace-nowrap">Saldo</th>
                 </tr>
               </thead>
@@ -247,6 +284,9 @@ export default async function FechamentoPage({
                         {formatarNumero(v)}
                       </td>
                     ))}
+                    {temSemCategoria && (
+                      <td className={`px-3 py-1.5 text-right whitespace-nowrap tabular-nums ${classeValor(l.semCategoria)}`}>{formatarNumero(l.semCategoria)}</td>
+                    )}
                     <td className={`px-3 py-1.5 text-right font-semibold whitespace-nowrap tabular-nums ${classeValor(l.saldoAcumulado)}`}>
                       {formatarNumero(l.saldoAcumulado)}
                     </td>
@@ -261,6 +301,9 @@ export default async function FechamentoPage({
                       {formatarNumero(v)}
                     </td>
                   ))}
+                  {temSemCategoria && (
+                    <td className={`px-3 py-2 text-right whitespace-nowrap tabular-nums ${classeValor(resultado.totalSemCategoria)}`}>{formatarNumero(resultado.totalSemCategoria)}</td>
+                  )}
                   <td className={`px-3 py-2 text-right whitespace-nowrap tabular-nums ${classeValor(resultado.saldoFinal)}`}>
                     {formatarNumero(resultado.saldoFinal)}
                   </td>

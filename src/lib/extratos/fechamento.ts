@@ -36,6 +36,7 @@ export const MESES_PT = [
 export type LinhaFechamento = {
   dia: number;
   porCategoria: number[]; // mesmo índice de `categorias`
+  semCategoria: number; // movimento do dia ainda sem categoria (entra no saldo, pra ele bater com o banco)
   saldoAcumulado: number;
 };
 
@@ -64,7 +65,13 @@ export type ResultadoFechamento = {
   totalPorCategoria: number[];
   totalGeral: number;
   saldoInicial: number;
-  saldoFinal: number;
+  // De onde veio o saldo inicial: digitado pela usuária, saldo do banco do mês anterior, ou calculado a partir de um saldo posterior.
+  saldoInicialOrigem: "INFORMADO" | "BANCO_MES_ANTERIOR" | "BANCO_POSTERIOR" | "NENHUM";
+  saldoInicialObs: string;
+  saldoFinal: number; // saldo inicial + TODO o movimento do mês (categorizado ou não)
+  // Conferência com o saldo que o banco informou no arquivo OFX (mais recente dentro do mês).
+  saldoBanco: { data: Date; valor: number; calculado: number; diferenca: number } | null;
+  totalSemCategoria: number; // soma do que ainda está sem categoria no mês
   semCategoria: number;
   // Uma entrada por categoria em DETALHE_NOME que exista no cadastro (ver
   // abaixo) — nome da categoria -> linhas do mês, mais recente por último.
@@ -82,14 +89,15 @@ export async function gerarFechamento(params: {
   bancoId: string;
   ano: number;
   mes: number; // 1-12
-  saldoInicial: number;
+  // Não informado = automático: vem do saldo que o banco mandou no arquivo (ver SaldoBancario).
+  saldoInicial?: number;
   // Colunas de categoria sem nenhum lançamento no mês ficam de fora do
   // resultado (tabela e export) por padrão — pedido da usuária, uma tela com
   // 30 colunas em branco não ajuda a ler o fechamento. Passe false pra ver
   // todas as categorias ativas, movimentadas ou não.
   somenteComMovimento?: boolean;
 }): Promise<ResultadoFechamento> {
-  const { postoId, bancoId, ano, mes, saldoInicial, somenteComMovimento = true } = params;
+  const { postoId, bancoId, ano, mes, saldoInicial: saldoInicialInformado, somenteComMovimento = true } = params;
 
   const [posto, banco] = await Promise.all([
     prisma.posto.findUniqueOrThrow({ where: { id: postoId } }),
@@ -110,7 +118,7 @@ export async function gerarFechamento(params: {
   });
   const idxPorCategoria = new Map(categoriasTodas.map((c, i) => [c.id, i]));
 
-  const [lancamentos, divisoes, semCategoria] = await Promise.all([
+  const [lancamentos, divisoes, semCategoriaLinhas] = await Promise.all([
     // `divisoes: { none: {} }` é essencial aqui — um lançamento dividido às
     // vezes também acaba com categoriaId preenchido no registro principal
     // (ex: sobra de antes de ser dividido, ou um categoriaId setado por
@@ -131,10 +139,14 @@ export async function gerarFechamento(params: {
       where: { lancamentoExtrato: { postoId, bancoId, data: { gte: inicio, lte: fim } } },
       select: { valor: true, categoriaId: true, lancamentoExtrato: { select: { data: true } } },
     }),
-    prisma.lancamentoExtrato.count({
+    prisma.lancamentoExtrato.findMany({
       where: { postoId, bancoId, data: { gte: inicio, lte: fim }, categoriaId: null, divisoes: { none: {} } },
+      select: { data: true, valor: true },
     }),
   ]);
+  const semCategoriaPorDia = new Array<number>(ultimoDia + 1).fill(0);
+  for (const l of semCategoriaLinhas) semCategoriaPorDia[l.data.getUTCDate()] += Number(l.valor);
+  const totalSemCategoria = semCategoriaPorDia.reduce((s, v) => s + v, 0);
 
   // soma[dia][índiceCategoria] — sobre TODAS as categorias ativas primeiro;
   // o corte pras só-com-movimento acontece depois de somar, senão não dá
@@ -174,14 +186,63 @@ export async function gerarFechamento(params: {
 
   const categorias = indicesFinais.map((i) => ({ id: categoriasTodas[i].id, nome: categoriasTodas[i].nome }));
 
+  // ---- saldo inicial: digitado, ou descoberto a partir do saldo que o banco mandou no arquivo ----
+  const somaMovimento = async (depoisDe: Date, ate: Date): Promise<number> => {
+    if (ate <= depoisDe) return 0;
+    const r = await prisma.lancamentoExtrato.aggregate({
+      where: { postoId, bancoId, data: { gt: depoisDe, lte: ate } },
+      _sum: { valor: true },
+    });
+    return Number(r._sum.valor ?? 0);
+  };
+  const diaAnterior = new Date(inicio.getTime() - 86400000);
+  const saldosBanco = await prisma.saldoBancario.findMany({ where: { postoId, bancoId }, orderBy: { data: "asc" } });
+  const antes = [...saldosBanco].filter((s) => s.data <= diaAnterior).pop();
+  const noMesOuDepois = saldosBanco.find((s) => s.data >= inicio);
+  const ddmm = (d: Date) => d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+
+  let saldoInicial = saldoInicialInformado ?? 0;
+  let saldoInicialOrigem: ResultadoFechamento["saldoInicialOrigem"] = "NENHUM";
+  let saldoInicialObs = "Sem saldo do banco guardado pra esse posto/banco — digite o saldo inicial ou reimporte o extrato mais recente.";
+  if (saldoInicialInformado !== undefined) {
+    saldoInicialOrigem = "INFORMADO";
+    saldoInicialObs = "Informado por você.";
+  } else if (antes) {
+    saldoInicial = Number(antes.saldo) + (await somaMovimento(antes.data, diaAnterior));
+    saldoInicialOrigem = "BANCO_MES_ANTERIOR";
+    saldoInicialObs =
+      antes.data.getTime() === diaAnterior.getTime()
+        ? `Saldo do banco em ${ddmm(antes.data)} (fim do mês anterior).`
+        : `Saldo do banco em ${ddmm(antes.data)} somado ao movimento até o fim do mês anterior.`;
+  } else if (noMesOuDepois) {
+    saldoInicial = Number(noMesOuDepois.saldo) - (await somaMovimento(diaAnterior, noMesOuDepois.data));
+    saldoInicialOrigem = "BANCO_POSTERIOR";
+    saldoInicialObs = `Calculado de trás pra frente a partir do saldo do banco em ${ddmm(noMesOuDepois.data)} — sem saldo do mês anterior pra conferir.`;
+  }
+
   let acumulado = saldoInicial;
   const linhas: LinhaFechamento[] = [];
   for (let dia = 1; dia <= ultimoDia; dia++) {
     const porCategoria = indicesFinais.map((i) => soma[dia][i]);
     // Soma no saldo acumulado com base em TODAS as categorias (não só as
-    // exibidas) — esconder uma coluna zerada nunca deveria mudar o saldo.
-    acumulado += soma[dia].reduce((s, v) => s + v, 0);
-    linhas.push({ dia, porCategoria, saldoAcumulado: acumulado });
+    // exibidas — esconder uma coluna zerada nunca deveria mudar o saldo) e
+    // também do que ainda está sem categoria: o saldo só bate com o do banco
+    // se entrar todo o movimento.
+    acumulado += soma[dia].reduce((s, v) => s + v, 0) + semCategoriaPorDia[dia];
+    linhas.push({ dia, porCategoria, semCategoria: semCategoriaPorDia[dia], saldoAcumulado: acumulado });
+  }
+
+  // Conferência: saldo que o banco informou dentro do mês x saldo calculado até o mesmo dia.
+  let saldoBanco: ResultadoFechamento["saldoBanco"] = null;
+  const doMes = [...saldosBanco].filter((s) => s.data >= inicio && s.data <= fim).pop();
+  if (doMes) {
+    const calculado = linhas[doMes.data.getUTCDate() - 1].saldoAcumulado;
+    saldoBanco = {
+      data: doMes.data,
+      valor: Number(doMes.saldo),
+      calculado,
+      diferenca: Math.round((Number(doMes.saldo) - calculado) * 100) / 100,
+    };
   }
 
   const totalPorCategoria = indicesFinais.map((i) => totalPorCategoriaTodas[i]);
@@ -200,8 +261,12 @@ export async function gerarFechamento(params: {
     totalPorCategoria,
     totalGeral,
     saldoInicial,
+    saldoInicialOrigem,
+    saldoInicialObs,
     saldoFinal: acumulado,
-    semCategoria,
+    saldoBanco,
+    totalSemCategoria,
+    semCategoria: semCategoriaLinhas.length,
     detalhes,
   };
 }
