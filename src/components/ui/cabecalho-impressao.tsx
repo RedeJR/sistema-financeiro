@@ -20,8 +20,8 @@ export async function CabecalhoImpressao({
   // Nome sugerido pro arquivo ao salvar em PDF: título + filtros, sem caracteres que o Windows não aceita.
   const nomeArquivo = [titulo, ...detalhes.map((d) => d.valor).filter(Boolean)]
     .join(" - ")
-    .replace(/[\/:*?"<>|]+/g, "-")
-    .replace(/s+/g, " ")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
     .slice(0, 120);
 
   return (
