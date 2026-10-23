@@ -69,6 +69,13 @@ export default async function FechamentoPage({
     return { data, iso: data.toISOString().slice(0, 10), saldo: Math.round(resultado.linhas[dia - 1].saldoAcumulado * 100) / 100 };
   })();
 
+  // Já existe um saldo conferido por você exatamente nessa data e com esse valor: o botão vira um aviso.
+  const jaConferido =
+    !!resultado?.saldoBanco?.conferidoPorVoce &&
+    !!dataConferencia &&
+    resultado.saldoBanco.data.getTime() === dataConferencia.data.getTime() &&
+    Math.abs(resultado.saldoBanco.valor - dataConferencia.saldo) < 0.005;
+
   const temSemCategoria = !!resultado && resultado.linhas.some((l) => Math.round(l.semCategoria * 100) !== 0);
   const colunasCategoria = resultado ? resultado.categorias.length + (temSemCategoria ? 1 : 0) : 0;
 
@@ -226,7 +233,13 @@ export default async function FechamentoPage({
             </form>
           )}
 
-          {postoId && bancoId && dataConferencia && (
+          {postoId && bancoId && dataConferencia && jaConferido && (
+            <p className="rounded-xl border border-[#BFE5CB] bg-[#F3FBF5] px-4 py-2.5 text-[13px] font-medium text-[#14693A] print:hidden">
+              ✓ Saldo de {formatarDataBR(dataConferencia.data)} ({formatarMoedaBR(dataConferencia.saldo)}) guardado como conferido. Ele já vale como saldo
+              inicial do mês seguinte.
+            </p>
+          )}
+          {postoId && bancoId && dataConferencia && !jaConferido && (
             <form
               action={guardarSaldoConferido}
               className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-black/[0.02] px-4 py-2.5 text-[13px] text-foreground/80 print:hidden dark:border-white/15"
