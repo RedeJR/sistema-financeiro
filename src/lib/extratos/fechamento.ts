@@ -70,7 +70,7 @@ export type ResultadoFechamento = {
   saldoInicialObs: string;
   saldoFinal: number; // saldo inicial + TODO o movimento do mês (categorizado ou não)
   // Conferência com o saldo que o banco informou no arquivo OFX (mais recente dentro do mês).
-  saldoBanco: { data: Date; valor: number; calculado: number; diferenca: number } | null;
+  saldoBanco: { data: Date; valor: number; calculado: number; diferenca: number; conferidoPorVoce: boolean } | null;
   totalSemCategoria: number; // soma do que ainda está sem categoria no mês
   semCategoria: number;
   // Uma entrada por categoria em DETALHE_NOME que exista no cadastro (ver
@@ -235,7 +235,12 @@ export async function gerarFechamento(params: {
 
   // Conferência: saldo que o banco informou dentro do mês x saldo calculado até o mesmo dia.
   let saldoBanco: ResultadoFechamento["saldoBanco"] = null;
-  const doMes = [...saldosBanco].filter((s) => s.data >= inicio && s.data <= fim).pop();
+  // O mais recente do mês; na mesma data, o que você conferiu e guardou ganha do saldo que veio no arquivo
+  // (alguns bancos, como o Stone, mandam no arquivo um saldo diferente do extrato — ex: sem o valor bloqueado).
+  const doMes = saldosBanco
+    .filter((s) => s.data >= inicio && s.data <= fim)
+    .sort((a, b) => a.data.getTime() - b.data.getTime() || Number(a.arquivoOrigem === "MANUAL") - Number(b.arquivoOrigem === "MANUAL"))
+    .pop();
   if (doMes) {
     const calculado = linhas[doMes.data.getUTCDate() - 1].saldoAcumulado;
     saldoBanco = {
@@ -243,6 +248,7 @@ export async function gerarFechamento(params: {
       valor: Number(doMes.saldo),
       calculado,
       diferenca: Math.round((Number(doMes.saldo) - calculado) * 100) / 100,
+      conferidoPorVoce: doMes.arquivoOrigem === "MANUAL",
     };
   }
 

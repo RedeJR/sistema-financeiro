@@ -197,6 +197,26 @@ export async function guardarSaldoInicial(formData: FormData) {
   redirect(`/extratos/fechamento?postoId=${postoId}&bancoId=${bancoId}&mes=${mes}`);
 }
 
+// Depois de conferir com o extrato/app do banco, guarda o saldo final calculado como "conferido":
+// vira o saldo do banco naquela data (vale mais que o do arquivo) e o saldo inicial do mês seguinte.
+export async function guardarSaldoConferido(formData: FormData) {
+  await exigirPermissao("EXTRATOS", "editar");
+  const postoId = String(formData.get("postoId") ?? "");
+  const bancoId = String(formData.get("bancoId") ?? "");
+  const mes = String(formData.get("mes") ?? "");
+  const dataTexto = String(formData.get("data") ?? "");
+  const decimal = paraDecimalString(String(formData.get("saldo") ?? ""));
+  if (!postoId || !bancoId || !/^\d{4}-\d{2}-\d{2}$/.test(dataTexto) || decimal === null) return;
+  const data = new Date(`${dataTexto}T00:00:00.000Z`);
+  await prisma.saldoBancario.upsert({
+    where: { postoId_bancoId_data: { postoId, bancoId, data } },
+    create: { postoId, bancoId, data, saldo: decimal, arquivoOrigem: "MANUAL" },
+    update: { saldo: decimal, arquivoOrigem: "MANUAL" },
+  });
+  revalidatePath("/extratos/fechamento");
+  redirect(`/extratos/fechamento?postoId=${postoId}&bancoId=${bancoId}&mes=${mes}`);
+}
+
 export async function cancelarImportacao(formData: FormData) {
   await exigirPermissao("EXTRATOS", "editar");
   const importacaoId = formData.get("importacaoId");

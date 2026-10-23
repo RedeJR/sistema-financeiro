@@ -7,7 +7,7 @@ import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 import { BotaoImprimir } from "../relatorios/botao-imprimir";
-import { guardarSaldoInicial } from "../actions";
+import { guardarSaldoInicial, guardarSaldoConferido } from "../actions";
 
 function formatarNumero(v: number): string {
   if (Math.round(v * 100) === 0) return "";
@@ -55,6 +55,19 @@ export default async function FechamentoPage({
     postoId && bancoId && ano && mesNum
       ? await gerarFechamento({ postoId, bancoId, ano, mes: mesNum, saldoInicial: saldoInformado })
       : null;
+
+  // Data e saldo que o botão "Guardar como conferido" grava: o fim do mês, se ele já passou; senão o último dia com movimento.
+  const dataConferencia = (() => {
+    if (!resultado) return null;
+    const fimMes = new Date(Date.UTC(resultado.ano, resultado.mes, 0));
+    const hojeBR = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())}T00:00:00.000Z`);
+    let dia = resultado.ultimoDia;
+    if (hojeBR <= fimMes) {
+      while (dia > 1 && Math.round((resultado.linhas[dia - 1].porCategoria.reduce((s, v) => s + Math.abs(v), 0) + Math.abs(resultado.linhas[dia - 1].semCategoria)) * 100) === 0) dia--;
+    }
+    const data = new Date(Date.UTC(resultado.ano, resultado.mes - 1, dia));
+    return { data, iso: data.toISOString().slice(0, 10), saldo: Math.round(resultado.linhas[dia - 1].saldoAcumulado * 100) / 100 };
+  })();
 
   const temSemCategoria = !!resultado && resultado.linhas.some((l) => Math.round(l.semCategoria * 100) !== 0);
   const colunasCategoria = resultado ? resultado.categorias.length + (temSemCategoria ? 1 : 0) : 0;
@@ -213,6 +226,26 @@ export default async function FechamentoPage({
             </form>
           )}
 
+          {postoId && bancoId && dataConferencia && (
+            <form
+              action={guardarSaldoConferido}
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-black/[0.02] px-4 py-2.5 text-[13px] text-foreground/80 print:hidden dark:border-white/15"
+            >
+              <input type="hidden" name="postoId" value={postoId} />
+              <input type="hidden" name="bancoId" value={bancoId} />
+              <input type="hidden" name="mes" value={mesValor} />
+              <input type="hidden" name="data" value={dataConferencia.iso} />
+              <input type="hidden" name="saldo" value={String(dataConferencia.saldo).replace(".", ",")} />
+              <span>
+                Conferiu com o extrato do banco? O saldo calculado em {formatarDataBR(dataConferencia.data)} é {formatarMoedaBR(dataConferencia.saldo)}. Se
+                estiver certo, guarde: ele vira o saldo inicial do mês seguinte e passa a valer na conferência no lugar do saldo que veio no arquivo.
+              </span>
+              <button type="submit" className="rounded-lg border border-black/15 bg-white px-3 py-1.5 font-semibold hover:bg-black/5 dark:border-white/20 dark:bg-transparent">
+                Guardar como conferido
+              </button>
+            </form>
+          )}
+
           <section aria-label="Resumo do mês" className="flex flex-wrap gap-3">
             <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
               <p className="text-[12px] text-foreground/60">Saldo inicial</p>
@@ -245,6 +278,7 @@ export default async function FechamentoPage({
             >
               <p className="text-[12px] text-foreground/60">
                 Saldo do banco{resultado.saldoBanco ? ` em ${formatarDataBR(resultado.saldoBanco.data)}` : ""}
+                {resultado.saldoBanco?.conferidoPorVoce && <span className="ml-1 text-[10.5px] text-foreground/50">(conferido por você)</span>}
               </p>
               {resultado.saldoBanco ? (
                 <>
