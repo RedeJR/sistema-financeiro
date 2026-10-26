@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { parseOfx, lerSaldoOfx } from "./parsers/ofx";
+import { saldoNoUltimoDiaFechado } from "./saldo";
 import { sugerirCategoria } from "./categorizer";
 import { normalizarCodigoBanco } from "./bancos";
 
@@ -91,11 +92,7 @@ export async function importarExtratos(params: {
       if (saldoArquivo) {
         const ontem = new Date(hojeNoBrasil());
         ontem.setUTCDate(ontem.getUTCDate() - 1);
-        const ultimaLinha = semLinhaControle.reduce((m, l) => (l.data > m ? l.data : m), semLinhaControle[0]?.data ?? ontem);
-        const dataRefSaldo = saldoArquivo.data ?? ultimaLinha;
-        const dataSaldo = dataRefSaldo < ontem ? dataRefSaldo : ontem;
-        const depoisDoCorte = semLinhaControle.filter((l) => l.data > dataSaldo).reduce((s, l) => s + l.valor, 0);
-        const saldoNaData = Math.round((saldoArquivo.saldo - depoisDoCorte) * 100) / 100;
+        const { data: dataSaldo, saldo: saldoNaData } = saldoNoUltimoDiaFechado({ saldoArquivo, linhas: semLinhaControle, ontem });
         await prisma.saldoBancario.upsert({
           where: { postoId_bancoId_data: { postoId, bancoId, data: dataSaldo } },
           create: { postoId, bancoId, data: dataSaldo, saldo: saldoNaData.toFixed(2), arquivoOrigem: arq.nome },
