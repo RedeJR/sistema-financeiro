@@ -48,7 +48,9 @@ export async function buscarMixVendas(postoIds: string[]): Promise<Map<string, M
     let total = 0;
     for (const g of doPosto) {
       const valor = Number(g._sum.valorBruto ?? 0);
-      const modalidade = classificarModalidadeVenda(g.tipoVenda, nomeAdquirente.get(g.adquirenteId) ?? "");
+      const nome = nomeAdquirente.get(g.adquirenteId) ?? "";
+      // SAQPAY: nos relatórios de vendas cai em débito (convenção das voucher), mas aqui conta como Pix.
+      const modalidade = nome === "SAQPAY" ? "PIX" : classificarModalidadeVenda(g.tipoVenda, nome);
       const atual = valores.get(g.adquirenteId) ?? { DEBITO: 0, CREDITO: 0, PIX: 0 };
       atual[modalidade] += valor;
       valores.set(g.adquirenteId, atual);
