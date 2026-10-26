@@ -47,7 +47,7 @@ const CABECALHOS: Record<string, keyof Omit<LinhaPlanilha, "linha" | "erros">> =
   "BANCO DO PAGAMENTO": "banco",
 };
 
-function paraDataISO(v: unknown): string | null {
+export function paraDataISO(v: unknown): string | null {
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
     // Excel guarda a data como "meia-noite local" e o SheetJS devolve com um
     // desvio de horas/segundos (ex: 03:00:28Z) — arredonda pro dia mais
@@ -65,7 +65,7 @@ function paraDataISO(v: unknown): string | null {
   return null;
 }
 
-function paraNumero(v: unknown): number | null {
+export function paraNumero(v: unknown): number | null {
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
   const t = String(v ?? "").trim().replace(/^R\$\s*/i, "");
   if (!t) return null;

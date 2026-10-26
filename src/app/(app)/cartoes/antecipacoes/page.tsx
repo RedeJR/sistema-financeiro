@@ -6,7 +6,7 @@ import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { excluirAntecipacao } from "./actions";
-import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
@@ -87,12 +87,20 @@ export default async function AntecipacoesPage({
           </Link>
         )}
         {podeEditar && (
-          <Link
-            href="/cartoes/antecipacoes/novo"
-            className="ml-auto rounded-md bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800"
-          >
-            + Nova antecipação
-          </Link>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <a href="/cartoes/antecipacoes/importar/modelo" className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
+              Baixar modelo
+            </a>
+            <Link href="/cartoes/antecipacoes/importar" className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
+              Importar planilha
+            </Link>
+            <Link
+              href="/cartoes/antecipacoes/novo"
+              className="rounded-md bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800"
+            >
+              + Nova antecipação
+            </Link>
+          </div>
         )}
       </form>
 
