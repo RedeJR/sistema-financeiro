@@ -143,7 +143,7 @@ export default async function TaxasCartaoPage({
                     <th className="px-4 py-2.5 text-left">Adquirente</th>
                     <th className="px-4 py-2.5 text-right">Débito</th>
                     <th className="px-4 py-2.5 text-right">Crédito à vista</th>
-                    <th className="px-4 py-2.5 text-right">Crédito parcelado</th>
+                    <th className="px-4 py-2.5 text-right">Crédito antecipado</th>
                     <th className="px-4 py-2.5 text-right">PIX</th>
                     <th className="px-4 py-2.5 text-right">Crédito pré-pago</th>
                     <th className="px-4 py-2.5 text-left">Domicílio</th>

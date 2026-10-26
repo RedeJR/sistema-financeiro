@@ -155,7 +155,7 @@ export function FormularioTaxaCartao({ postos, adquirentes, bancos, valoresInici
 
       <div className="rounded-lg border border-black/10 p-3 dark:border-white/15">
         <p className="mb-3 text-sm font-medium text-foreground/80">
-          Crédito parcelado{" "}
+          Crédito antecipado{" "}
           <span className="font-normal text-foreground/50">(deixe a taxa em branco se não usa)</span>
         </p>
         <div className="grid grid-cols-2 gap-3">
