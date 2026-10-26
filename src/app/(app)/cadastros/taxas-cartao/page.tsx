@@ -9,10 +9,21 @@ import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
+import { buscarMixVendas } from "@/lib/cartoes/mixVendas";
 
 function fmtPct(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
   return `${Number(valor).toFixed(2).replace(".", ",")}%`;
+}
+
+// "54%"; abaixo de 1% mas com venda aparece "<1%" (não confundir com zero).
+function fmtMix(pct: number): string {
+  if (pct >= 1) return `${Math.round(pct)}%`;
+  return pct > 0 ? "<1%" : "0%";
+}
+
+function fmtDia(d: Date): string {
+  return d.toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
 }
 
 // Colunas com largura fixa e igual em TODOS os postos (antes cada tabela se ajustava ao próprio
@@ -22,20 +33,22 @@ function fmtPct(valor: unknown): string {
 const CSS_TABELA = `
 .tabela-taxas { table-layout: fixed; width: 100%; }
 .tabela-taxas th, .tabela-taxas td { padding-left: 8px !important; padding-right: 8px !important; vertical-align: top; }
-.tabela-taxas th:nth-child(9), .tabela-taxas td:nth-child(9) { overflow-wrap: anywhere; }
-.tabela-taxas th:nth-child(1) { width: 10%; } .tabela-taxas th:nth-child(2) { width: 8%; }
-.tabela-taxas th:nth-child(3) { width: 10%; } .tabela-taxas th:nth-child(4) { width: 8%; }
-.tabela-taxas th:nth-child(5) { width: 7%; } .tabela-taxas th:nth-child(6) { width: 8%; }
-.tabela-taxas th:nth-child(7) { width: 11%; } .tabela-taxas th:nth-child(8) { width: 5%; }
-.tabela-taxas th:nth-child(9) { width: 10%; } .tabela-taxas th:nth-child(10) { width: 6%; }
-.tabela-taxas th:nth-child(11) { width: 17%; }
+.tabela-taxas th:nth-child(10), .tabela-taxas td:nth-child(10) { overflow-wrap: anywhere; }
+.tabela-taxas th:nth-child(1) { width: 9%; } .tabela-taxas th:nth-child(2) { width: 8%; }
+.tabela-taxas th:nth-child(3) { width: 9%; } .tabela-taxas th:nth-child(4) { width: 9%; }
+.tabela-taxas th:nth-child(5) { width: 6%; } .tabela-taxas th:nth-child(6) { width: 7%; }
+.tabela-taxas th:nth-child(7) { width: 8%; } .tabela-taxas th:nth-child(8) { width: 10%; }
+.tabela-taxas th:nth-child(9) { width: 5%; } .tabela-taxas th:nth-child(10) { width: 10%; }
+.tabela-taxas th:nth-child(11) { width: 6%; } .tabela-taxas th:nth-child(12) { width: 13%; }
 @media print {
-  .tabela-taxas th:nth-child(1) { width: 10%; } .tabela-taxas th:nth-child(2) { width: 9%; }
-  .tabela-taxas th:nth-child(3) { width: 11%; } .tabela-taxas th:nth-child(4) { width: 9%; }
-  .tabela-taxas th:nth-child(5) { width: 8%; } .tabela-taxas th:nth-child(6) { width: 9%; }
-  .tabela-taxas th:nth-child(7) { width: 11%; } .tabela-taxas th:nth-child(8) { width: 6%; }
-  .tabela-taxas th:nth-child(9) { width: 20%; } .tabela-taxas th:nth-child(10) { width: 7%; }
+  .tabela-taxas th:nth-child(1) { width: 11%; } .tabela-taxas th:nth-child(2) { width: 8%; }
+  .tabela-taxas th:nth-child(3) { width: 9%; } .tabela-taxas th:nth-child(4) { width: 9%; }
+  .tabela-taxas th:nth-child(5) { width: 7%; } .tabela-taxas th:nth-child(6) { width: 8%; }
+  .tabela-taxas th:nth-child(7) { width: 9%; } .tabela-taxas th:nth-child(8) { width: 10%; }
+  .tabela-taxas th:nth-child(9) { width: 6%; } .tabela-taxas th:nth-child(10) { width: 17%; }
+  .tabela-taxas th:nth-child(11) { width: 6%; }
   .tabela-taxas th, .tabela-taxas td { padding: 3px 4px !important; }
+  .tabela-taxas td { white-space: normal !important; }
 }
 `;
 
@@ -66,6 +79,8 @@ export default async function TaxasCartaoPage({
     (p) => (!postoIds.length || postoIds.includes(p.id)) && (!adquirenteIds.length || taxas.some((t) => t.postoId === p.id))
   );
   const temFiltro = postoIds.length > 0 || adquirenteIds.length > 0;
+
+  const mixPorPosto = await buscarMixVendas(postos.map((p) => p.id));
 
   const taxasPorPosto = new Map<string, typeof taxas>();
   for (const t of taxas) {
@@ -137,15 +152,16 @@ export default async function TaxasCartaoPage({
               )}
             </div>
             <div className="overflow-x-auto print:overflow-visible">
-              <table className="tabela-taxas min-w-[1060px] w-full text-sm print:min-w-0 print:text-[10px]">
+              <table className="tabela-taxas min-w-[1180px] w-full text-sm print:min-w-0 print:text-[10px]">
                 <thead className={CABECALHO_TABELA}>
                   <tr>
                     <th className="px-4 py-2.5 text-left">Adquirente</th>
-                    <th className="px-4 py-2.5 text-right">Débito</th>
-                    <th className="px-4 py-2.5 text-right">Crédito à vista</th>
-                    <th className="px-4 py-2.5 text-right">Crédito antecipado</th>
+                    <th className="px-4 py-2.5 text-right">Déb.</th>
+                    <th className="px-4 py-2.5 text-right">Cred. à vista</th>
+                    <th className="px-4 py-2.5 text-right">Cred. Antecipado</th>
                     <th className="px-4 py-2.5 text-right">PIX</th>
-                    <th className="px-4 py-2.5 text-right">Crédito pré-pago</th>
+                    <th className="px-4 py-2.5 text-right">Cred. Pré</th>
+                    <th className="px-4 py-2.5 text-left">% das vendas</th>
                     <th className="px-4 py-2.5 text-left">Domicílio</th>
                     <th className="px-4 py-2.5 text-left">Grupo</th>
                     <th className="px-4 py-2.5 text-left">Observação</th>
@@ -160,13 +176,13 @@ export default async function TaxasCartaoPage({
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaDebito)}
                         {t.taxaDebito !== null && (
-                          <span className="text-foreground/50"> (D+{t.prazoDebitoDias})</span>
+                          <span className="text-foreground/50 print:block"> (D+{t.prazoDebitoDias})</span>
                         )}
                       </td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaCreditoVista)}
                         {t.taxaCreditoVista !== null && (
-                          <span className="text-foreground/50">
+                          <span className="text-foreground/50 print:block">
                             {" "}
                             (D+{t.prazoCreditoVistaDias}
                             {t.antecipacaoAutomatica ? ", antecip. auto." : ""})
@@ -176,18 +192,31 @@ export default async function TaxasCartaoPage({
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaCreditoParcelado)}
                         {t.taxaCreditoParcelado !== null && (
-                          <span className="text-foreground/50"> (D+{t.prazoCreditoParceladoDias})</span>
+                          <span className="text-foreground/50 print:block"> (D+{t.prazoCreditoParceladoDias})</span>
                         )}
                       </td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaPix)}
-                        {t.taxaPix !== null && <span className="text-foreground/50"> (D+{t.prazoPixDias})</span>}
+                        {t.taxaPix !== null && <span className="text-foreground/50 print:block"> (D+{t.prazoPixDias})</span>}
                       </td>
                       <td className="px-4 py-1.5 text-right whitespace-nowrap">
                         {fmtPct(t.taxaCreditoPrePago)}
                         {t.taxaCreditoPrePago !== null && (
-                          <span className="text-foreground/50"> (D+{t.prazoCreditoPrePagoDias})</span>
+                          <span className="text-foreground/50 print:block"> (D+{t.prazoCreditoPrePagoDias})</span>
                         )}
+                      </td>
+                      <td className="px-4 py-1.5 text-xs leading-snug whitespace-nowrap">
+                        {(() => {
+                          const m = mixPorPosto.get(posto.id)?.porAdquirente.get(t.adquirenteId) ?? { DEBITO: 0, CREDITO: 0, PIX: 0, parteDoPosto: 0 };
+                          return (
+                            <>
+                              <span className="block">Déb. {fmtMix(m.DEBITO)}</span>
+                              <span className="block">Créd. {fmtMix(m.CREDITO)}</span>
+                              <span className="block">PIX {fmtMix(m.PIX)}</span>
+                              <span className="block text-foreground/50">no posto: {fmtMix(m.parteDoPosto)}</span>
+                            </>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.domicilioBanco?.nome ?? "—"}</td>
                       <td className="px-4 py-1.5 text-foreground/70">{t.grupoConciliacao ?? "—"}</td>
@@ -237,7 +266,7 @@ export default async function TaxasCartaoPage({
                   {lista.length === 0 && (
                     <tr>
                       <td
-                        colSpan={podeEditar ? 11 : 10}
+                        colSpan={podeEditar ? 12 : 11}
                         className="px-4 py-4 text-center text-sm text-foreground/50"
                       >
                         Nenhuma taxa cadastrada pra esse posto.
@@ -246,6 +275,14 @@ export default async function TaxasCartaoPage({
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="border-t border-black/10 bg-black/[0.02] px-4 py-1.5 text-[11px] text-foreground/60 dark:border-white/10 print:text-[8px]">
+              {(() => {
+                const mix = mixPorPosto.get(posto.id);
+                return mix
+                  ? `Referência das % das vendas: vendas até ${fmtDia(mix.ate)} (últimos 30 dias, de ${fmtDia(mix.de)} a ${fmtDia(mix.ate)}). Débito, crédito e PIX = divisão das vendas de cada adquirente; "no posto" = peso da adquirente nas vendas do posto.`
+                  : "Sem vendas de cartão importadas pra calcular as % das vendas.";
+              })()}
             </div>
           </div>
         );
