@@ -96,8 +96,15 @@ export async function buscarConferenciaTaxas(params: {
   const resultado: LinhaConferenciaTaxas[] = [];
   for (const g of grupos.values()) {
     const modalidade = classificarModalidade(g.tipoVenda, g.adquirente);
-    const campos = CAMPO_POR_MODALIDADE[modalidade];
     const taxaCartao = taxaPorAdquirente.get(`${g.postoId}|${g.adquirenteId}`);
+    // Crédito: usa a taxa de Crédito Antecipado quando cadastrada; senão a de Crédito à vista.
+    const ehCredito = modalidade === "CREDITO_VISTA" || modalidade === "CREDITO_PARCELADO";
+    const campos =
+      ehCredito && taxaCartao && taxaCartao.taxaCreditoParcelado !== null
+        ? CAMPO_POR_MODALIDADE.CREDITO_PARCELADO
+        : modalidade === "CREDITO_PARCELADO"
+          ? CAMPO_POR_MODALIDADE.CREDITO_VISTA
+          : CAMPO_POR_MODALIDADE[modalidade];
 
     resultado.push({
       postoId: g.postoId,

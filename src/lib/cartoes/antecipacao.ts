@@ -23,10 +23,13 @@ export type AjusteAntecipacao = {
 
 function taxaEPrazoDoCredito(tipoVenda: string, adquirenteNome: string, c: TaxaCreditoCadastrada) {
   switch (classificarModalidade(tipoVenda, adquirenteNome)) {
+    // Crédito (à vista ou parcelado no texto da venda): vale a taxa de Crédito Antecipado (D+0/D+1)
+    // quando o posto/adquirente tem uma cadastrada; senão a de Crédito à vista (30 dias).
     case "CREDITO_VISTA":
-      return { taxa: c.taxaCreditoVista, prazo: c.prazoCreditoVistaDias };
     case "CREDITO_PARCELADO":
-      return { taxa: c.taxaCreditoParcelado, prazo: c.prazoCreditoParceladoDias };
+      return c.taxaCreditoParcelado !== null
+        ? { taxa: c.taxaCreditoParcelado, prazo: c.prazoCreditoParceladoDias }
+        : { taxa: c.taxaCreditoVista, prazo: c.prazoCreditoVistaDias };
     case "CREDITO_PRE_PAGO":
       return { taxa: c.taxaCreditoPrePago, prazo: c.prazoCreditoPrePagoDias };
     default:
