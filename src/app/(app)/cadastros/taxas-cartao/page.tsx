@@ -49,7 +49,18 @@ const CSS_TABELA = `
   .tabela-taxas th:nth-child(11) { width: 6%; }
   .tabela-taxas th, .tabela-taxas td { padding: 3px 4px !important; }
   .tabela-taxas td { white-space: normal !important; }
+
+  /* Relatório Sintético (botão em botao-imprimir.tsx marca <html data-relatorio="sintetico">): só
+     adquirente e as 5 taxas — somem % das vendas, domicílio, grupo, observação, status e ações. */
+  html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(n+7),
+  html[data-relatorio="sintetico"] .tabela-taxas td:nth-child(n+7),
+  html[data-relatorio="sintetico"] .rodape-taxas { display: none !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(1) { width: 22%; }
+  html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(n+2):nth-child(-n+6) { width: 15.6%; }
+  html[data-relatorio="sintetico"] .tabela-taxas th, html[data-relatorio="sintetico"] .tabela-taxas td { padding: 4px 6px !important; }
 }
+.tipo-relatorio::after { content: "Relatório Analítico"; }
+html[data-relatorio="sintetico"] .tipo-relatorio::after { content: "Relatório Sintético"; }
 `;
 
 export const metadata = { title: "Cadastros - Taxas de Cartão" };
@@ -94,6 +105,7 @@ export default async function TaxasCartaoPage({
       <OrientacaoImpressao />
       <style>{CSS_TABELA}</style>
       <CabecalhoImpressao titulo="Taxas de Cartão" />
+      <p className="tipo-relatorio hidden text-[10px] font-semibold tracking-wide text-gray-500 uppercase print:block" />
       <p className="text-sm text-foreground/60 print:hidden">
         Taxas de cartão por posto/adquirente — base pra futura Conciliação de Cartões. Taxa em branco = não
         contratado.
@@ -276,7 +288,7 @@ export default async function TaxasCartaoPage({
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-black/10 bg-black/[0.02] px-4 py-1.5 text-[11px] text-foreground/60 dark:border-white/10 print:text-[8px]">
+            <div className="rodape-taxas border-t border-black/10 bg-black/[0.02] px-4 py-1.5 text-[11px] text-foreground/60 dark:border-white/10 print:text-[8px]">
               {(() => {
                 const mix = mixPorPosto.get(posto.id);
                 return mix
