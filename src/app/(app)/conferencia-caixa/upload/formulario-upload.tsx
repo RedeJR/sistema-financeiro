@@ -15,6 +15,38 @@ const ROTULO_STATUS: Record<string, { texto: string; classe: string }> = {
   erro: { texto: "erro", classe: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400" },
 };
 
+// A hospedagem recusa requisição acima de 4,5 MB, e cada parte da importação manda o arquivo
+// inteiro. CSV maior que isso (ex: Stone com o mês todo, ~5,5 MB) é cortado aqui em pedaços de até
+// 3 MB, cada um com o cabeçalho, e cada pedaço é importado em sequência. Corta só em quebra de
+// linha (byte 0x0A, igual em UTF-8 e Windows-1252) — nunca no meio de uma venda.
+const TAMANHO_MAXIMO_PARTE = 3 * 1024 * 1024;
+const LIMITE_SEM_CORTAR = 4 * 1024 * 1024;
+
+async function dividirSeGrande(arquivo: File): Promise<File[] | { erro: string }> {
+  if (arquivo.size <= LIMITE_SEM_CORTAR) return [arquivo];
+  if (!/.(csv|txt)$/i.test(arquivo.name)) {
+    return { erro: `${arquivo.name} tem ${(arquivo.size / 1048576).toFixed(1)} MB, acima do limite de 4 MB por arquivo, e esse formato não pode ser dividido. Baixe um período menor da adquirente e envie de novo.` };
+  }
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  const fimCabecalho = bytes.indexOf(10) + 1;
+  if (fimCabecalho <= 0) return { erro: `Não consegui ler o cabeçalho de ${arquivo.name}.` };
+  const cabecalho = bytes.subarray(0, fimCabecalho);
+  const limite = TAMANHO_MAXIMO_PARTE - cabecalho.length;
+  const partes: File[] = [];
+  let inicio = fimCabecalho;
+  while (inicio < bytes.length) {
+    let fim = Math.min(inicio + limite, bytes.length);
+    if (fim < bytes.length) {
+      const quebra = bytes.lastIndexOf(10, fim - 1);
+      if (quebra < inicio) return { erro: `${arquivo.name} tem uma linha grande demais para dividir.` };
+      fim = quebra + 1;
+    }
+    partes.push(new File([cabecalho, bytes.subarray(inicio, fim)], arquivo.name, { type: arquivo.type }));
+    inicio = fim;
+  }
+  return partes;
+}
+
 export function FormularioUpload({ postos }: { postos: Opcao[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [processando, setProcessando] = useState(false);
@@ -41,39 +73,50 @@ export function FormularioUpload({ postos }: { postos: Opcao[] }) {
 
     for (const arquivo of arquivos) {
       const acumulado: ResultadoArquivoCartao = { arquivo: arquivo.name, status: "ok", gravados: 0, duplicados: 0, atualizados: 0 };
-      let deslocamento = 0;
-      for (;;) {
-        setProgresso(`${arquivo.name}${deslocamento > 0 ? ` — a partir da venda ${deslocamento}` : ""}...`);
-        const dados = new FormData();
-        dados.set("postoId", postoId);
-        dados.set("arquivo", arquivo);
-        dados.set("deslocamento", String(deslocamento));
-        let parte;
-        try {
-          parte = await importarParteCartaoAction(dados);
-        } catch {
-          acumulado.status = "erro";
-          acumulado.mensagem = `Falhou ao gravar a partir da venda ${deslocamento}. O que veio antes já foi gravado — é só enviar o mesmo arquivo de novo (não duplica).`;
-          break;
+      const partes = await dividirSeGrande(arquivo);
+      if ("erro" in partes) {
+        acumulado.status = "erro";
+        acumulado.mensagem = partes.erro;
+        finais.push(acumulado);
+        setResultados([...finais]);
+        continue;
+      }
+      parte: for (const [numeroParte, pedaco] of partes.entries()) {
+        const rotuloParte = partes.length > 1 ? ` (parte ${numeroParte + 1} de ${partes.length})` : "";
+        let deslocamento = 0;
+        for (;;) {
+          setProgresso(`${arquivo.name}${rotuloParte}${deslocamento > 0 ? ` — a partir da venda ${deslocamento}` : ""}...`);
+          const dados = new FormData();
+          dados.set("postoId", postoId);
+          dados.set("arquivo", pedaco);
+          dados.set("deslocamento", String(deslocamento));
+          let resposta;
+          try {
+            resposta = await importarParteCartaoAction(dados);
+          } catch {
+            acumulado.status = "erro";
+            acumulado.mensagem = `Falhou ao gravar${rotuloParte} a partir da venda ${deslocamento}. O que veio antes já foi gravado — é só enviar o mesmo arquivo de novo (não duplica).`;
+            break parte;
+          }
+          if ("erro" in resposta) {
+            acumulado.status = "erro";
+            acumulado.mensagem = resposta.erro;
+            break parte;
+          }
+          const r = resposta.resultado;
+          acumulado.adquirente = r.adquirente ?? acumulado.adquirente;
+          if (r.status === "erro") {
+            acumulado.status = "erro";
+            acumulado.mensagem = r.mensagem;
+            break parte;
+          }
+          acumulado.gravados = (acumulado.gravados ?? 0) + (r.gravados ?? 0);
+          acumulado.duplicados = (acumulado.duplicados ?? 0) + (r.duplicados ?? 0);
+          acumulado.atualizados = (acumulado.atualizados ?? 0) + (r.atualizados ?? 0);
+          if (r.mensagem) acumulado.mensagem = r.mensagem;
+          if (resposta.proximo === null) break;
+          deslocamento = resposta.proximo;
         }
-        if ("erro" in parte) {
-          acumulado.status = "erro";
-          acumulado.mensagem = parte.erro;
-          break;
-        }
-        const r = parte.resultado;
-        acumulado.adquirente = r.adquirente ?? acumulado.adquirente;
-        if (r.status === "erro") {
-          acumulado.status = "erro";
-          acumulado.mensagem = r.mensagem;
-          break;
-        }
-        acumulado.gravados = (acumulado.gravados ?? 0) + (r.gravados ?? 0);
-        acumulado.duplicados = (acumulado.duplicados ?? 0) + (r.duplicados ?? 0);
-        acumulado.atualizados = (acumulado.atualizados ?? 0) + (r.atualizados ?? 0);
-        if (r.mensagem) acumulado.mensagem = r.mensagem;
-        if (parte.proximo === null) break;
-        deslocamento = parte.proximo;
       }
       finais.push(acumulado);
       setResultados([...finais]);
