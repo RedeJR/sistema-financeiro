@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioTaxaCartao } from "../../formulario-taxa-cartao";
 import { atualizarTaxaCartao } from "../../actions";
 
+export const metadata = { title: "Cadastros - Taxas de Cartão (editar)" };
+
 export default async function EditarTaxaCartaoPage({ params }: { params: Promise<{ id: string }> }) {
   await exigirPermissao("CADASTROS", "editar");
 

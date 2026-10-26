@@ -55,6 +55,8 @@ function CelulasValores({ l }: { l: LinhaResumoMensal }) {
   );
 }
 
+export const metadata = { title: "Cartões - Resumo Mensal" };
+
 export default async function ResumoMensalCartoesPage({
   searchParams,
 }: {

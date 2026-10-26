@@ -38,6 +38,8 @@ const CARDS = [
   },
 ];
 
+export const metadata = { title: "Cadastros" };
+
 export default function CadastrosHome() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">

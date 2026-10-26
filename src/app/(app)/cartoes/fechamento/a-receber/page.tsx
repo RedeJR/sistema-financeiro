@@ -14,6 +14,8 @@ function dataUTC(iso: string, fim = false): Date {
 
 const CLASSE_CAMPO = "rounded-md border border-black/15 bg-transparent px-3 py-1.5 dark:border-white/20";
 
+export const metadata = { title: "Cartões - A Receber" };
+
 export default async function VendasAReceberPage({
   searchParams,
 }: {

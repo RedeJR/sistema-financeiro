@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const metadata = { title: "Sem permissão" };
+
 export default function SemPermissaoPage() {
   return (
     <div className="mx-auto flex min-h-[50vh] max-w-md flex-col items-center justify-center text-center">

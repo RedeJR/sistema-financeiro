@@ -110,6 +110,8 @@ function Badge({ status }: { status: StatusConciliacaoGrupo }) {
   );
 }
 
+export const metadata = { title: "Despesas Pagas" };
+
 export default async function DespesasPagasPage({
   searchParams,
 }: {

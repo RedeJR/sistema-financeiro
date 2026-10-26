@@ -39,6 +39,8 @@ const CSS_TABELA = `
 }
 `;
 
+export const metadata = { title: "Cadastros - Taxas de Cartão" };
+
 export default async function TaxasCartaoPage({
   searchParams,
 }: {

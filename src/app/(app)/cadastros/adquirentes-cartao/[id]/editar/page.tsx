@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioAdquirente } from "../../formulario-adquirente";
 import { atualizarAdquirenteCartao } from "../../actions";
 
+export const metadata = { title: "Cadastros - Adquirentes de Cartão (editar)" };
+
 export default async function EditarAdquirenteCartaoPage({
   params,
 }: {

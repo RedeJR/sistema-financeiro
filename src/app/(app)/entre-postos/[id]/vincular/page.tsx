@@ -85,6 +85,8 @@ function BlocoLado({
   );
 }
 
+export const metadata = { title: "Entre Postos - Vincular ao extrato" };
+
 export default async function VincularMovimentacaoPage({ params }: { params: Promise<{ id: string }> }) {
   await exigirPermissao("ENTRE_POSTOS", "editar");
   const { id } = await params;

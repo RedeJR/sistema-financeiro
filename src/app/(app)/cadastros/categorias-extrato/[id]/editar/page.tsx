@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioCategoriaExtrato } from "../../formulario-categoria-extrato";
 import { atualizarCategoriaExtrato } from "../../actions";
 
+export const metadata = { title: "Cadastros - Categorias de Extrato (editar)" };
+
 export default async function EditarCategoriaExtratoPage({
   params,
 }: {

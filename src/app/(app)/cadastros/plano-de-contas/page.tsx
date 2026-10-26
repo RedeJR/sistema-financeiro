@@ -24,6 +24,8 @@ function Status({ ativo }: { ativo: boolean }) {
   );
 }
 
+export const metadata = { title: "Cadastros - Plano de Contas" };
+
 export default async function PlanoDeContasPage({
   searchParams,
 }: {

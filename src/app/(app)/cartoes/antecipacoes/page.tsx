@@ -12,6 +12,8 @@ function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
+export const metadata = { title: "Cartões - Antecipações" };
+
 export default async function AntecipacoesPage({
   searchParams,
 }: {

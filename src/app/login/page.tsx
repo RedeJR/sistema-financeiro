@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { usuarioAtual } from "@/lib/auth";
 import { FormularioLogin } from "./formulario-login";
 
+export const metadata = { title: "Entrar" };
+
 export default async function LoginPage({
   searchParams,
 }: {

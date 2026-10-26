@@ -2,6 +2,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioGrupo } from "../../formulario-grupo";
 import { criarGrupoPlanoConta } from "../../actions";
 
+export const metadata = { title: "Cadastros - Plano de Contas (novo grupo)" };
+
 export default async function NovoGrupoPage() {
   await exigirPermissao("CADASTROS", "editar");
 

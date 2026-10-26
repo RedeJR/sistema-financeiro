@@ -5,6 +5,8 @@ import { formatarCpf } from "@/lib/cpf";
 import { FormularioUsuario } from "../../formulario-usuario";
 import { atualizarUsuario } from "../../actions";
 
+export const metadata = { title: "Usuários (editar)" };
+
 export default async function EditarUsuarioPage({
   params,
 }: {

@@ -30,6 +30,8 @@ function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
+export const metadata = { title: "Conciliação - Despesas x Extrato" };
+
 export default async function ConciliacaoPage({
   searchParams,
 }: {

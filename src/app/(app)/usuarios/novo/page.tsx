@@ -2,6 +2,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioUsuario } from "../formulario-usuario";
 import { criarUsuario } from "../actions";
 
+export const metadata = { title: "Usuários (novo)" };
+
 export default async function NovoUsuarioPage() {
   await exigirPermissao("USUARIOS", "editar");
 

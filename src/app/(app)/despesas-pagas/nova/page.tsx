@@ -4,6 +4,8 @@ import { sugestaoPlanoContaPorFornecedor } from "@/lib/sugestao-plano-conta";
 import { bancoPadraoPorPosto } from "@/lib/banco-padrao-posto";
 import { FormularioDespesaAvulsa } from "../formulario-despesa-avulsa";
 
+export const metadata = { title: "Despesas Pagas (nova)" };
+
 export default async function NovaDespesaAvulsaPage({
   searchParams,
 }: {

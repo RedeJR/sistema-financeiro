@@ -3,6 +3,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioConta } from "../../formulario-conta";
 import { criarPlanoConta } from "../../actions";
 
+export const metadata = { title: "Cadastros - Plano de Contas (nova conta)" };
+
 export default async function NovaContaPage({
   searchParams,
 }: {

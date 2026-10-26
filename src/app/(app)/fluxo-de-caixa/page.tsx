@@ -28,6 +28,8 @@ function paraArray(v?: string | string[]): string[] {
   return Array.isArray(v) ? v : [v];
 }
 
+export const metadata = { title: "Fluxo de Caixa" };
+
 export default async function FluxoDeCaixaPage({
   searchParams,
 }: {

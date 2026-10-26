@@ -20,6 +20,8 @@ function formatarData(iso: string): string {
   return new Date(`${iso}T00:00:00.000Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
+export const metadata = { title: "Cartões - Vendas" };
+
 export default async function VendasCartoesPage({
   searchParams,
 }: {

@@ -27,6 +27,8 @@ function somarDias(d: Date, dias: number): Date {
 
 const JANELA_PADRAO_DIAS = 15;
 
+export const metadata = { title: "Combustíveis a Pagar - Vincular ao extrato" };
+
 export default async function VincularCombustivelPage({
   params,
   searchParams,

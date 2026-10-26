@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioGrupo } from "../../../formulario-grupo";
 import { atualizarGrupoPlanoConta } from "../../../actions";
 
+export const metadata = { title: "Cadastros - Plano de Contas (editar grupo)" };
+
 export default async function EditarGrupoPage({
   params,
 }: {

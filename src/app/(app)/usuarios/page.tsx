@@ -11,6 +11,8 @@ const MENSAGENS_ERRO: Record<string, string> = {
   "auto-excluir": "Você não pode excluir seu próprio usuário.",
 };
 
+export const metadata = { title: "Usuários" };
+
 export default async function UsuariosPage({
   searchParams,
 }: {

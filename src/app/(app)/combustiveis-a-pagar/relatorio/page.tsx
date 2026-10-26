@@ -13,6 +13,8 @@ function formatarData(d: Date | null): string {
   return d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
 }
 
+export const metadata = { title: "Combustíveis a Pagar - Relatório" };
+
 export default async function RelatorioCombustiveisAPagarPage({
   searchParams,
 }: {

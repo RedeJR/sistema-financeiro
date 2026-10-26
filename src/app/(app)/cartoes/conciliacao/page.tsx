@@ -46,6 +46,8 @@ const ROTULO_AGRUPAMENTO: Record<AgrupamentoConciliacao, string> = {
   adquirente: "Adquirente",
 };
 
+export const metadata = { title: "Cartões - Conciliação" };
+
 export default async function ConciliacaoCartoesPage({
   searchParams,
 }: {

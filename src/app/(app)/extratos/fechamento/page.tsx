@@ -27,6 +27,8 @@ function formatarDataBR(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
+export const metadata = { title: "Extratos - Fechamento" };
+
 export default async function FechamentoPage({
   searchParams,
 }: {

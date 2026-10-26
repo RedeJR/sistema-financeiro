@@ -153,6 +153,8 @@ function construirQuery(
   return sp.toString();
 }
 
+export const metadata = { title: "Extratos - Editar lançamento" };
+
 export default async function EditarExtratosPage({
   searchParams,
 }: {

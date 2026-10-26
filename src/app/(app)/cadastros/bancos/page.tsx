@@ -6,6 +6,8 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
+export const metadata = { title: "Cadastros - Bancos" };
+
 export default async function BancosPage({
   searchParams,
 }: {

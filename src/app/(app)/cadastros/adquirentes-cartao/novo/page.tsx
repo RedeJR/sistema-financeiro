@@ -2,6 +2,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioAdquirente } from "../formulario-adquirente";
 import { criarAdquirenteCartao } from "../actions";
 
+export const metadata = { title: "Cadastros - Adquirentes de Cartão (novo)" };
+
 export default async function NovoAdquirenteCartaoPage() {
   await exigirPermissao("CADASTROS", "editar");
 

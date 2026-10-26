@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioBanco } from "../../formulario-banco";
 import { atualizarBanco } from "../../actions";
 
+export const metadata = { title: "Cadastros - Bancos (editar)" };
+
 export default async function EditarBancoPage({
   params,
 }: {

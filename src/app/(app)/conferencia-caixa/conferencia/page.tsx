@@ -28,6 +28,8 @@ const COR_STATUS: Record<StatusConferenciaCaixa, string> = {
   DIVERGENTE: "bg-[#FDECEC] text-[#A12727] dark:bg-red-900/40 dark:text-red-400",
 };
 
+export const metadata = { title: "Conferência de Caixa - Conferência" };
+
 export default async function HistoricoConferenciaCaixaPage({
   searchParams,
 }: {

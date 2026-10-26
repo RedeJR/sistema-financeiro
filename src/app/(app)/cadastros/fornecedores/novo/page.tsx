@@ -2,6 +2,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioFornecedor } from "../formulario-fornecedor";
 import { criarFornecedor } from "../actions";
 
+export const metadata = { title: "Cadastros - Fornecedores (novo)" };
+
 export default async function NovoFornecedorPage() {
   await exigirPermissao("CADASTROS", "editar");
 

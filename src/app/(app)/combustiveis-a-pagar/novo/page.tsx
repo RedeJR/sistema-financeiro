@@ -5,6 +5,8 @@ import { FormularioCombustivel } from "../formulario-combustivel";
 import { criarCombustivelAPagar } from "../actions";
 import { TITULO_PAGINA } from "@/lib/estilo";
 
+export const metadata = { title: "Combustíveis a Pagar (novo)" };
+
 export default async function NovoCombustivelPage() {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "editar");
 

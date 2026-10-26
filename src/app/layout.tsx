@@ -18,7 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sistema Financeiro",
+  // Cada página define só o próprio título ("Contas a Pagar"); o nome do sistema entra no fim, pelo template.
+  title: { default: "Sistema Financeiro", template: "%s | Sistema Financeiro" },
   description: "Conciliação de extratos e contas a pagar",
 };
 

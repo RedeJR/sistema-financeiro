@@ -258,6 +258,8 @@ async function CartaoSituacao({
   );
 }
 
+export const metadata = { title: "Início" };
+
 export default async function Home({
   searchParams,
 }: {

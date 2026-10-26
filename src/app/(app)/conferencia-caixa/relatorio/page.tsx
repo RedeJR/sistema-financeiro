@@ -23,6 +23,8 @@ function formatarTurno(v?: string): string {
   return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}` : (v ?? "");
 }
 
+export const metadata = { title: "Conferência de Caixa - Relatório" };
+
 export default async function RelatorioCaixaPage({
   searchParams,
 }: {

@@ -41,6 +41,8 @@ function paraDataInput(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+export const metadata = { title: "Conferência Diária" };
+
 export default async function ConferenciaDiariaPage({
   searchParams,
 }: {

@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioConta } from "../../../formulario-conta";
 import { atualizarPlanoConta } from "../../../actions";
 
+export const metadata = { title: "Cadastros - Plano de Contas (editar conta)" };
+
 export default async function EditarContaPage({
   params,
 }: {

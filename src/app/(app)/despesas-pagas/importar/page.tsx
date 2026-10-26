@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { ImportadorDespesas } from "./importador";
 import { BOTAO_SECUNDARIO, TITULO_PAGINA } from "@/lib/estilo";
 
+export const metadata = { title: "Despesas Pagas - Importar planilha" };
+
 export default async function ImportarDespesasPage() {
   await exigirPermissao("DESPESAS_PAGAS", "editar");
 

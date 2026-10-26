@@ -17,6 +17,8 @@ function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
 }
 
+export const metadata = { title: "Extratos - Relatórios" };
+
 export default async function RelatoriosExtratosPage({
   searchParams,
 }: {

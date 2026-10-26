@@ -42,6 +42,8 @@ type Filtros = {
   ordem?: string;
 };
 
+export const metadata = { title: "Contas Pagas" };
+
 export default async function ContasPagasPage({ searchParams }: { searchParams: Promise<Filtros> }) {
   await exigirPermissao("CONTAS_PAGAS", "visualizar");
 

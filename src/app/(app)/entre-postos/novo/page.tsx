@@ -3,6 +3,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioMovimentacao } from "../formulario-movimentacao";
 import { criarMovimentacao } from "../actions";
 
+export const metadata = { title: "Entre Postos (novo)" };
+
 export default async function NovaMovimentacaoPage() {
   await exigirPermissao("ENTRE_POSTOS", "editar");
   const postos = await prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } });

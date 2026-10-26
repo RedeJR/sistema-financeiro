@@ -6,6 +6,8 @@ function dataUTC(iso: string): Date {
   return new Date(`${iso}T23:59:59.999Z`);
 }
 
+export const metadata = { title: "Entre Postos - Relação de devedores" };
+
 export default async function RelacaoDevedoresPage({
   searchParams,
 }: {

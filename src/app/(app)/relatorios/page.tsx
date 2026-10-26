@@ -23,6 +23,8 @@ function paraArray(v?: string | string[]): string[] {
   return Array.isArray(v) ? v : [v];
 }
 
+export const metadata = { title: "Relatórios" };
+
 export default async function RelatoriosPage({ searchParams }: { searchParams: Promise<FiltrosRelatorio> }) {
   await exigirPermissaoQualquer(["CONTAS_A_PAGAR", "DESPESAS_PAGAS"], "visualizar");
 

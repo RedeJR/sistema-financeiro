@@ -6,6 +6,8 @@ import { bancoPadraoPorPosto } from "@/lib/banco-padrao-posto";
 import { FormularioDespesaAvulsa } from "../../formulario-despesa-avulsa";
 import { atualizarDespesaPaga } from "../../actions";
 
+export const metadata = { title: "Despesas Pagas (editar)" };
+
 export default async function EditarDespesaPagaPage({
   params,
   searchParams,

@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioFornecedor } from "../../formulario-fornecedor";
 import { atualizarFornecedor } from "../../actions";
 
+export const metadata = { title: "Cadastros - Fornecedores (editar)" };
+
 export default async function EditarFornecedorPage({
   params,
 }: {

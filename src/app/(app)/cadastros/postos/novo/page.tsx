@@ -2,6 +2,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioPosto } from "../formulario-posto";
 import { criarPosto } from "../actions";
 
+export const metadata = { title: "Cadastros - Postos (novo)" };
+
 export default async function NovoPostoPage() {
   await exigirPermissao("CADASTROS", "editar");
 

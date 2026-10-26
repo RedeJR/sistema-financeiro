@@ -5,6 +5,8 @@ import { bancoPadraoPorPosto } from "@/lib/banco-padrao-posto";
 import { FormularioContaAPagar } from "../formulario-conta-a-pagar";
 import { criarContaAPagar } from "../actions";
 
+export const metadata = { title: "Contas a Pagar (novo)" };
+
 export default async function NovaContaAPagarPage({
   searchParams,
 }: {

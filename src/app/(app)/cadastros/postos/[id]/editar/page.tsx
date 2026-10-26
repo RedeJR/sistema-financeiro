@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioPosto } from "../../formulario-posto";
 import { atualizarPosto } from "../../actions";
 
+export const metadata = { title: "Cadastros - Postos (editar)" };
+
 export default async function EditarPostoPage({
   params,
 }: {

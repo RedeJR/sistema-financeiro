@@ -3,6 +3,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioTaxaCartao } from "../formulario-taxa-cartao";
 import { criarTaxaCartao } from "../actions";
 
+export const metadata = { title: "Cadastros - Taxas de Cartão (novo)" };
+
 export default async function NovaTaxaCartaoPage({
   searchParams,
 }: {

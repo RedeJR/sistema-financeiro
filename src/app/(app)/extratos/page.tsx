@@ -90,6 +90,8 @@ function construirQuery(
   return sp.toString();
 }
 
+export const metadata = { title: "Extratos" };
+
 export default async function ExtratosPage({
   searchParams,
 }: {

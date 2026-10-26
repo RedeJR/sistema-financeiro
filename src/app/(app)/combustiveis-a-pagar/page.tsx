@@ -49,6 +49,8 @@ function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
+export const metadata = { title: "Combustíveis a Pagar" };
+
 export default async function CombustiveisAPagarPage({
   searchParams,
 }: {

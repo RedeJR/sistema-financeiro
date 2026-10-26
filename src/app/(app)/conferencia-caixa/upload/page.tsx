@@ -8,6 +8,8 @@ import { FormularioUpload } from "./formulario-upload";
 // Server Action chamada a partir dela (ver importarTransacoesCartaoAction).
 export const maxDuration = 60;
 
+export const metadata = { title: "Conferência de Caixa - Envio de arquivos" };
+
 export default async function UploadCartoesPage() {
   const podeEditar = await podeEditarModulo("CONFERENCIA_CAIXA");
 

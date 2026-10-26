@@ -2,6 +2,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioBanco } from "../formulario-banco";
 import { criarBanco } from "../actions";
 
+export const metadata = { title: "Cadastros - Bancos (novo)" };
+
 export default async function NovoBancoPage() {
   await exigirPermissao("CADASTROS", "editar");
 

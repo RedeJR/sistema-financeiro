@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { FormularioImportar } from "./formulario-importar";
 
+export const metadata = { title: "Extratos - Importar" };
+
 export default async function ImportarExtratoPage({
   searchParams,
 }: {

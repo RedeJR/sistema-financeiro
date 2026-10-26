@@ -7,6 +7,8 @@ import { atualizarMovimentacao } from "../../actions";
 const paraData = (d: Date) => d.toISOString().slice(0, 10);
 const paraEdicao = (n: unknown) => Number(n).toFixed(2).replace(".", ",");
 
+export const metadata = { title: "Entre Postos (editar)" };
+
 export default async function EditarMovimentacaoPage({ params }: { params: Promise<{ id: string }> }) {
   await exigirPermissao("ENTRE_POSTOS", "editar");
   const { id } = await params;

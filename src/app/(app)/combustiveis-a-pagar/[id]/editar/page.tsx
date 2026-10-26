@@ -10,6 +10,8 @@ function paraDataInput(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+export const metadata = { title: "Combustíveis a Pagar (editar)" };
+
 export default async function EditarCombustivelPage({
   params,
 }: {

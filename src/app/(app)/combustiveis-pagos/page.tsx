@@ -20,6 +20,8 @@ function paraArray(v?: string | string[]): string[] {
   return Array.isArray(v) ? v : [v];
 }
 
+export const metadata = { title: "Combustíveis Pagos" };
+
 export default async function CombustiveisPagosPage({
   searchParams,
 }: {

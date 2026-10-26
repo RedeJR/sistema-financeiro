@@ -5,6 +5,8 @@ import { alternarAtivoCategoriaExtrato, excluirCategoriaExtrato } from "./action
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
+export const metadata = { title: "Cadastros - Categorias de Extrato" };
+
 export default async function CategoriasExtratoPage() {
   const [categorias, podeEditar] = await Promise.all([
     prisma.categoriaExtrato.findMany({

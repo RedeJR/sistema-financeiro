@@ -16,6 +16,8 @@ function dataUTC(iso: string, fim = false): Date {
 
 const ROTULO_MODALIDADE = ROTULO_TIPO_FECHAMENTO;
 
+export const metadata = { title: "Cartões - Fechamento" };
+
 export default async function FechamentoCartoesPage({
   searchParams,
 }: {

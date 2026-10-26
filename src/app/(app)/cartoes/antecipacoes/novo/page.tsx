@@ -3,6 +3,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { FormularioAntecipacao } from "../formulario-antecipacao";
 import { criarAntecipacao } from "../actions";
 
+export const metadata = { title: "Cartões - Antecipações (novo)" };
+
 export default async function NovaAntecipacaoPage() {
   await exigirPermissao("CARTOES", "editar");
   const [postos, adquirentes] = await Promise.all([

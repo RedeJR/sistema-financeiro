@@ -23,6 +23,8 @@ const ROTULO_TIPO: Record<"EMPRESTIMO" | "DEVOLUCAO", string> = {
   DEVOLUCAO: "Devolução",
 };
 
+export const metadata = { title: "Entre Postos" };
+
 export default async function EntrePostosPage({
   searchParams,
 }: {

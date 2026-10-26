@@ -4,6 +4,8 @@ import { exigirPermissao } from "@/lib/auth";
 import { ImportadorAntecipacoes } from "./importador";
 import { BOTAO_SECUNDARIO } from "@/lib/estilo";
 
+export const metadata = { title: "Cartões - Importar Antecipações" };
+
 export default async function ImportarAntecipacoesPage() {
   await exigirPermissao("CARTOES", "editar");
 

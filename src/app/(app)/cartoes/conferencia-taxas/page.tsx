@@ -31,6 +31,8 @@ function temDivergencia(l: LinhaConferenciaTaxas): boolean {
   return difPrazo >= 1 || difTaxa >= 0.1;
 }
 
+export const metadata = { title: "Cartões - Conferência de Taxas" };
+
 export default async function ConferenciaTaxasPage({
   searchParams,
 }: {

@@ -7,6 +7,8 @@ import { atualizarAntecipacao } from "../../actions";
 const paraData = (d: Date) => d.toISOString().slice(0, 10);
 const paraEdicao = (n: unknown) => Number(n).toFixed(2).replace(".", ",");
 
+export const metadata = { title: "Cartões - Antecipações (editar)" };
+
 export default async function EditarAntecipacaoPage({ params }: { params: Promise<{ id: string }> }) {
   await exigirPermissao("CARTOES", "editar");
   const { id } = await params;
