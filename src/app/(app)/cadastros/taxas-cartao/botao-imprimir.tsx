@@ -16,8 +16,11 @@ function imprimir(tipo: Tipo) {
   const raiz = document.documentElement;
   const tituloAnterior = document.title;
   const orientacao = document.createElement("style");
-  orientacao.textContent = `@page { size: A4 ${tipo === "sintetico" ? "portrait" : "landscape"}; }`;
-  document.head.appendChild(orientacao);
+  // Vai pro FIM do <body>: a tela já tem um @page paisagem (OrientacaoImpressao) e, entre dois @page
+  // iguais, vale o que vem por último no documento — no <head> o retrato perdia e o sintético
+  // saía deitado.
+  orientacao.textContent = `@media print { @page { size: A4 ${tipo === "sintetico" ? "portrait" : "landscape"}; } }`;
+  document.body.appendChild(orientacao);
   raiz.dataset.relatorio = tipo;
   document.title = TITULO[tipo]; // o Chrome sugere esse nome ao salvar o PDF
 

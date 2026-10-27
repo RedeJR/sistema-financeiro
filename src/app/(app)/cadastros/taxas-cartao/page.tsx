@@ -57,7 +57,12 @@ const CSS_TABELA = `
   html[data-relatorio="sintetico"] .rodape-taxas { display: none !important; }
   html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(1) { width: 22%; }
   html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(n+2):nth-child(-n+6) { width: 15.6%; }
-  html[data-relatorio="sintetico"] .tabela-taxas th, html[data-relatorio="sintetico"] .tabela-taxas td { padding: 4px 6px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas th, html[data-relatorio="sintetico"] .tabela-taxas td { padding: 7px 8px !important; }
+  /* Poucas colunas em página retrato: letra grande, fácil de ler. */
+  html[data-relatorio="sintetico"] .tabela-taxas td { font-size: 15px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas td span { font-size: 11px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas td:first-child { font-weight: 600; }
+  html[data-relatorio="sintetico"] .tabela-taxas th { font-size: 11px !important; }
 }
 .tipo-relatorio::after { content: "Relatório Analítico"; }
 html[data-relatorio="sintetico"] .tipo-relatorio::after { content: "Relatório Sintético"; }
