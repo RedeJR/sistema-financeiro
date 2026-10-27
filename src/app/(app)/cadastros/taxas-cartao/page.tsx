@@ -57,12 +57,13 @@ const CSS_TABELA = `
   html[data-relatorio="sintetico"] .rodape-taxas { display: none !important; }
   html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(1) { width: 22%; }
   html[data-relatorio="sintetico"] .tabela-taxas th:nth-child(n+2):nth-child(-n+6) { width: 15.6%; }
-  html[data-relatorio="sintetico"] .tabela-taxas th, html[data-relatorio="sintetico"] .tabela-taxas td { padding: 7px 8px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas th, html[data-relatorio="sintetico"] .tabela-taxas td { padding: 5px 8px !important; }
   /* Poucas colunas em página retrato: letra grande, fácil de ler. */
-  html[data-relatorio="sintetico"] .tabela-taxas td { font-size: 15px !important; }
-  html[data-relatorio="sintetico"] .tabela-taxas td span { font-size: 11px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas td { font-size: 12px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas td span { font-size: 9.5px !important; }
   html[data-relatorio="sintetico"] .tabela-taxas td:first-child { font-weight: 600; }
-  html[data-relatorio="sintetico"] .tabela-taxas th { font-size: 11px !important; }
+  html[data-relatorio="sintetico"] .tabela-taxas th { font-size: 10px !important; }
+  html[data-relatorio="sintetico"] .nome-posto-taxas { font-size: 17px !important; }
 }
 .tipo-relatorio::after { content: "Relatório Analítico"; }
 html[data-relatorio="sintetico"] .tipo-relatorio::after { content: "Relatório Sintético"; }
@@ -158,7 +159,7 @@ export default async function TaxasCartaoPage({
         return (
           <div key={posto.id} className="overflow-hidden rounded-lg border border-black/10 print:break-inside-avoid dark:border-white/15">
             <div className="flex items-center justify-between border-b border-black/10 bg-black/5 px-4 py-2 dark:border-white/10 dark:bg-white/5">
-              <span className="text-sm font-semibold text-foreground/80">{posto.nome}</span>
+              <span className="nome-posto-taxas text-sm font-semibold text-foreground/80">{posto.nome}</span>
               {podeEditar && (
                 <Link
                   href={`/cadastros/taxas-cartao/novo?postoId=${posto.id}`}
