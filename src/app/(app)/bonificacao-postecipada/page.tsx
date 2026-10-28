@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
@@ -60,6 +61,20 @@ export default async function BonificacaoPostecipadaPage({
     podeEditarModulo("COMBUSTIVEIS_A_PAGAR"),
   ]);
 
+  // Agrupa por fornecedor (Ipiranga, Vibra, Shell) e, dentro de cada um, por posto em ordem alfabética.
+  const grupos = (["IPIRANGA", "VIBRA", "SHELL"] as const)
+    .map((f) => ({
+      bandeira: f,
+      linhas: itens
+        .filter((i) => i.bandeira === f)
+        .sort((a, b) => a.posto.localeCompare(b.posto, "pt-BR") || a.periodoDe.getTime() - b.periodoDe.getTime()),
+    }))
+    .filter((g) => g.linhas.length > 0);
+  const subtotal = (linhas: typeof itens) => ({
+    litros: linhas.reduce((s, i) => s + i.litros, 0),
+    esperado: linhas.reduce((s, i) => s + i.esperado, 0),
+    recebido: linhas.reduce((s, i) => s + (i.recebido ?? 0), 0),
+  });
   const totalLitros = itens.reduce((s, i) => s + i.litros, 0);
   const totalEsperado = itens.reduce((s, i) => s + i.esperado, 0);
   const totalRecebido = itens.reduce((s, i) => s + (i.recebido ?? 0), 0);
@@ -93,8 +108,8 @@ export default async function BonificacaoPostecipadaPage({
 
       <p className="max-w-4xl text-sm text-foreground/60 print:hidden">
         Desconto que cada posto tem a receber da distribuidora num período. <strong>Ipiranga</strong>: o sistema soma o desconto
-        lançado nos boletos de combustível do posto com vencimento no período. <strong>Vibra</strong>: soma as transferências
-        recebidas e marcadas no extrato como &quot;BONIFICAÇÃO VIBRA&quot;. <strong>Shell</strong>: acompanhamento manual.
+        lançado nos boletos de combustível do posto com vencimento depois do fim do período. <strong>Vibra</strong>: soma as transferências
+        recebidas depois do fim do período e marcadas no extrato como &quot;BONIFICAÇÃO VIBRA&quot;. <strong>Shell</strong>: acompanhamento manual.
       </p>
 
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
@@ -142,7 +157,6 @@ export default async function BonificacaoPostecipadaPage({
           <table className="w-full text-sm">
             <thead className={CABECALHO_TABELA}>
               <tr>
-                <th className="px-4 py-2.5 text-left">Fornecedor</th>
                 <th className="px-4 py-2.5 text-left">Posto</th>
                 <th className="px-4 py-2.5 text-left">Período</th>
                 <th className="px-4 py-2.5 text-right">Retorno (R$/L)</th>
@@ -156,9 +170,17 @@ export default async function BonificacaoPostecipadaPage({
               </tr>
             </thead>
             <tbody>
-              {itens.map((b) => (
+              {grupos.map((g) => {
+                const sub = subtotal(g.linhas);
+                return (
+                  <Fragment key={g.bandeira}>
+                    <tr className="border-t border-black/10 bg-black/[0.04] dark:border-white/10 dark:bg-white/[0.06]">
+                      <td colSpan={11} className="px-4 py-2 text-[13px] font-bold tracking-wide uppercase">
+                        {ROTULO_BANDEIRA[g.bandeira]}
+                      </td>
+                    </tr>
+                    {g.linhas.map((b) => (
                 <tr key={b.id} className="border-t border-black/5 align-top dark:border-white/10">
-                  <td className="px-4 py-3 font-medium">{ROTULO_BANDEIRA[b.bandeira]}</td>
                   <td className="px-4 py-3">{b.posto}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {formatarData(b.periodoDe)} a {formatarData(b.periodoAte)}
@@ -207,11 +229,25 @@ export default async function BonificacaoPostecipadaPage({
                     </td>
                   )}
                 </tr>
-              ))}
+                    ))}
+                    <tr className="border-t border-black/10 bg-black/[0.02] font-semibold dark:border-white/10">
+                      <td className="px-4 py-2" colSpan={3}>
+                        Subtotal {ROTULO_BANDEIRA[g.bandeira]}
+                      </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">{formatarNumero(sub.litros)}</td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(sub.esperado)}</td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(sub.recebido)}</td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(sub.recebido - sub.esperado)}</td>
+                      <td colSpan={3} className="print:hidden"></td>
+                      <td className="hidden print:table-cell"></td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
-                <td className="px-4 py-3" colSpan={4}>
+                <td className="px-4 py-3" colSpan={3}>
                   Total
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(totalLitros)}</td>
