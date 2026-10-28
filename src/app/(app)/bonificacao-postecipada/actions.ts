@@ -24,10 +24,35 @@ const schema = z
     postoId: z.string().trim().min(1, "Escolha um posto."),
     periodoDe: data("Início do período"),
     periodoAte: data("Fim do período"),
-    valor: z
+    retornoPorLitro: z
       .string()
       .trim()
       .transform((v, ctx) => {
+        const decimal = paraDecimalString(v);
+        if (decimal === null || Number(decimal) <= 0) {
+          ctx.addIssue({ code: "custom", message: "Informe o retorno por litro (ex: 0,0450)." });
+          return z.NEVER;
+        }
+        return decimal;
+      }),
+    litros: z
+      .string()
+      .trim()
+      .transform((v, ctx) => {
+        const decimal = paraDecimalString(v);
+        if (decimal === null || Number(decimal) <= 0) {
+          ctx.addIssue({ code: "custom", message: "Informe a litragem comprada no período." });
+          return z.NEVER;
+        }
+        return decimal;
+      }),
+    // Vazio = retorno × litros. Preenchido = o valor digitado (ajuste de centavos).
+    valor: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v, ctx) => {
+        if (!v) return null;
         const decimal = paraDecimalString(v);
         if (decimal === null || Number(decimal) <= 0) {
           ctx.addIssue({ code: "custom", message: "Valor inválido." });
@@ -43,7 +68,11 @@ const schema = z
   })
   .superRefine((d, ctx) => {
     if (d.periodoAte < d.periodoDe) ctx.addIssue({ code: "custom", message: "O fim do período é antes do início." });
-  });
+  })
+  .transform((d) => ({
+    ...d,
+    valor: d.valor ?? (Math.round(Number(d.retornoPorLitro) * Number(d.litros) * 100) / 100).toFixed(2),
+  }));
 
 function ler(formData: FormData) {
   return schema.safeParse({
@@ -51,6 +80,8 @@ function ler(formData: FormData) {
     postoId: formData.get("postoId"),
     periodoDe: formData.get("periodoDe"),
     periodoAte: formData.get("periodoAte"),
+    retornoPorLitro: formData.get("retornoPorLitro"),
+    litros: formData.get("litros"),
     valor: formData.get("valor"),
     observacao: formData.get("observacao"),
   });

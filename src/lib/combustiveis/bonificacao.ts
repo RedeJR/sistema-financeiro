@@ -25,6 +25,8 @@ export type BonificacaoConciliada = {
   posto: string;
   periodoDe: Date;
   periodoAte: Date;
+  retornoPorLitro: number; // R$ por litro
+  litros: number;
   esperado: number;
   recebido: number | null; // null = sem conciliação automática (Shell)
   diferenca: number | null; // recebido − esperado
@@ -97,6 +99,8 @@ export async function conciliarBonificacoes(filtro: { postoIds?: string[]; bande
         posto: b.posto.nome,
         periodoDe: b.periodoDe,
         periodoAte: b.periodoAte,
+        retornoPorLitro: Number(b.retornoPorLitro),
+        litros: Number(b.litros),
         esperado,
         recebido: arred,
         diferenca: arred === null ? null : Math.round((arred - esperado) * 100) / 100,

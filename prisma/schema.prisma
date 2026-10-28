@@ -839,6 +839,10 @@ model BonificacaoPostecipada {
   posto       Posto               @relation(fields: [postoId], references: [id], onDelete: Cascade)
   periodoDe   DateTime            @db.Date
   periodoAte  DateTime            @db.Date
+  // Retorno: R$ recebidos por litro comprado (ex: 0,0450 = 4,5 centavos). Litros: total comprado no
+  // período. Valor = retorno × litros (pode ser ajustado à mão, por causa de centavos).
+  retornoPorLitro Decimal         @default(0) @db.Decimal(10, 4)
+  litros      Decimal             @default(0) @db.Decimal(14, 2)
   valor       Decimal             @db.Decimal(12, 2)
   observacao  String?
   createdAt   DateTime            @default(now())

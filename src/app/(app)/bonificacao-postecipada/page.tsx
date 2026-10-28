@@ -8,7 +8,14 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, ETIQUETA_AZUL, ETIQUETA_VERMELHA, TITULO_PAGINA } from "@/lib/estilo";
 import { conciliarBonificacoes, ROTULO_BANDEIRA, type Situacao } from "@/lib/combustiveis/bonificacao";
 import type { BandeiraCombustivel } from "@/generated/prisma/client";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
+import { BotaoImprimir } from "./botao-imprimir";
 import { excluirBonificacao } from "./actions";
+
+function formatarNumero(n: number, casas = 2): string {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
 
 export const metadata = { title: "Bonificação Postecipada" };
 
@@ -53,28 +60,44 @@ export default async function BonificacaoPostecipadaPage({
     podeEditarModulo("COMBUSTIVEIS_A_PAGAR"),
   ]);
 
+  const totalLitros = itens.reduce((s, i) => s + i.litros, 0);
   const totalEsperado = itens.reduce((s, i) => s + i.esperado, 0);
   const totalRecebido = itens.reduce((s, i) => s + (i.recebido ?? 0), 0);
   const temFiltro = Boolean(postoIds.length || bandeira || filtros.de || filtros.ate);
 
+  const nomesPostos = postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ");
+  const periodoFiltro = filtros.de || filtros.ate ? `${filtros.de ? formatarData(dataUTC(filtros.de)) : "início"} a ${filtros.ate ? formatarData(dataUTC(filtros.ate)) : "hoje"}` : "";
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <OrientacaoImpressao />
+      <CabecalhoImpressao
+        titulo="Bonificação Postecipada"
+        detalhes={[
+          { rotulo: "Posto", valor: nomesPostos },
+          { rotulo: "Fornecedor", valor: bandeira ? ROTULO_BANDEIRA[bandeira] : "" },
+          { rotulo: "Período", valor: periodoFiltro },
+        ]}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <h1 className={TITULO_PAGINA}>Bonificação Postecipada</h1>
-        {podeEditar && (
-          <Link href="/bonificacao-postecipada/novo" className={`${BOTAO_PRIMARIO} flex items-center text-sm`}>
-            + Nova bonificação
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <BotaoImprimir />
+          {podeEditar && (
+            <Link href="/bonificacao-postecipada/novo" className={`${BOTAO_PRIMARIO} flex items-center text-sm`}>
+              + Nova bonificação
+            </Link>
+          )}
+        </div>
       </div>
 
-      <p className="max-w-4xl text-sm text-foreground/60">
+      <p className="max-w-4xl text-sm text-foreground/60 print:hidden">
         Desconto que cada posto tem a receber da distribuidora num período. <strong>Ipiranga</strong>: o sistema soma o desconto
         lançado nos boletos de combustível do posto com vencimento no período. <strong>Vibra</strong>: soma as transferências
         recebidas e marcadas no extrato como &quot;BONIFICAÇÃO VIBRA&quot;. <strong>Shell</strong>: acompanhamento manual.
       </p>
 
-      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label className="text-foreground/60">Posto</label>
           <SeletorDropdown nome="postoId" rotuloTodos="Todos os postos" selecionados={postoIds} itens={postos.map((p) => ({ id: p.id, nome: p.nome }))} />
@@ -122,12 +145,14 @@ export default async function BonificacaoPostecipadaPage({
                 <th className="px-4 py-2.5 text-left">Fornecedor</th>
                 <th className="px-4 py-2.5 text-left">Posto</th>
                 <th className="px-4 py-2.5 text-left">Período</th>
-                <th className="px-4 py-2.5 text-right">A receber</th>
+                <th className="px-4 py-2.5 text-right">Retorno (R$/L)</th>
+                <th className="px-4 py-2.5 text-right">Litragem</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
                 <th className="px-4 py-2.5 text-right">Recebido</th>
                 <th className="px-4 py-2.5 text-right">Diferença</th>
                 <th className="px-4 py-2.5 text-left">Situação</th>
-                <th className="px-4 py-2.5 text-left">Obs.</th>
-                {podeEditar && <th className="px-4 py-2.5 text-right">Ações</th>}
+                <th className="px-4 py-2.5 text-left print:hidden">Obs.</th>
+                {podeEditar && <th className="px-4 py-2.5 text-right print:hidden">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -138,12 +163,14 @@ export default async function BonificacaoPostecipadaPage({
                   <td className="px-4 py-3 whitespace-nowrap">
                     {formatarData(b.periodoDe)} a {formatarData(b.periodoAte)}
                   </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(b.retornoPorLitro, 4)}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(b.litros)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(b.esperado)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     {b.recebido === null ? "—" : formatarMoeda(b.recebido)}
                     {b.origem.length > 0 && (
                       <details className="mt-1 text-left text-xs text-foreground/60">
-                        <summary className="cursor-pointer text-right">ver origem ({b.origem.length})</summary>
+                        <summary className="cursor-pointer text-right print:hidden">ver origem ({b.origem.length})</summary>
                         <ul className="mt-1 space-y-0.5">
                           {b.origem.map((o, i) => (
                             <li key={i} className="flex justify-between gap-3 whitespace-nowrap">
@@ -161,9 +188,9 @@ export default async function BonificacaoPostecipadaPage({
                   <td className="px-4 py-3">
                     <span className={SITUACAO[b.situacao].classe}>{SITUACAO[b.situacao].texto}</span>
                   </td>
-                  <td className="px-4 py-3 text-foreground/70">{b.observacao ?? "—"}</td>
+                  <td className="px-4 py-3 text-foreground/70 print:hidden">{b.observacao ?? "—"}</td>
                   {podeEditar && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 print:hidden">
                       <div className="flex items-center justify-end gap-1">
                         <Link href={`/bonificacao-postecipada/${b.id}/editar`} className={BOTAO_EDITAR}>
                           Editar
@@ -184,13 +211,14 @@ export default async function BonificacaoPostecipadaPage({
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
-                <td className="px-4 py-3" colSpan={3}>
+                <td className="px-4 py-3" colSpan={4}>
                   Total
                 </td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(totalLitros)}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalEsperado)}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalRecebido)}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(totalRecebido - totalEsperado)}</td>
-                <td colSpan={podeEditar ? 3 : 2}></td>
+                <td colSpan={podeEditar ? 3 : 2} className="print:hidden"></td><td className="hidden print:table-cell"></td>
               </tr>
             </tfoot>
           </table>
