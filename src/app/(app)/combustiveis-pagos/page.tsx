@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { prisma } from "@/lib/prisma";
-import { exigirPermissao } from "@/lib/auth";
+import { exigirPermissao, podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
-import { BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
+import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { padraoDeDatas } from "@/lib/datas-padrao";
 import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 
@@ -34,6 +34,7 @@ export default async function CombustiveisPagosPage({
   const fornecedorIds = paraArray(filtros.fornecedorId);
   const { de, ate, padrao } = padraoDeDatas(filtros.de, filtros.ate, "ontem");
 
+  const podeEditar = await podeEditarModulo("COMBUSTIVEIS_A_PAGAR");
   const [contas, postos, fornecedores] = await Promise.all([
     prisma.contaAPagar.findMany({
       where: {
@@ -147,6 +148,7 @@ export default async function CombustiveisPagosPage({
               <th className="px-4 py-2.5 text-left">Fornecedor</th>
               <th className="px-4 py-2.5 text-right">Valor</th>
               <th className="px-4 py-2.5 text-left">Descrição</th>
+              {podeEditar && <th className="px-4 py-2.5 text-right print:hidden">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -158,11 +160,18 @@ export default async function CombustiveisPagosPage({
                 <td className="px-4 py-3">{c.fornecedor.nome}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}{Number(c.desconto) > 0 && <span className="block text-xs text-foreground/50">desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda((Number(c.valor) - Number(c.desconto)).toString())}</span>}</td>
                 <td className="px-4 py-2 text-foreground/70">{c.descricao ?? "—"}</td>
+                {podeEditar && (
+                  <td className="px-4 py-2 text-right print:hidden">
+                    <Link href={`/combustiveis-pagos/${c.id}/editar`} className={BOTAO_EDITAR}>
+                      Editar
+                    </Link>
+                  </td>
+                )}
               </tr>
             ))}
             {contas.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-foreground/50">
+                <td colSpan={podeEditar ? 7 : 6} className="px-4 py-6 text-center text-foreground/50">
                   Nenhum combustível pago encontrado pra esse filtro.
                 </td>
               </tr>
