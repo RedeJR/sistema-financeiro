@@ -128,7 +128,7 @@ export default async function CombustiveisAPagarPage({
     .map((c) => ({ ...c, status: statusDaConta(c.dataVencimento, hoje) }))
     .filter((c) => !status || c.status === status);
 
-  const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor), 0);
+  const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
   const qsExportar = new URLSearchParams(Object.entries({ de, ate }).filter(([, v]) => v) as [string, string][]);
   anexarLista(qsExportar, "postoId", postoIds);
   const temFiltro = Boolean(postoIds.length || status || de || ate || busca);
@@ -330,7 +330,7 @@ export default async function CombustiveisAPagarPage({
                 <td className="px-4 py-3">{c.posto.nome}</td>
                 <td className="px-4 py-3">{c.fornecedor.nome}</td>
                 <td className="px-4 py-3 text-foreground/70">{c.descricao ?? "—"}</td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}{Number(c.desconto) > 0 && <span className="block text-xs text-foreground/50">desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda((Number(c.valor) - Number(c.desconto)).toString())}</span>}</td>
                 <td className="px-4 py-3">
                   <BadgeStatus status={c.status} />
                 </td>

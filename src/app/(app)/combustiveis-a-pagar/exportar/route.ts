@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
     c.posto.nome,
     c.fornecedor.nome,
     c.descricao ?? "",
-    Number(c.valor),
+    Number(c.valor) - Number(c.desconto), // líquido (valor do boleto menos o desconto)
   ]);
-  const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
+  const total = contas.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
   const linhaTotal = ["", "", "", "", "Total", total];
 
   const titulo = "COMBUSTÍVEIS A PAGAR";

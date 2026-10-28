@@ -65,9 +65,13 @@ export async function NavPrincipal() {
   const grupos = usuario
     ? GRUPOS_NAV.map((grupo) => ({
         label: grupo.label,
-        itens: grupo.modulos
-          .map(itemDoModulo)
-          .filter((item) => !item.disponivel || podeVerModulo(usuario, item.valor)),
+        itens: [
+          ...grupo.modulos.map(itemDoModulo).filter((item) => !item.disponivel || podeVerModulo(usuario, item.valor)),
+          // Bonificação Postecipada é uma tela dentro de Combustíveis (usa a permissão de Combustíveis a Pagar).
+          ...(grupo.label === "Combustíveis" && podeVerModulo(usuario, "COMBUSTIVEIS_A_PAGAR")
+            ? [{ valor: "COMBUSTIVEIS_A_PAGAR" as const, label: "Bonificação Postecipada", href: "/bonificacao-postecipada", disponivel: true }]
+            : []),
+        ],
       })).filter((grupo) => grupo.itens.length > 0)
     : [];
 

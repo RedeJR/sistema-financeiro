@@ -48,7 +48,7 @@ export function GruposMenu({ grupos }: { grupos: GrupoMenu[] }) {
                 {grupo.itens.map((item) =>
                   item.disponivel ? (
                     <Link
-                      key={item.valor}
+                      key={item.href}
                       href={item.href}
                       className={`rounded-lg px-3 py-1.5 text-sm hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10 ${
                         pathname.startsWith(item.href)
@@ -60,7 +60,7 @@ export function GruposMenu({ grupos }: { grupos: GrupoMenu[] }) {
                     </Link>
                   ) : (
                     <span
-                      key={item.valor}
+                      key={item.href}
                       title="Ainda não construído"
                       className="cursor-not-allowed rounded-md px-3 py-1.5 text-sm text-foreground/35"
                     >

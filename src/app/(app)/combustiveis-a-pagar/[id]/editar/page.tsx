@@ -62,6 +62,7 @@ export default async function EditarCombustivelPage({
           dataDescarga: conta.dataDescarga ? paraDataInput(conta.dataDescarga) : "",
           dataVencimento: paraDataInput(conta.dataVencimento),
           valor: conta.valor.toString(),
+          desconto: conta.desconto.toString(),
           observacao: conta.descricao,
           postoPagamentoId: conta.postoPagamentoId,
         }}

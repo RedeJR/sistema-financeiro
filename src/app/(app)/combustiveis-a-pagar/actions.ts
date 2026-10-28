@@ -31,6 +31,21 @@ function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
+// Desconto do boleto (opcional): vazio = 0.
+const descontoSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v, ctx) => {
+    if (!v) return "0.00";
+    const decimal = paraDecimalString(v);
+    if (decimal === null || Number(decimal) < 0) {
+      ctx.addIssue({ code: "custom", message: "Desconto inválido." });
+      return z.NEVER;
+    }
+    return decimal;
+  });
+
 const schema = z.object({
   postoId: z.string().trim().min(1, "Escolha um posto."),
   fornecedorId: z.string().trim().min(1, "Escolha um fornecedor."),
@@ -61,7 +76,8 @@ const schema = z.object({
       }
       return decimal;
     }),
-});
+  desconto: descontoSchema,
+}).refine((d) => Number(d.desconto) <= Number(d.valor), { message: "O desconto não pode ser maior que o valor do boleto.", path: ["desconto"] });
 
 export async function criarCombustivelAPagar(
   _prev: ActionState,
@@ -77,6 +93,7 @@ export async function criarCombustivelAPagar(
     postoPagamentoId: formData.get("postoPagamentoId"),
     observacao: formData.get("observacao"),
     valor: formData.get("valor"),
+    desconto: formData.get("desconto"),
   });
   if (!parsed.success) {
     return {
@@ -97,6 +114,7 @@ export async function criarCombustivelAPagar(
         dataDescarga,
         dataVencimento: dataUTC(parsed.data.dataVencimento),
         valor: parsed.data.valor,
+        desconto: parsed.data.desconto,
         descricao: parsed.data.observacao,
         postoPagamentoId: parsed.data.postoPagamentoId,
         combustivel: true,
@@ -132,6 +150,7 @@ export async function atualizarCombustivelAPagar(
     postoPagamentoId: formData.get("postoPagamentoId"),
     observacao: formData.get("observacao"),
     valor: formData.get("valor"),
+    desconto: formData.get("desconto"),
   });
   if (!parsed.success) {
     return {
@@ -162,6 +181,7 @@ export async function atualizarCombustivelAPagar(
         dataDescarga,
         dataVencimento: dataUTC(parsed.data.dataVencimento),
         valor: parsed.data.valor,
+        desconto: parsed.data.desconto,
         descricao: parsed.data.observacao,
         postoPagamentoId: parsed.data.postoPagamentoId,
       },

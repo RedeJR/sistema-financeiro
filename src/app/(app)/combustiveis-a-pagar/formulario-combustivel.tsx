@@ -20,6 +20,7 @@ type Props = {
     dataDescarga: string;
     dataVencimento: string;
     valor: string;
+    desconto: string;
     observacao: string | null;
     postoPagamentoId: string | null;
   };
@@ -117,14 +118,27 @@ export function FormularioCombustivel({ postos, fornecedores, valoresIniciais, a
         />
       </div>
 
-      <Campo
-        label="Valor"
-        name="valor"
-        required
-        defaultValue={v?.valor ? paraTextoEditavel(v.valor) : undefined}
-        placeholder="0,00"
-        inputMode="decimal"
-      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Campo
+          label="Valor do boleto"
+          name="valor"
+          required
+          defaultValue={v?.valor ? paraTextoEditavel(v.valor) : undefined}
+          placeholder="0,00"
+          inputMode="decimal"
+        />
+        <Campo
+          label="Desconto (opcional)"
+          name="desconto"
+          defaultValue={v?.desconto && Number(v.desconto) > 0 ? paraTextoEditavel(v.desconto) : undefined}
+          placeholder="0,00"
+          inputMode="decimal"
+        />
+      </div>
+      <p className="-mt-2 text-xs text-foreground/50">
+        Desconto contratual ou do próprio boleto: o que sai do banco é o valor do boleto menos o desconto, e é
+        esse líquido que a conciliação procura no extrato. A soma dos descontos entra na Bonificação Postecipada.
+      </p>
 
       {/* Campo interno ainda se chama "observacao" (grava em descricao, ver
           actions.ts) — só o rótulo mudou pra bater com o padrão novo de

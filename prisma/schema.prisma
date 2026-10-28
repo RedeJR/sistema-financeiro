@@ -24,6 +24,7 @@ model Posto {
   ativo                           Boolean                   @default(true)
   contasAPagar                    ContaAPagar[]
   saldosBancarios                 SaldoBancario[]
+  bonificacoesPostecipadas        BonificacaoPostecipada[]
   // Contas pagas onde ESSE posto foi quem realmente pagou (banco de conta
   // dele), mesmo quando a despesa em si (`contasAPagar` acima) pertence a
   // outro posto — ver ContaAPagar.postoPagamentoId.
@@ -535,6 +536,11 @@ model ContaAPagar {
   dataVencimento  DateTime   @db.Date
   numeroDocumento String?
   valor           Decimal    @db.Decimal(12, 2)
+  // Desconto do boleto (contratual, pontualidade etc.) — só é lançado em Combustíveis a Pagar.
+  // O boleto fica com o valor cheio; o que sai do banco é valor − desconto, e é esse líquido que a
+  // conciliação compara com o extrato. Nas outras contas fica sempre 0. O total de descontos da
+  // Ipiranga num período é o que a Bonificação Postecipada concilia (ver BonificacaoPostecipada).
+  desconto        Decimal    @default(0) @db.Decimal(12, 2)
   descricao       String?
 
   // Campo separado de `descricao` (pedido da usuária): não é sobre o QUE é
@@ -813,6 +819,35 @@ model PainelSnapshot {
 // já ajustado pro FIM do dia `data` (tira do saldo as linhas do dia de hoje que o sistema
 // não importa). Serve pra conferir o extrato: saldo do banco x saldo calculado pelo sistema,
 // e pra descobrir o saldo inicial de um mês sem digitar. Ver src/lib/extratos/importar.ts.
+// Bandeira (distribuidora) de combustível — usada na Bonificação Postecipada.
+enum BandeiraCombustivel {
+  IPIRANGA
+  VIBRA
+  SHELL
+}
+
+// Bonificação Postecipada: desconto que o posto tem a receber da distribuidora num período
+// (não é mês fechado e varia por posto). O sistema concilia com o que realmente veio:
+//  - IPIRANGA: soma do Desconto lançado nos boletos de combustível do posto com vencimento no período;
+//  - VIBRA: soma dos créditos da categoria de extrato "BONIFICAÇÃO VIBRA" do posto no período
+//    (a Vibra paga o desconto por transferência na conta corrente);
+//  - SHELL: manual por enquanto.
+model BonificacaoPostecipada {
+  id          String              @id @default(cuid())
+  bandeira    BandeiraCombustivel
+  postoId     String
+  posto       Posto               @relation(fields: [postoId], references: [id], onDelete: Cascade)
+  periodoDe   DateTime            @db.Date
+  periodoAte  DateTime            @db.Date
+  valor       Decimal             @db.Decimal(12, 2)
+  observacao  String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([postoId, periodoDe])
+  @@map("bonificacoes_postecipadas")
+}
+
 model SaldoBancario {
   id             String   @id @default(cuid())
   postoId        String

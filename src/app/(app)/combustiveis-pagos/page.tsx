@@ -57,7 +57,7 @@ export default async function CombustiveisPagosPage({
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
   ]);
 
-  const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
+  const total = contas.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
   const temFiltro = Boolean(postoIds.length || fornecedorIds.length || de || ate);
 
   return (
@@ -156,7 +156,7 @@ export default async function CombustiveisPagosPage({
                 <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataDescarga)}</td>
                 <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataPagamento)}</td>
                 <td className="px-4 py-3">{c.fornecedor.nome}</td>
-                <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}</td>
+                <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}{Number(c.desconto) > 0 && <span className="block text-xs text-foreground/50">desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda((Number(c.valor) - Number(c.desconto)).toString())}</span>}</td>
                 <td className="px-4 py-2 text-foreground/70">{c.descricao ?? "—"}</td>
               </tr>
             ))}

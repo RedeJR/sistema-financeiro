@@ -373,10 +373,13 @@ export async function rodarConciliacaoAutomaticaCombustiveis(): Promise<{ novasB
   if (!categoriaCombustiveis) return { novasBaixas: 0 };
 
   const [pendentes, lancamentos] = await Promise.all([
-    prisma.contaAPagar.findMany({
-      where: { combustivel: true, paga: false, lancamentosExtratoConciliados: { none: {} } },
-      select: { id: true, postoId: true, postoPagamentoId: true, valor: true },
-    }),
+    prisma.contaAPagar
+      .findMany({
+        where: { combustivel: true, paga: false, lancamentosExtratoConciliados: { none: {} } },
+        select: { id: true, postoId: true, postoPagamentoId: true, valor: true, desconto: true },
+      })
+      // O que sai do banco é o valor do boleto menos o desconto — é esse líquido que se compara com o extrato.
+      .then((contas) => contas.map(({ desconto, ...c }) => ({ ...c, valor: Number(c.valor) - Number(desconto) }))),
     prisma.lancamentoExtrato.findMany({
       where: { categoriaId: categoriaCombustiveis.id, contaAPagarId: null, valor: { lt: 0 } },
       select: { id: true, postoId: true, valor: true, data: true, bancoId: true },

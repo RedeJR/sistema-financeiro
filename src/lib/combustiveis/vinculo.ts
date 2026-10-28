@@ -102,7 +102,7 @@ export async function vincularLancamentosCombustivel(params: {
   lancamentoIds: string[];
 }): Promise<{ paga: boolean; somaVinculada: number; valorConta: number; idsJaUsadosPorOutraConta: string[] }> {
   const { contaId, lancamentoIds } = params;
-  const conta = await prisma.contaAPagar.findUniqueOrThrow({ where: { id: contaId }, select: { valor: true } });
+  const conta = await prisma.contaAPagar.findUniqueOrThrow({ where: { id: contaId }, select: { valor: true, desconto: true } });
 
   let idsJaUsadosPorOutraConta: string[] = [];
   if (lancamentoIds.length > 0) {
@@ -133,17 +133,18 @@ export async function vincularLancamentosCombustivel(params: {
     }
   }
 
-  const baixa = await recalcularBaixaCombustivel(contaId, Number(conta.valor));
+  // O que sai do banco é o valor do boleto menos o desconto.
+  const baixa = await recalcularBaixaCombustivel(contaId, Number(conta.valor) - Number(conta.desconto));
   return { ...baixa, idsJaUsadosPorOutraConta };
 }
 
 export async function desvincularLancamentoCombustivel(params: { contaId: string; lancamentoId: string }): Promise<{ paga: boolean; somaVinculada: number; valorConta: number }> {
   const { contaId, lancamentoId } = params;
-  const conta = await prisma.contaAPagar.findUniqueOrThrow({ where: { id: contaId }, select: { valor: true } });
+  const conta = await prisma.contaAPagar.findUniqueOrThrow({ where: { id: contaId }, select: { valor: true, desconto: true } });
 
   await prisma.lancamentoExtrato.update({ where: { id: lancamentoId }, data: { contaAPagarId: null } });
 
-  return recalcularBaixaCombustivel(contaId, Number(conta.valor));
+  return recalcularBaixaCombustivel(contaId, Number(conta.valor) - Number(conta.desconto));
 }
 
 async function recalcularBaixaCombustivel(contaId: string, valorConta: number): Promise<{ paga: boolean; somaVinculada: number; valorConta: number }> {

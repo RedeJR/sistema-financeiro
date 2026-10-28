@@ -42,7 +42,7 @@ export default async function RelatorioCombustiveisAPagarPage({
     orderBy: { dataVencimento: "asc" },
   });
 
-  const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
+  const total = contas.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "UTC" });
 
   return (
@@ -77,7 +77,7 @@ export default async function RelatorioCombustiveisAPagarPage({
               <td className="px-2 py-1.5">{c.posto.nome}</td>
               <td className="px-2 py-1.5">{c.fornecedor.nome}</td>
               <td className="px-2 py-1.5">{c.descricao ?? "—"}</td>
-              <td className="px-2 py-1.5 text-right">{formatarMoeda(c.valor.toString())}</td>
+              <td className="px-2 py-1.5 text-right">{formatarMoeda(c.valor.toString())}{Number(c.desconto) > 0 && <span className="block text-[8px] text-gray-500">desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda((Number(c.valor) - Number(c.desconto)).toString())}</span>}</td>
             </tr>
           ))}
         </tbody>

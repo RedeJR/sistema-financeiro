@@ -55,7 +55,7 @@ export default async function VincularCombustivelPage({
     buscarCandidatosCombustivel({ contaId: id, dataInicio, dataFim, todasCategorias: mostrarTodasCategorias }),
   ]);
 
-  const valorConta = Number(conta.valor);
+  const valorConta = Number(conta.valor) - Number(conta.desconto); // líquido: o que sai do banco
   const somaVinculada = vinculados.reduce((s, l) => s + Math.abs(l.valor), 0);
   const diferenca = valorConta - somaVinculada;
   const bate = vinculados.length > 0 && Math.abs(diferenca) <= 0.01;
