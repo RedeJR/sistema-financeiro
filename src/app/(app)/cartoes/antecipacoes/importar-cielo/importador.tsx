@@ -16,6 +16,7 @@ type Linha = ItemNegociacao & { importar: boolean };
 
 export function ImportadorNegociacaoCielo({ postos }: { postos: { id: string; nome: string }[] }) {
   const [postoId, setPostoId] = useState("");
+  const [adquirente, setAdquirente] = useState<"CIELO" | "STONE">("CIELO");
   const [arquivo, setArquivo] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export function ImportadorNegociacaoCielo({ postos }: { postos: { id: string; no
     iniciarGravacao(async () => {
       const r = await gravarNegociacaoCielo(
         postoId,
+        adquirente,
         marcadas.map((l) => ({
           antecipacaoId: l.antecipacaoId,
           dataRecebimento: l.dataRecebimento ?? "",
@@ -98,8 +100,23 @@ export function ImportadorNegociacaoCielo({ postos }: { postos: { id: string; no
           </select>
         </div>
         <div className="flex flex-col gap-1">
+          <label htmlFor="adquirente" className="text-foreground/60">
+            Adquirente
+          </label>
+          <select
+            id="adquirente"
+            name="adquirente"
+            value={adquirente}
+            onChange={(e) => setAdquirente(e.target.value as "CIELO" | "STONE")}
+            className={CAMPO}
+          >
+            <option value="CIELO">Cielo — negociação de recebíveis (detalhe)</option>
+            <option value="STONE">Stone — recebíveis (CSV)</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
           <label htmlFor="arquivo" className="text-foreground/60">
-            Arquivo da Cielo (.csv)
+            Arquivo (.csv)
           </label>
           <input id="arquivo" name="arquivo" type="file" accept=".csv" required className="rounded-md border border-black/15 px-3 py-1.5 dark:border-white/20" />
         </div>
@@ -124,7 +141,7 @@ export function ImportadorNegociacaoCielo({ postos }: { postos: { id: string; no
               <thead className="bg-black/[0.02] dark:bg-white/[0.02]">
                 <tr>
                   <th className="px-2 py-1.5"></th>
-                  <th className="px-2 py-1.5 text-left font-medium">Negociação</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Negociação / recebimento</th>
                   <th className="px-2 py-1.5 text-left font-medium">Recebíveis de</th>
                   <th className="px-2 py-1.5 text-right font-medium">Bruto (Cielo)</th>
                   <th className="px-2 py-1.5 text-right font-medium">Líquido</th>

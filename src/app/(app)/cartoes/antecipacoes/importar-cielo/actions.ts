@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { lerNegociacoesCielo, type NegociacaoCielo } from "@/lib/cartoes/importarNegociacaoCielo";
+import { lerRecebiveisStone } from "@/lib/cartoes/importarRecebiveisStone";
 
 const TAMANHO_MAXIMO = 5 * 1024 * 1024;
 const TOLERANCIA = 0.05;
 
-export type ItemNegociacao = NegociacaoCielo & {
+export type ItemNegociacao = Omit<NegociacaoCielo, "dataRecebimento"> & {
   antecipacaoId: string | null; // antecipação já cadastrada que o sistema achou pra essa negociação
   dataRecebimento: string | null; // dia em que o dinheiro caiu (da antecipação achada; a usuária informa se for nova)
   valorFaceCadastrado: number | null;
@@ -22,35 +23,42 @@ export async function analisarNegociacaoCielo(formData: FormData): Promise<Resul
   await exigirPermissao("CARTOES", "editar");
   const arquivo = formData.get("arquivo");
   const postoId = String(formData.get("postoId") ?? "");
+  const nomeAdquirente = formData.get("adquirente") === "STONE" ? "STONE" : "CIELO";
   if (!postoId) return { erro: "Escolha o posto." };
   if (!(arquivo instanceof File) || arquivo.size === 0) return { erro: "Escolha o arquivo (.csv) da Cielo." };
   if (arquivo.size > TAMANHO_MAXIMO) return { erro: "Arquivo grande demais (máximo 5 MB)." };
 
   let negociacoes: NegociacaoCielo[];
   try {
-    negociacoes = lerNegociacoesCielo(new TextDecoder("windows-1252").decode(await arquivo.arrayBuffer()));
+    const bytes = await arquivo.arrayBuffer();
+    negociacoes =
+      nomeAdquirente === "STONE"
+        ? lerRecebiveisStone(new TextDecoder("utf-8").decode(bytes))
+        : lerNegociacoesCielo(new TextDecoder("windows-1252").decode(bytes));
   } catch (e) {
     return { erro: e instanceof Error ? e.message : "Não consegui ler o arquivo." };
   }
   if (negociacoes.length === 0) return { erro: "O arquivo não tem nenhuma negociação." };
 
-  const cielo = await prisma.adquirenteCartao.findFirst({ where: { nome: "CIELO" }, select: { id: true } });
-  if (!cielo) return { erro: "Adquirente CIELO não cadastrada." };
-  const existentes = await prisma.antecipacaoCartao.findMany({ where: { postoId, adquirenteId: cielo.id } });
+  const adq = await prisma.adquirenteCartao.findFirst({ where: { nome: nomeAdquirente }, select: { id: true } });
+  if (!adq) return { erro: `Adquirente ${nomeAdquirente} não cadastrada.` };
+  const existentes = await prisma.antecipacaoCartao.findMany({ where: { postoId, adquirenteId: adq.id } });
   const usadas = new Set<string>();
   const itens: ItemNegociacao[] = negociacoes
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((n) => {
-      const par = existentes.find(
-        (e) =>
-          !usadas.has(e.id) &&
-          (Math.abs(Number(e.valorLiquido) - n.valorLiquido) <= TOLERANCIA || Math.abs(Number(e.valorFace) - n.valorFace) <= TOLERANCIA)
-      );
+      const par =
+        existentes.find((e) => !usadas.has(e.id) && n.dataRecebimento && e.dataRecebimento.toISOString().slice(0, 10) === n.dataRecebimento) ??
+        existentes.find(
+          (e) =>
+            !usadas.has(e.id) &&
+            (Math.abs(Number(e.valorLiquido) - n.valorLiquido) <= TOLERANCIA || Math.abs(Number(e.valorFace) - n.valorFace) <= TOLERANCIA)
+        );
       if (par) usadas.add(par.id);
       return {
         ...n,
         antecipacaoId: par?.id ?? null,
-        dataRecebimento: par ? par.dataRecebimento.toISOString().slice(0, 10) : null,
+        dataRecebimento: par ? par.dataRecebimento.toISOString().slice(0, 10) : (n.dataRecebimento ?? null),
         valorFaceCadastrado: par ? Number(par.valorFace) : null,
       };
     });
@@ -71,12 +79,12 @@ export type ResultadoGravacaoCielo = { erro: string } | { atualizadas: number; c
 
 // Grava o que a usuária confirmou: atualiza a antecipação achada (bruto, período e dia a dia
 // vindos da Cielo) ou cria uma nova.
-export async function gravarNegociacaoCielo(postoId: string, itens: ItemParaGravar[]): Promise<ResultadoGravacaoCielo> {
+export async function gravarNegociacaoCielo(postoId: string, nomeAdquirente: "CIELO" | "STONE", itens: ItemParaGravar[]): Promise<ResultadoGravacaoCielo> {
   await exigirPermissao("CARTOES", "editar");
   if (!Array.isArray(itens) || itens.length === 0) return { erro: "Nenhuma negociação selecionada." };
   if (itens.length > 200) return { erro: "Negociações demais de uma vez." };
   const ehData = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-  const cielo = await prisma.adquirenteCartao.findFirst({ where: { nome: "CIELO" }, select: { id: true } });
+  const cielo = await prisma.adquirenteCartao.findFirst({ where: { nome: nomeAdquirente === "STONE" ? "STONE" : "CIELO" }, select: { id: true } });
   const posto = await prisma.posto.findUnique({ where: { id: postoId }, select: { id: true } });
   if (!cielo || !posto) return { erro: "Posto ou adquirente inválido." };
 
@@ -117,7 +125,7 @@ export async function gravarNegociacaoCielo(postoId: string, itens: ItemParaGrav
           await tx.antecipacaoCartaoDia.deleteMany({ where: { antecipacaoId: id } });
           atualizadas++;
         } else {
-          id = (await tx.antecipacaoCartao.create({ data: { ...dados, postoId, adquirenteId: cielo.id, observacao: "Negociação Cielo" } })).id;
+          id = (await tx.antecipacaoCartao.create({ data: { ...dados, postoId, adquirenteId: cielo.id, observacao: nomeAdquirente === "STONE" ? "Recebíveis Stone" : "Negociação Cielo" } })).id;
           criadas++;
         }
         await tx.antecipacaoCartaoDia.createMany({

@@ -5,7 +5,8 @@
 // src/app/(app)/cartoes/antecipacoes/importar-cielo/actions.ts.
 
 export type NegociacaoCielo = {
-  id: string; // "Identificação na Cielo"
+  dataRecebimento?: string; // YYYY-MM-DD — quando o arquivo já informa o dia em que o dinheiro caiu (Stone)
+  id: string; // "Identificação na Cielo" (Stone: "Stone <vencimento>")
   valorFace: number; // soma do "Valor antecipado"
   valorLiquido: number; // soma do "Valor líquido da antecipação"
   periodoDe: string; // YYYY-MM-DD — menor dia original

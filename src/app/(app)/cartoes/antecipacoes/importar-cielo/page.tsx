@@ -13,16 +13,16 @@ export default async function ImportarNegociacaoCieloPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-medium">Importar negociação da Cielo</h2>
+        <h2 className="text-lg font-medium">Importar antecipação dia a dia (Cielo e Stone)</h2>
         <Link href="/cartoes/antecipacoes" className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
           Voltar
         </Link>
       </div>
       <p className="max-w-3xl text-sm text-foreground/60">
-        No portal da Cielo, em Negociação de recebíveis, exporte o arquivo <strong>detalhe</strong> (CSV) do posto. Ele traz quanto foi
-        antecipado de cada dia, então a conciliação e o &quot;A receber&quot; descontam exatamente esses valores. O sistema acha a
-        antecipação já cadastrada de cada negociação (mesmo líquido ou mesmo bruto) e a corrige; se não achar, cria uma nova com o dia em
-        que o dinheiro caiu que você informar.
+        <strong>Cielo:</strong> no portal, em Negociação de recebíveis, exporte o arquivo <strong>detalhe</strong> (CSV) do posto.{" "}
+        <strong>Stone:</strong> exporte os recebíveis (CSV) do período. Os arquivos trazem quanto foi antecipado de cada dia, então a
+        conciliação e o &quot;A receber&quot; descontam exatamente esses valores. O sistema acha a antecipação já cadastrada de cada
+        negociação e a corrige; se não achar, cria uma nova (na Cielo você informa o dia em que o dinheiro caiu).
       </p>
       <ImportadorNegociacaoCielo postos={postos} />
     </div>

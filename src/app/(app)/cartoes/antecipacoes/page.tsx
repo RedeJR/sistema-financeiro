@@ -97,7 +97,7 @@ export default async function AntecipacoesPage({
               Importar planilha
             </Link>
             <Link href="/cartoes/antecipacoes/importar-cielo" className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
-              Importar negociação Cielo
+              Importar dia a dia (Cielo/Stone)
             </Link>
             <Link
               href="/cartoes/antecipacoes/novo"
