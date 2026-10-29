@@ -44,15 +44,17 @@ export async function acertarDescontoCombustivelPago(id: string, _prev: ActionSt
   const parsed = schema.safeParse({ valor: formData.get("valor"), desconto: formData.get("desconto") });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", values: valoresDoFormulario(formData) };
 
-  const conta = await prisma.contaAPagar.findUnique({ where: { id }, include: { lancamentosExtratoConciliados: { select: { valor: true } } } });
+  const conta = await prisma.contaAPagar.findUnique({ where: { id }, include: { lancamentosExtratoConciliados: { select: { valor: true } }, acertosEntrePostos: { select: { valor: true } } } });
   if (!conta || !conta.combustivel || !conta.paga) return { error: "Combustível pago não encontrado.", values: valoresDoFormulario(formData) };
 
   const valor = Number(parsed.data.valor);
   const desconto = Number(parsed.data.desconto);
   if (desconto > valor) return { error: "O desconto não pode ser maior que o valor do boleto.", values: valoresDoFormulario(formData) };
 
-  if (conta.lancamentosExtratoConciliados.length > 0) {
-    const pagoNoExtrato = conta.lancamentosExtratoConciliados.reduce((s, l) => s + Math.abs(Number(l.valor)), 0);
+  if (conta.lancamentosExtratoConciliados.length > 0 || conta.acertosEntrePostos.length > 0) {
+    // extrato + acertos entre postos (devoluções do Entre Postos ligadas à conta)
+    const pagoNoExtrato =
+      conta.lancamentosExtratoConciliados.reduce((s, l) => s + Math.abs(Number(l.valor)), 0) + conta.acertosEntrePostos.reduce((s, m) => s + Number(m.valor), 0);
     if (Math.abs(valor - desconto - pagoNoExtrato) > TOLERANCIA) {
       const fmt = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       return {

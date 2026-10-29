@@ -148,15 +148,23 @@ export async function desvincularLancamentoCombustivel(params: { contaId: string
 }
 
 async function recalcularBaixaCombustivel(contaId: string, valorConta: number): Promise<{ paga: boolean; somaVinculada: number; valorConta: number }> {
-  const vinculados = await prisma.lancamentoExtrato.findMany({ where: { contaAPagarId: contaId }, select: { valor: true, data: true, bancoId: true } });
-  const somaVinculada = vinculados.reduce((s, l) => s + Math.abs(Number(l.valor)), 0);
-  const bate = vinculados.length > 0 && Math.abs(somaVinculada - valorConta) <= TOLERANCIA;
+  const [vinculados, acertos] = await Promise.all([
+    prisma.lancamentoExtrato.findMany({ where: { contaAPagarId: contaId }, select: { valor: true, data: true, bancoId: true } }),
+    // Acerto entre postos (devolução do Entre Postos ligada à conta) conta como pagamento dela.
+    prisma.movimentacaoEntrePostos.findMany({ where: { contaAPagarId: contaId }, select: { valor: true, data: true } }),
+  ]);
+  const somaVinculada =
+    vinculados.reduce((s, l) => s + Math.abs(Number(l.valor)), 0) + acertos.reduce((s, m) => s + Number(m.valor), 0);
+  const bate = (vinculados.length > 0 || acertos.length > 0) && Math.abs(somaVinculada - valorConta) <= TOLERANCIA;
 
   if (bate) {
-    const maisRecente = vinculados.reduce((a, b) => (b.data > a.data ? b : a));
+    const maisRecenteExtrato = vinculados.length > 0 ? vinculados.reduce((a, b) => (b.data > a.data ? b : a)) : null;
+    const maisRecenteAcerto = acertos.length > 0 ? acertos.reduce((a, b) => (b.data > a.data ? b : a)) : null;
+    const dataPagamento =
+      maisRecenteExtrato && maisRecenteAcerto ? (maisRecenteExtrato.data > maisRecenteAcerto.data ? maisRecenteExtrato.data : maisRecenteAcerto.data) : (maisRecenteExtrato?.data ?? maisRecenteAcerto!.data);
     await prisma.contaAPagar.update({
       where: { id: contaId },
-      data: { paga: true, dataPagamento: maisRecente.data, bancoPagamentoId: maisRecente.bancoId },
+      data: { paga: true, dataPagamento, bancoPagamentoId: maisRecenteExtrato?.bancoId ?? null },
     });
   } else {
     // Deixa (ou volta a deixar) em aberto — não mexe em postoPagamentoId,

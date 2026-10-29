@@ -22,11 +22,12 @@ export default async function AcertarDescontoPage({ params }: { params: Promise<
   const { id } = await params;
   const conta = await prisma.contaAPagar.findUnique({
     where: { id },
-    include: { posto: true, fornecedor: true, lancamentosExtratoConciliados: { include: { banco: true }, orderBy: { data: "asc" } } },
+    include: { posto: true, fornecedor: true, lancamentosExtratoConciliados: { include: { banco: true }, orderBy: { data: "asc" } }, acertosEntrePostos: { include: { postoOrigem: true } } },
   });
   if (!conta || !conta.combustivel || !conta.paga) notFound();
 
-  const pagoNoExtrato = conta.lancamentosExtratoConciliados.reduce((s, l) => s + Math.abs(Number(l.valor)), 0);
+  const pagoNoExtrato =
+    conta.lancamentosExtratoConciliados.reduce((s, l) => s + Math.abs(Number(l.valor)), 0) + conta.acertosEntrePostos.reduce((s, m) => s + Number(m.valor), 0);
 
   return (
     <div className="space-y-5">
@@ -47,10 +48,10 @@ export default async function AcertarDescontoPage({ params }: { params: Promise<
         {conta.descricao && <p className="text-foreground/70">{conta.descricao}</p>}
         <p className="pt-1">
           Pago no extrato: <strong>{formatarMoeda(pagoNoExtrato)}</strong>
-          {conta.lancamentosExtratoConciliados.length > 0 && (
+          {conta.lancamentosExtratoConciliados.length + conta.acertosEntrePostos.length > 0 && (
             <span className="text-foreground/60">
               {" "}
-              ({conta.lancamentosExtratoConciliados.map((l) => `${formatarData(l.data)} ${formatarMoeda(Math.abs(Number(l.valor)))}`).join(" + ")})
+              ({[...conta.lancamentosExtratoConciliados.map((l) => `${formatarData(l.data)} ${formatarMoeda(Math.abs(Number(l.valor)))}`), ...conta.acertosEntrePostos.map((m) => `acerto ${m.postoOrigem.nome} ${formatarMoeda(Number(m.valor))}`)].join(" + ")})
             </span>
           )}
         </p>

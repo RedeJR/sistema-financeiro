@@ -51,7 +51,7 @@ export default async function CombustiveisPagosPage({
             }
           : {}),
       },
-      include: { posto: true, fornecedor: true },
+      include: { posto: true, fornecedor: true, acertosEntrePostos: { include: { postoOrigem: true } } },
       orderBy: { dataPagamento: "desc" },
     }),
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
@@ -159,7 +159,14 @@ export default async function CombustiveisPagosPage({
                 <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataPagamento)}</td>
                 <td className="px-4 py-3">{c.fornecedor.nome}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}{Number(c.desconto) > 0 && <span className="block text-xs text-foreground/50">desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda((Number(c.valor) - Number(c.desconto)).toString())}</span>}</td>
-                <td className="px-4 py-2 text-foreground/70">{c.descricao ?? "—"}</td>
+                <td className="px-4 py-2 text-foreground/70">
+                  {c.descricao ?? "—"}
+                  {c.acertosEntrePostos.map((m) => (
+                    <span key={m.id} className="block text-xs text-foreground/50">
+                      Acerto entre postos: {m.postoOrigem.nome} quitou {formatarMoeda(Number(m.valor))}
+                    </span>
+                  ))}
+                </td>
                 {podeEditar && (
                   <td className="px-4 py-2 text-right print:hidden">
                     <Link href={`/combustiveis-pagos/${c.id}/editar`} className={BOTAO_EDITAR}>

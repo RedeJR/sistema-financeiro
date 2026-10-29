@@ -345,6 +345,13 @@ export default async function CombustiveisAPagarPage({
                         Vincular
                       </Link>
                       <Link
+                        href={`/combustiveis-a-pagar/${c.id}/acerto`}
+                        className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+                        title="O boleto foi quitado por fora do extrato (um terceiro pagou e abateu a dívida de um posto): registra uma devolução no Entre Postos"
+                      >
+                        Acerto entre postos
+                      </Link>
+                      <Link
                         href={`/combustiveis-a-pagar/${c.id}/editar`}
                         className={BOTAO_EDITAR}
                       >

@@ -274,12 +274,19 @@ model MovimentacaoEntrePostos {
   lancamentoExtratoDestinoId String?
   lancamentoExtratoDestino   LancamentoExtrato? @relation("MovimentacaoEntrePostosLancamentoDestino", fields: [lancamentoExtratoDestinoId], references: [id], onDelete: SetNull)
 
+  // Acerto entre postos de um Combustível a Pagar: quando o boleto foi quitado de outra forma (ex: um
+  // terceiro pagou e isso abateu a dívida de um posto com o dono da conta), a devolução gerada aponta
+  // pra conta. Conta como pagamento dela (ver recalcularBaixaCombustivel).
+  contaAPagarId String?
+  contaAPagar   ContaAPagar? @relation("AcertoEntrePostosCombustivel", fields: [contaAPagarId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([postoOrigemId])
   @@index([postoDestinoId])
   @@index([data])
+  @@index([contaAPagarId])
   @@map("movimentacoes_entre_postos")
 }
 
@@ -584,6 +591,7 @@ model ContaAPagar {
   // vincular vários lançamentos (vários boletos do mesmo dia) numa única
   // conta — pra despesa normal, continua sempre 0 ou 1 na prática.
   lancamentosExtratoConciliados LancamentoExtrato[]
+  acertosEntrePostos            MovimentacaoEntrePostos[] @relation("AcertoEntrePostosCombustivel")
 
   // Despesa avulsa: lançada direto como paga na tela de Despesas Pagas,
   // fora do planejamento normal de Contas a Pagar (ex: algo que "surgiu no
