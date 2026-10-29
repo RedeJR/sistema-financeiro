@@ -3,7 +3,7 @@ import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { classificarModalidadeVenda, ehVendaEmDinheiro, ORDEM_MODALIDADE_VENDA, type ModalidadeVenda } from "./normalizar";
 import { MAQUININHAS_COM_VOUCHER } from "./vouchersDuplicados";
-import { calcularAjustesAntecipacao } from "./antecipacoes";
+import { calcularAjustesAntecipacao, ehMaquininha } from "./antecipacoes";
 
 export type BaseAReceber = "venda" | "recebimento";
 
@@ -138,7 +138,9 @@ export async function buscarVendasAReceber(params: {
       if (a.delta >= 0) continue; // só as reduções (dinheiro já antecipado), não o dia do recebimento em si
       if (adquirenteId && a.adquirenteId !== adquirenteId) continue;
       const chave = `${a.postoId}|${a.adquirenteId}|CREDITO`;
-      const linha = linhas.get(chave);
+      // Adquirente sem modalidade (Abastece Aí, Pluxee...) pode ter as vendas classificadas como
+      // débito — a antecipação atinge a linha dela seja qual for a modalidade.
+      const linha = linhas.get(chave) ?? (ehMaquininha(a.adquirenteNome) ? undefined : [...linhas.entries()].find(([k]) => k.startsWith(`${a.postoId}|${a.adquirenteId}|`))?.[1]);
       if (!linha) continue; // sem venda de crédito pendente pra essa adquirente — nada a abater
       // O rateio por dia soma todo mundo esperado naquele dataPagamento, não só
       // as vendas deste período — pode abater um pouco mais do que esta linha

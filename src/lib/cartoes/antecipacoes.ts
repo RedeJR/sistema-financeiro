@@ -19,8 +19,12 @@ export type AjusteAntecipacao = {
 // período pode ter sido antecipada.
 const ADQUIRENTES_DE_MAQUININHA = ["CIELO", "GETNET", "PAGSEGURO", "REDE", "STONE"];
 
+export function ehMaquininha(adquirenteNome: string): boolean {
+  return ADQUIRENTES_DE_MAQUININHA.some((n) => adquirenteNome.startsWith(n));
+}
+
 function podeSerAntecipada(tipoVenda: string, adquirenteNome: string): boolean {
-  if (!ADQUIRENTES_DE_MAQUININHA.some((n) => adquirenteNome.startsWith(n))) return true;
+  if (!ehMaquininha(adquirenteNome)) return true;
   return classificarModalidadeVenda(tipoVenda, adquirenteNome) === "CREDITO";
 }
 
@@ -33,7 +37,10 @@ function iso(d: Date): string {
 // um período de recebíveis futuros sem dizer quais vendas, então:
 //  - no dia em que o dinheiro caiu, soma o líquido recebido;
 //  - nos dias do período, tira o valor cheio proporcionalmente ao esperado
-//    antecipável de cada dia (crédito nas maquininhas; tudo nas demais).
+//    antecipável de cada dia (crédito nas maquininhas);
+//  - nas demais (Abastece Aí, Pluxee...) a antecipação paga as vendas em ordem
+//    cronológica, então tira o valor cheio do dia mais antigo pro mais novo, e o
+//    que sobra num dia fica pra antecipação seguinte.
 // Se o sistema tem menos crédito no período do que foi antecipado (ex: faltam
 // vendas importadas), tira no máximo o que existe. Só devolve os ajustes que
 // caem dentro de [dataInicio, dataFim], mas calcula a proporção sobre o
@@ -110,9 +117,18 @@ export async function calcularAjustesAntecipacao(params: {
     const diasDoPeriodo = [...dias.keys()].filter((d) => d >= de && d <= ate);
     const disponivel = diasDoPeriodo.reduce((s, d) => s + dias.get(d)!.liquido, 0);
     if (disponivel <= 0) continue;
-    const fator = Math.min(Number(a.valorFace), disponivel) / disponivel;
-    for (const d of diasDoPeriodo) {
+    const cronologica = !ehMaquininha(a.adquirente.nome);
+    const fatorGeral = Math.min(Number(a.valorFace), disponivel) / disponivel;
+    let faltaTirar = Number(a.valorFace);
+    for (const d of cronologica ? diasDoPeriodo.sort() : diasDoPeriodo) {
       const dia = dias.get(d)!;
+      let fator = fatorGeral;
+      if (cronologica) {
+        if (faltaTirar <= 0.005) break;
+        if (dia.liquido <= 0) continue;
+        fator = Math.min(faltaTirar, dia.liquido) / dia.liquido;
+        faltaTirar -= dia.liquido * fator;
+      }
       const reducaoLiquido = dia.liquido * fator;
       const reducaoBruto = dia.bruto * fator;
       dia.liquido -= reducaoLiquido;
