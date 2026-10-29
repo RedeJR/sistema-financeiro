@@ -61,7 +61,7 @@ export async function calcularAjustesAntecipacao(params: {
         { periodoDe: { lte: dataFim }, periodoAte: { gte: dataInicio } },
       ],
     },
-    include: { posto: true, adquirente: true },
+    include: { posto: true, adquirente: true, dias: true },
     orderBy: [{ dataRecebimento: "asc" }, { createdAt: "asc" }],
   });
   if (antecipacoes.length === 0) return [];
@@ -112,14 +112,37 @@ export async function calcularAjustesAntecipacao(params: {
     if (dentro(recebimento)) ajustes.push({ ...base, data: recebimento, delta: Number(a.valorLiquido), deltaBruto: Number(a.valorFace) });
 
     const dias = restante.get(`${a.postoId}|${a.adquirenteId}`)!;
+    const tirar = (d: string, fator: number) => {
+      const dia = dias.get(d)!;
+      const reducaoLiquido = dia.liquido * fator;
+      const reducaoBruto = dia.bruto * fator;
+      dia.liquido -= reducaoLiquido;
+      dia.bruto -= reducaoBruto;
+      if (dentro(d)) ajustes.push({ ...base, data: d, delta: -reducaoLiquido, deltaBruto: -reducaoBruto });
+    };
+
+    // Dia a dia informado pela adquirente: tira exatamente o que foi antecipado de cada dia.
+    const informados = new Set<string>();
+    let faceRestante = Number(a.valorFace);
+    for (const x of [...a.dias].sort((p, q) => p.data.getTime() - q.data.getTime())) {
+      const d = iso(x.data);
+      informados.add(d);
+      faceRestante -= Number(x.valor);
+      const dia = dias.get(d);
+      if (!dia || dia.liquido <= 0) continue;
+      tirar(d, Math.min(Number(x.valor), dia.liquido) / dia.liquido);
+    }
+    if (faceRestante <= 0.005) continue;
+
+    // O que não veio detalhado por dia: rateia pelo período (ver comentário acima).
     const de = iso(a.periodoDe);
     const ate = iso(a.periodoAte);
-    const diasDoPeriodo = [...dias.keys()].filter((d) => d >= de && d <= ate);
+    const diasDoPeriodo = [...dias.keys()].filter((d) => d >= de && d <= ate && !informados.has(d));
     const disponivel = diasDoPeriodo.reduce((s, d) => s + dias.get(d)!.liquido, 0);
     if (disponivel <= 0) continue;
     const cronologica = !ehMaquininha(a.adquirente.nome);
-    const fatorGeral = Math.min(Number(a.valorFace), disponivel) / disponivel;
-    let faltaTirar = Number(a.valorFace);
+    const fatorGeral = Math.min(faceRestante, disponivel) / disponivel;
+    let faltaTirar = faceRestante;
     for (const d of cronologica ? diasDoPeriodo.sort() : diasDoPeriodo) {
       const dia = dias.get(d)!;
       let fator = fatorGeral;
@@ -129,11 +152,7 @@ export async function calcularAjustesAntecipacao(params: {
         fator = Math.min(faltaTirar, dia.liquido) / dia.liquido;
         faltaTirar -= dia.liquido * fator;
       }
-      const reducaoLiquido = dia.liquido * fator;
-      const reducaoBruto = dia.bruto * fator;
-      dia.liquido -= reducaoLiquido;
-      dia.bruto -= reducaoBruto;
-      if (dentro(d)) ajustes.push({ ...base, data: d, delta: -reducaoLiquido, deltaBruto: -reducaoBruto });
+      tirar(d, fator);
     }
   }
   return ajustes;

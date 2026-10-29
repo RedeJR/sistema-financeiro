@@ -96,6 +96,9 @@ export default async function AntecipacoesPage({
             <Link href="/cartoes/antecipacoes/importar" className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
               Importar planilha
             </Link>
+            <Link href="/cartoes/antecipacoes/importar-cielo" className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
+              Importar negociação Cielo
+            </Link>
             <Link
               href="/cartoes/antecipacoes/novo"
               className="rounded-md bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800"

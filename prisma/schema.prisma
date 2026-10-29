@@ -62,26 +62,26 @@ model Fornecedor {
 }
 
 model Banco {
-  id            String              @id @default(cuid())
-  nome          String              @unique
+  id              String              @id @default(cuid())
+  nome            String              @unique
   // Nome usado no reconhecimento de arquivos de extrato (padrão Posto_Banco),
   // ex: "Bradesco", "PagSeguro", "BancoDoBrasil". Pode ficar igual a `nome`.
   // Também usado pra escolher o parser certo em src/lib/extratos/parsers —
   // veja PARSERS_POR_CODIGO em src/lib/extratos/importar.ts.
-  codigoArquivo String?             @unique
-  ativo         Boolean             @default(true)
-  pagamentos    ContaAPagar[]
+  codigoArquivo   String?             @unique
+  ativo           Boolean             @default(true)
+  pagamentos      ContaAPagar[]
   // Contas lançadas com este banco como o previsto pra pagamento (ver
   // ContaAPagar.bancoPrevistoId).
-  contasPrevistas ContaAPagar[] @relation("BancoPrevisto")
-  lancamentos   LancamentoExtrato[]
+  contasPrevistas ContaAPagar[]       @relation("BancoPrevisto")
+  lancamentos     LancamentoExtrato[]
   saldosBancarios SaldoBancario[]
   // Domicílio bancário das taxas de cartão — em qual conta a adquirente
   // deposita o repasse (ver TaxaCartao), usado futuramente pra conciliar
   // contra o extrato dessa conta.
-  taxasCartao   TaxaCartao[]        @relation("DomicilioBancario")
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  taxasCartao     TaxaCartao[]        @relation("DomicilioBancario")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@map("bancos")
 }
@@ -210,22 +210,37 @@ model TransacaoCartao {
 // tira o valor cheio proporcionalmente ao esperado de crédito de cada dia
 // (ver src/lib/cartoes/antecipacoes.ts). desconto = valorFace − valorLiquido.
 model AntecipacaoCartao {
-  id              String           @id @default(cuid())
+  id              String                 @id @default(cuid())
   postoId         String
-  posto           Posto            @relation(fields: [postoId], references: [id])
+  posto           Posto                  @relation(fields: [postoId], references: [id])
   adquirenteId    String
-  adquirente      AdquirenteCartao @relation(fields: [adquirenteId], references: [id])
-  dataRecebimento DateTime         @db.Date
-  periodoDe       DateTime         @db.Date
-  periodoAte      DateTime         @db.Date
-  valorFace       Decimal          @db.Decimal(12, 2)
-  valorLiquido    Decimal          @db.Decimal(12, 2)
+  adquirente      AdquirenteCartao       @relation(fields: [adquirenteId], references: [id])
+  dataRecebimento DateTime               @db.Date
+  periodoDe       DateTime               @db.Date
+  periodoAte      DateTime               @db.Date
+  valorFace       Decimal                @db.Decimal(12, 2)
+  valorLiquido    Decimal                @db.Decimal(12, 2)
   observacao      String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  // Quando a adquirente informa quanto foi antecipado de cada dia (Cielo:
+  // "Negociação de recebíveis — detalhe"), o ajuste usa esses valores exatos
+  // em vez de ratear o valorFace por todo o período.
+  dias            AntecipacaoCartaoDia[]
 
   @@index([postoId, dataRecebimento])
   @@map("antecipacoes_cartao")
+}
+
+model AntecipacaoCartaoDia {
+  id            String            @id @default(cuid())
+  antecipacaoId String
+  antecipacao   AntecipacaoCartao @relation(fields: [antecipacaoId], references: [id], onDelete: Cascade)
+  data          DateTime          @db.Date // dia original do pagamento antecipado
+  valor         Decimal           @db.Decimal(12, 2) // valor dos recebíveis desse dia (mesma base do valorFace)
+
+  @@unique([antecipacaoId, data])
+  @@map("antecipacoes_cartao_dias")
 }
 
 // ---------------------------------------------------------------------------
@@ -841,35 +856,35 @@ enum BandeiraCombustivel {
 //    (a Vibra paga o desconto por transferência na conta corrente);
 //  - SHELL: manual por enquanto.
 model BonificacaoPostecipada {
-  id          String              @id @default(cuid())
-  bandeira    BandeiraCombustivel
-  postoId     String
-  posto       Posto               @relation(fields: [postoId], references: [id], onDelete: Cascade)
-  periodoDe   DateTime            @db.Date
-  periodoAte  DateTime            @db.Date
+  id              String              @id @default(cuid())
+  bandeira        BandeiraCombustivel
+  postoId         String
+  posto           Posto               @relation(fields: [postoId], references: [id], onDelete: Cascade)
+  periodoDe       DateTime            @db.Date
+  periodoAte      DateTime            @db.Date
   // Retorno: R$ recebidos por litro comprado (ex: 0,0450 = 4,5 centavos). Litros: total comprado no
   // período. Valor = retorno × litros (pode ser ajustado à mão, por causa de centavos).
-  retornoPorLitro Decimal         @default(0) @db.Decimal(10, 4)
-  litros      Decimal             @default(0) @db.Decimal(14, 2)
-  valor       Decimal             @db.Decimal(12, 2)
-  observacao  String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  retornoPorLitro Decimal             @default(0) @db.Decimal(10, 4)
+  litros          Decimal             @default(0) @db.Decimal(14, 2)
+  valor           Decimal             @db.Decimal(12, 2)
+  observacao      String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([postoId, periodoDe])
   @@map("bonificacoes_postecipadas")
 }
 
 model SaldoBancario {
-  id             String   @id @default(cuid())
-  postoId        String
-  posto          Posto    @relation(fields: [postoId], references: [id], onDelete: Cascade)
-  bancoId        String
-  banco          Banco    @relation(fields: [bancoId], references: [id], onDelete: Cascade)
-  data           DateTime @db.Date
-  saldo          Decimal  @db.Decimal(14, 2)
-  arquivoOrigem  String
-  atualizadoEm   DateTime @default(now()) @updatedAt
+  id            String   @id @default(cuid())
+  postoId       String
+  posto         Posto    @relation(fields: [postoId], references: [id], onDelete: Cascade)
+  bancoId       String
+  banco         Banco    @relation(fields: [bancoId], references: [id], onDelete: Cascade)
+  data          DateTime @db.Date
+  saldo         Decimal  @db.Decimal(14, 2)
+  arquivoOrigem String
+  atualizadoEm  DateTime @default(now()) @updatedAt
 
   @@unique([postoId, bancoId, data])
   @@map("saldos_bancarios")
