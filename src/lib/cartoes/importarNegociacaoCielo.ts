@@ -25,7 +25,9 @@ function paraDataISO(s: string): string | null {
 
 export function lerNegociacoesCielo(texto: string): NegociacaoCielo[] {
   const linhas = texto.replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim() !== "");
-  const cab = linhas[0]?.split(";").map((c) => c.trim()) ?? [];
+  // alguns exports trazem um cabeçalho de contato/filtros antes da tabela
+  const ini = Math.max(0, linhas.findIndex((l) => /^Data de pagamento original/i.test(l)));
+  const cab = linhas[ini]?.split(";").map((c) => c.trim()) ?? [];
   const iData = cab.findIndex((c) => /^Data de pagamento original/i.test(c));
   const iId = cab.findIndex((c) => /^Identifica/i.test(c));
   const iFace = cab.findIndex((c) => /^Valor antecipado/i.test(c));
@@ -35,7 +37,7 @@ export function lerNegociacoesCielo(texto: string): NegociacaoCielo[] {
   }
 
   const porId = new Map<string, NegociacaoCielo>();
-  for (const l of linhas.slice(1)) {
+  for (const l of linhas.slice(ini + 1)) {
     const c = l.split(";");
     const data = paraDataISO(c[iData] ?? "");
     const face = paraNumero(c[iFace] ?? "");
