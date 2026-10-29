@@ -21,11 +21,11 @@ import {
 //     regra de dias úteis, não de uma média de recebimento).
 //
 // Venda importada vira "conhecida" e só o resto é estimado, então nada conta em dobro.
-// Aplicativos e tags (Sem Parar, Abastece Aí, Premmia, SAQPAY) ficam fora — seguem no "Outros".
+// Aplicativos e tags (Sem Parar, Abastece Aí, Baratão, Premmia, SAQPAY) ficam fora — seguem no "Outros".
 // Só lê: não grava nada em vendas, extratos ou taxas.
 
 const MAQUININHAS = ["CIELO", "CIELO TEF", "CIELO ALUGUEL", "STONE", "PAGSEGURO", "REDE", "GETNET"];
-const CATEGORIAS_FORA_DO_FLUXO = new Set(["SAQPAY", "SEM PARAR", "ABASTECE AÍ", "PREMMIA"]);
+const CATEGORIAS_FORA_DO_FLUXO = new Set(["SAQPAY", "SEM PARAR", "ABASTECE AÍ", "PREMMIA", "BARATÃO"]);
 const SEMANAS_DE_HISTORICO = 4;
 const MAX_LAG_ESTIMADO = 5; // dias úteis; acima disso (crédito 30 dias) só vale o que já é conhecido
 const TOLERANCIA_ATIVA_DIAS = 10; // adquirente sem venda há mais que isso (vs. a mais recente) é considerada encerrada

@@ -13,6 +13,7 @@ import { parsePremmia } from "./premmia";
 import { parsePluxee } from "./pluxee";
 import { parseAlelo } from "./alelo";
 import { parseVr } from "./vr";
+import { parseBaratao } from "./baratao";
 
 export type DefinicaoAdquirente = {
   nomeExibicao: string;
@@ -40,6 +41,7 @@ export const PARSERS: Record<string, DefinicaoAdquirente> = {
   // NAIP é o segundo voucher da Alelo (cartões Multi Saldo/Multi Limite) — mesmo formato de relatório.
   NAIP: { nomeExibicao: "NAIP", multiPosto: false, parse: parseAlelo },
   VR: { nomeExibicao: "VR", multiPosto: "cnpj", parse: parseVr },
+  BARATAO: { nomeExibicao: "BARATÃO", multiPosto: false, parse: parseBaratao },
 };
 
 // Reconhece a adquirente pelo nome do arquivo — mesma convenção que já era
@@ -60,6 +62,8 @@ const DETECCAO: [string, keyof typeof PARSERS][] = [
   ["SEM-PARAR", "SEMPARAR"],
   ["SEMPARAR", "SEMPARAR"],
   ["ABASTECE", "ABASTECE_AI"],
+  ["BARATAO", "BARATAO"],
+  ["BARATÃO", "BARATAO"],
   ["PREMMIA", "PREMMIA"],
   ["PREMIA", "PREMMIA"],
   ["PLUXEE", "PLUXEE"],
@@ -91,6 +95,7 @@ const ASSINATURAS: [string[], keyof typeof PARSERS][] = [
   [["LOJISTA", "REGRA DE PAGAMENTO"], "SAQPAY"],
   [["CREDENCIADO", "DATA_REPASSE"], "SEMPARAR"],
   [["OFERTA É SUA", "LÍQUIDO A RECEBER"], "ABASTECE_AI"],
+  [["VALOR REPASSE TOTAL", "TAXA BARATAO"], "BARATAO"],
   [["CÓDIGO TRANSAÇÃO", "FORMA DE PAGAMENTO"], "PREMMIA"],
   [["CONDIÇÃO DE RECEBIMENTO", "DATA PREVISTA DO CRÉDITO"], "PREMMIA"],
   [["REDE DE CAPTURA", "DATA DE PAGAMENTO"], "PLUXEE"],
