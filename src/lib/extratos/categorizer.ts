@@ -187,6 +187,9 @@ const REGRAS_POR_BANCO: Record<CodigoParser, Regra[]> = {
   ],
   SANTANDER: [
     { padrao: /Antecipacao Getnet/i, categoria: "GETNET", tipoAdquirente: "CREDITO" },
+    // Repasse normal da Getnet (crédito sem antecipação). A "Antecipacao Getnet" acima é o crédito de
+    // antecipação automática — as duas são Getnet/crédito.
+    { padrao: /Pagamento Cartao De Credito GETNET/i, categoria: "GETNET", tipoAdquirente: "CREDITO" },
     { padrao: /Pix Recebido/i, categoria: "PIX" },
     { padrao: /Iof\b/i, categoria: "IOF" },
     { padrao: /Juros\b/i, categoria: "LIS/JUROS" },
