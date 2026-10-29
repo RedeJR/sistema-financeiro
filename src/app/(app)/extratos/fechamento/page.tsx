@@ -89,7 +89,7 @@ export default async function FechamentoPage({
   }).toString();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:space-y-2">
       <OrientacaoImpressao />
       {resultado && (
         <CabecalhoImpressao
@@ -261,7 +261,7 @@ export default async function FechamentoPage({
             </form>
           )}
 
-          <section aria-label="Resumo do mês" className="flex flex-wrap gap-3">
+          <section aria-label="Resumo do mês" className="fech-resumo flex flex-wrap gap-3">
             <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
               <p className="text-[12px] text-foreground/60">Saldo inicial</p>
               <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.saldoInicial)}`}>{formatarMoedaBR(resultado.saldoInicial)}</p>
@@ -319,7 +319,7 @@ export default async function FechamentoPage({
           <div className={`${CARTAO} overflow-x-auto`}>
             {/* Letra menor quanto mais colunas de categoria, pra caber numa página só. */}
             <table
-               className={`tabela-compacta ${colunasCategoria > 12 ? "cabecalho-vertical" : ""} w-full text-sm`}
+               className={`tabela-compacta fech-dias ${colunasCategoria > 12 ? "cabecalho-vertical" : ""} w-full text-sm`}
               style={
                 {
                   "--print-td": colunasCategoria > 16 ? "6px" : colunasCategoria > 11 ? "7px" : "8.5px",
@@ -378,11 +378,12 @@ export default async function FechamentoPage({
             </table>
           </div>
 
-          {/* Detalhamento das categorias que pedem explicação (Outros, Venda a Prazo): de onde veio cada valor. */}
+          {/* Detalhamento das categorias que pedem explicação (Outros, Venda a Prazo): de onde veio cada valor.
+              No papel, a 1ª página é só o resumo e todos os dias do mês; os detalhamentos começam na 2ª. */}
           {resultado.detalhes
             .filter((d) => d.linhas.length > 0)
-            .map((d) => (
-              <section key={d.categoriaNome} className="space-y-2 print:break-inside-avoid">
+            .map((d, i) => (
+              <section key={d.categoriaNome} className={`space-y-2 print:break-inside-avoid ${i === 0 ? "print:break-before-page" : ""}`}>
                 <h2 className="text-base font-bold tracking-tight">Detalhamento — {d.categoriaNome}</h2>
                 <div className={`${CARTAO} overflow-x-auto`}>
                   <table className="w-full table-fixed text-sm">

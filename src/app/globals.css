@@ -132,6 +132,29 @@ body {
   .tabela-compacta td:last-child {
     width: 8.5%;
   }
+  /* Fechamento do extrato: o resumo e todos os dias do mês (até 31 linhas + total) cabem numa página só;
+     os detalhamentos vão pra página seguinte. */
+  .fech-resumo {
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+  }
+  .fech-resumo > div {
+    min-width: 0 !important;
+    padding: 5px 9px !important;
+  }
+  .fech-resumo p {
+    margin-top: 1px !important;
+  }
+  .fech-resumo .text-xl {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+  .fech-dias td,
+  .fech-dias th {
+    line-height: 1.15 !important;
+    padding-top: 2.2px !important;
+    padding-bottom: 2.2px !important;
+  }
   /* Sombras e cantos arredondados de cartão não fazem sentido no papel. */
   .shadow,
   .shadow-sm {
