@@ -204,13 +204,13 @@ export async function buscarConciliacaoCartoes(params: {
   // PIX de maquininha (Cielo, Pagseguro, Rede, Stone, Getnet) fica na
   // categoria genérica "PIX" quando o categorizador não reconhece de quem
   // é — busca por domicílio bancário (cada uma cai num banco fixo, exceto
-  // a Cielo, que varia e por isso fica de fora — precisa revisar essa "a
-  // olho", como a própria usuária já validou).
+  // a Cielo, que varia de posto pra posto: só entra onde o domicílio da
+  // Cielo está cadastrado — ex: Cantareira, cujo Pix da Cielo cai no Bradesco).
   const nomesPorBancoId = new Map<string, string[]>();
   for (const adqId of adquirentesEnvolvidos) {
     const bancoId = domicilioBancoPorAdquirente.get(adqId);
     const nome = nomePorAdquirenteId.get(adqId);
-    if (bancoId && nome && nome !== "CIELO" && nome !== "CIELO TEF" && nome !== "CIELO ALUGUEL") {
+    if (bancoId && nome && nome !== "CIELO TEF" && nome !== "CIELO ALUGUEL") {
       nomesPorBancoId.set(bancoId, [...(nomesPorBancoId.get(bancoId) ?? []), nome]);
     }
   }
