@@ -168,7 +168,7 @@ export function FormularioUpload({ postos }: { postos: Opcao[] }) {
             reconhecer qual é qual pelo nome do arquivo (ajuda ter o nome da adquirente nele, ex:
             BARRAMARES_CIELO.csv) e, se não achar nada, olha as colunas do próprio arquivo. Adquirentes
             cobertas por enquanto: Cielo, Stone, Rede, Getnet, Pagseguro, SAQPAY, Sem Parar, Abastece Aí, Baratão e
-            Premmia — Tecban, VR e Shipay ainda não.
+            Premmia — Tecban e Shipay ainda não. VR: envie as vendas e também o relatório de guias de reembolso (define a data de pagamento).
           </p>
         </div>
 

@@ -1,6 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { classificarModalidade, type ModalidadeCartao } from "./normalizar";
+import { classificarModalidade, ehVendaEmDinheiro, type ModalidadeCartao } from "./normalizar";
+import { MAQUININHAS_COM_VOUCHER } from "./vouchersDuplicados";
+
+// Crédito que a adquirente pagou em até 5 dias já saiu antecipado (taxa e prazo do "crédito antecipado");
+// o que ela pagou em ~30 dias é crédito à vista normal. Mesmo corte de prazoParaDataPagamento.
+const PRAZO_MAXIMO_ANTECIPADO_DIAS = 5;
 
 export type LinhaConferenciaTaxas = {
   postoId: string;
@@ -44,7 +49,9 @@ export async function buscarConferenciaTaxas(params: {
 
   const [transacoes, taxas] = await Promise.all([
     prisma.transacaoCartao.findMany({
-      where: { postoId: { in: postoIds }, dataVenda: { gte: dataInicio, lte: dataFim }, ...(adquirenteId ? { adquirenteId } : {}) },
+      // Só venda aprovada entra: os leitores já descartam venda negada/cancelada na importação, e aqui
+      // ficam de fora também valor zerado/negativo (estorno) e venda em dinheiro (não passa pela adquirente).
+      where: { postoId: { in: postoIds }, dataVenda: { gte: dataInicio, lte: dataFim }, valorBruto: { gt: 0 }, ...(adquirenteId ? { adquirenteId } : {}) },
       include: { adquirente: true, posto: true },
     }),
     prisma.taxaCartao.findMany({ where: { postoId: { in: postoIds } }, include: { adquirente: true } }),
@@ -57,17 +64,29 @@ export async function buscarConferenciaTaxas(params: {
   // apareceu no arquivo.
   const grupos = new Map<
     string,
-    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; qtd: number; somaBruto: number; somaTaxa: number; somaBrutoComTaxa: number; somaLiquido: number; qtdSemLiquido: number; prazos: number[] }
+    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; tipoOriginal: string; antecipado: boolean; qtd: number; somaBruto: number; somaTaxa: number; somaBrutoComTaxa: number; somaLiquido: number; qtdSemLiquido: number; prazos: number[] }
   >();
 
   for (const t of transacoes) {
-    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}`;
+    if (ehVendaEmDinheiro(t.tipoVenda)) continue;
+    // Voucher capturado pela maquininha é cobrado pela emissora do voucher (Pluxee, VR...), não pela taxa da maquininha.
+    if (MAQUININHAS_COM_VOUCHER.includes(t.adquirente.nome) && /^voucher/i.test(t.tipoVenda.trim())) continue;
+    const diasPagamento = t.dataPagamento ? Math.round((t.dataPagamento.getTime() - t.dataVenda.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    const modalidadeVenda = classificarModalidade(t.tipoVenda, t.adquirente.nome);
+    const antecipado =
+      MAQUININHAS_COM_VOUCHER.includes(t.adquirente.nome) &&
+      (modalidadeVenda === "CREDITO_VISTA" || modalidadeVenda === "CREDITO_PARCELADO") &&
+      diasPagamento !== null &&
+      diasPagamento <= PRAZO_MAXIMO_ANTECIPADO_DIAS;
+    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}|${antecipado ? "A" : "N"}`;
     const grupo = grupos.get(chave) ?? {
       postoId: t.postoId,
       posto: t.posto.nome,
       adquirente: t.adquirente.nome,
       adquirenteId: t.adquirenteId,
-      tipoVenda: t.tipoVenda,
+      tipoVenda: antecipado ? `${t.tipoVenda} (antecipado)` : t.tipoVenda,
+      tipoOriginal: t.tipoVenda,
+      antecipado,
       qtd: 0,
       somaBruto: 0,
       somaTaxa: 0,
@@ -95,16 +114,19 @@ export async function buscarConferenciaTaxas(params: {
 
   const resultado: LinhaConferenciaTaxas[] = [];
   for (const g of grupos.values()) {
-    const modalidade = classificarModalidade(g.tipoVenda, g.adquirente);
+    const modalidade = classificarModalidade(g.tipoOriginal, g.adquirente);
     const taxaCartao = taxaPorAdquirente.get(`${g.postoId}|${g.adquirenteId}`);
     // Crédito: usa a taxa de Crédito Antecipado quando cadastrada; senão a de Crédito à vista.
+    // Crédito pago em ~30 dias compara com a taxa/prazo do crédito à vista; o antecipado (pago em até 5
+    // dias) com os do crédito antecipado, quando cadastrados.
     const ehCredito = modalidade === "CREDITO_VISTA" || modalidade === "CREDITO_PARCELADO";
-    const campos =
-      ehCredito && taxaCartao && taxaCartao.taxaCreditoParcelado !== null
-        ? CAMPO_POR_MODALIDADE.CREDITO_PARCELADO
-        : modalidade === "CREDITO_PARCELADO"
-          ? CAMPO_POR_MODALIDADE.CREDITO_VISTA
-          : CAMPO_POR_MODALIDADE[modalidade];
+    const campos = !ehCredito
+      ? CAMPO_POR_MODALIDADE[modalidade]
+      : g.antecipado || modalidade === "CREDITO_PARCELADO"
+        ? taxaCartao && taxaCartao.taxaCreditoParcelado !== null
+          ? CAMPO_POR_MODALIDADE.CREDITO_PARCELADO
+          : CAMPO_POR_MODALIDADE.CREDITO_VISTA
+        : CAMPO_POR_MODALIDADE.CREDITO_VISTA;
 
     resultado.push({
       postoId: g.postoId,

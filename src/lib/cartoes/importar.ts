@@ -4,6 +4,7 @@ import { PARSERS, detectarAdquirente } from "./parsers";
 import { encontrarPostoPorCnpj, encontrarPostoPorFragmento } from "./postos";
 import type { ArquivoEntrada } from "./tipos";
 import { calcularAjusteAntecipacao } from "./antecipacao";
+import { aplicarGuiasVr, ehArquivoGuiasVr } from "./guiasVr";
 import { MAQUININHAS_COM_VOUCHER, postoQueJaTemAsMesmasVendas, removerVouchersDuplicadosDasMaquininhas } from "./vouchersDuplicados";
 
 export type ResultadoArquivoCartao = {
@@ -123,6 +124,15 @@ export async function importarTransacoesCartao(params: {
         mensagem:
           "Não reconheci a adquirente — nem pelo nome do arquivo, nem pelas colunas dele. Renomeie incluindo o nome da adquirente (ex: BARRAMARES_CIELO.csv).",
       });
+      continue;
+    }
+    // Relatório de guias de reembolso da VR: não traz vendas, define a data de pagamento das já importadas.
+    if (chave === "VR" && ehArquivoGuiasVr(arq.buffer)) {
+      try {
+        resultados.push(await aplicarGuiasVr({ nomeArquivo: arq.nome, buffer: arq.buffer }));
+      } catch (err) {
+        resultados.push({ arquivo: arq.nome, status: "erro", adquirente: "VR", mensagem: err instanceof Error ? err.message : "Erro ao ler as guias da VR." });
+      }
       continue;
     }
     const definicao = PARSERS[chave];
