@@ -118,8 +118,29 @@ function iso(d: Date): string {
 
 // Define a data de pagamento (e, quando a guia fecha com as vendas, o líquido) das vendas VR do posto.
 export async function aplicarGuiasVr(params: { nomeArquivo: string; buffer: Buffer }): Promise<ResultadoArquivoCartao> {
-  const { nomeArquivo, buffer } = params;
-  const { cnpj, dataInicial, dataFinal, guias } = lerGuiasVr(buffer);
+  return aplicarGuiasVrVarios({ nomeArquivo: params.nomeArquivo, buffers: [params.buffer] });
+}
+
+// Vários relatórios de guias do MESMO posto de uma vez (ex: agosto, setembro e outubro): as guias se juntam e o
+// período considerado vai do início do primeiro ao fim do último — aplicar um por vez faria o seguinte apagar o que
+// o anterior definiu com a regra de corte e prazo.
+export async function aplicarGuiasVrVarios(params: { nomeArquivo: string; buffers: Buffer[] }): Promise<ResultadoArquivoCartao> {
+  const { nomeArquivo, buffers } = params;
+  const lidos = buffers.map((b) => lerGuiasVr(b));
+  const cnpjs = new Set(lidos.map((l) => l.cnpj));
+  if (cnpjs.size > 1) return { arquivo: nomeArquivo, status: "erro", adquirente: "VR", mensagem: "Os relatórios de guias são de CNPJs diferentes — aplique um posto por vez." };
+  const cnpj = lidos[0].cnpj;
+  const inicios = lidos.map((l) => l.dataInicial).filter((d): d is Date => !!d);
+  const fins = lidos.map((l) => l.dataFinal).filter((d): d is Date => !!d);
+  const dataInicial = inicios.length ? new Date(Math.min(...inicios.map((d) => d.getTime()))) : null;
+  const dataFinal = fins.length ? new Date(Math.max(...fins.map((d) => d.getTime()))) : null;
+  const vistas = new Set<string>();
+  const guias = lidos.flatMap((l) => l.guias).filter((g) => {
+    const k = `${g.produto}|${g.corte.toISOString()}|${g.pagamento.toISOString()}|${g.bruto}`;
+    if (vistas.has(k)) return false;
+    vistas.add(k);
+    return true;
+  });
   if (guias.length === 0) return { arquivo: nomeArquivo, status: "ok", adquirente: "VR", gravados: 0, mensagem: "Nenhuma guia paga encontrada no arquivo." };
 
   const todosPostos = await prisma.posto.findMany({ select: { id: true, nome: true, cnpj: true } });
