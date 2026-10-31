@@ -8,7 +8,6 @@ import { ROTULO_TIPO_FECHAMENTO } from "@/lib/cartoes/normalizar";
 import { BotaoImprimir } from "./botao-imprimir";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
-import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 
 function dataUTC(iso: string, fim = false): Date {
   return new Date(`${iso}T${fim ? "23:59:59.999" : "00:00:00.000"}Z`);
@@ -75,8 +74,9 @@ export default async function FechamentoCartoesPage({
   );
 
   return (
-    <div className="space-y-6">
-      <OrientacaoImpressao />
+    <div className="fech-cartoes space-y-6 print:space-y-1.5">
+      {/* Retrato e compacto (mesma base do relatório sintético de Taxas de Cartão): as regras .fech-cartoes ficam no globals.css */}
+      <style>{"@media print { @page { size: A4 portrait; } }"}</style>
       <CabecalhoImpressao titulo="Fechamento de Cartões" detalhes={[{ rotulo: "Posto", valor: postoNome ?? "Todos os postos" }, { rotulo: "Período", valor: `${inicio} a ${fim}` }]} />
 
       <p className="text-sm text-foreground/60 print:hidden">
@@ -173,7 +173,7 @@ export default async function FechamentoCartoesPage({
       )}
 
       {linhas && linhas.length > 0 && totalGeral && (
-        <div className="space-y-4">
+        <div className="space-y-4 print:space-y-1.5">
           {semLiquido.qtd > 0 && (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               {semLiquido.qtd} venda(s), {formatarMoeda(semLiquido.bruto)} de bruto, estão sem valor líquido no arquivo (ex: VR) — entram no bruto, mas ficam fora do líquido e das taxas.
@@ -185,8 +185,8 @@ export default async function FechamentoCartoesPage({
               { bruto: 0, liquido: 0, taxa: 0 }
             );
             return (
-              <div key={posto} className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-                <div className="border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+              <div key={posto} className="fech-bloco overflow-hidden rounded-lg border border-black/10 print:break-inside-avoid dark:border-white/15">
+                <div className="fech-titulo border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
                   {posto}
                 </div>
                 <table className="w-full text-sm">
@@ -231,8 +231,8 @@ export default async function FechamentoCartoesPage({
           })}
 
           {custoAntecipacao.length > 0 && (
-            <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
-              <div className="border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
+            <div className="fech-bloco overflow-hidden rounded-lg border border-black/10 print:break-inside-avoid dark:border-white/15">
+              <div className="fech-titulo border-b border-black/10 bg-blue-950/10 px-4 py-3 text-sm font-semibold text-foreground/80 dark:border-white/10 dark:bg-blue-950/25">
                 Custo de antecipação <span className="font-normal text-foreground/60">(pela data em que o dinheiro caiu)</span>
               </div>
               <table className="w-full text-sm">
@@ -277,7 +277,7 @@ export default async function FechamentoCartoesPage({
           )}
 
           {porPosto.size > 1 && (
-            <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/15">
+            <div className="fech-bloco overflow-hidden rounded-lg border border-black/10 print:break-inside-avoid dark:border-white/15">
               <table className="w-full text-sm">
                 <tbody>
                   <tr className="bg-blue-950/10 font-semibold dark:bg-blue-950/25">

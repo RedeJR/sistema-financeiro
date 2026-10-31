@@ -155,6 +155,29 @@ body {
     padding-top: 2.2px !important;
     padding-bottom: 2.2px !important;
   }
+  /* Fechamento de Cartões: retrato, linhas coladas (a tela usa espaçamento folgado, que no papel virava 7 páginas). */
+  .fech-cartoes table td {
+    padding: 1.4px 5px !important;
+    line-height: 1.15 !important;
+    font-size: 8.5px !important;
+  }
+  .fech-cartoes table th {
+    padding: 2px 5px !important;
+    font-size: 7px !important;
+  }
+  .fech-cartoes .fech-titulo {
+    padding: 2.5px 6px !important;
+    font-size: 9.5px !important;
+    line-height: 1.2 !important;
+  }
+  .fech-cartoes .fech-bloco {
+    border-radius: 3px !important;
+  }
+  .fech-cartoes > p,
+  .fech-cartoes .space-y-4 > p {
+    padding: 3px 6px !important;
+    font-size: 8px !important;
+  }
   /* Sombras e cantos arredondados de cartão não fazem sentido no papel. */
   .shadow,
   .shadow-sm {
