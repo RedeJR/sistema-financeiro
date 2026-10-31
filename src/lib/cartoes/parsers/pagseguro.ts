@@ -5,6 +5,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  normalizarBandeira,
   identificadorComposto,
   paraData,
   paraDataHora,
@@ -22,6 +23,7 @@ export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
 
   const iData = idx("Data da Transação");
   const iForma = idx("Forma de Pagamento");
+  const iBandeira = idx("Bandeira");
   const iParcela = idx("Parcela");
   const iBruto = idx("Valor Bruto");
   const iTaxa = idx("Valor Taxa");
@@ -49,6 +51,7 @@ export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
     const codigoTransacao = iCodigoTransacao >= 0 ? linha[iCodigoTransacao] : null;
 
     resultado.push({
+      bandeira: iBandeira >= 0 ? normalizarBandeira(linha[iBandeira]) : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
       tipoVenda,

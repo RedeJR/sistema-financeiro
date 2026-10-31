@@ -25,7 +25,7 @@ function formatarPct(p: number | null): string {
 // pequeno só pra não piscar em diferença de arredondamento (ex: prazo médio
 // 0.98 vs cadastro 1).
 function temDivergencia(l: LinhaConferenciaTaxas): boolean {
-  if (l.semTaxaCadastrada) return false;
+  if (l.semTaxaCadastrada || l.outrasBandeiras) return false;
   const difPrazo = l.prazoRealDias !== null && l.prazoCadastradoDias !== null ? Math.abs(l.prazoRealDias - l.prazoCadastradoDias) : 0;
   const difTaxa = l.taxaRealPct !== null && l.taxaCadastradaPct !== null ? Math.abs(l.taxaRealPct - l.taxaCadastradaPct) : 0;
   return difPrazo >= 1 || difTaxa >= 0.1;
@@ -154,7 +154,8 @@ export default async function ConferenciaTaxasPage({
         O prazo real é a média, em dias corridos, entre a data da venda e a data de pagamento que veio no
         arquivo (quando o arquivo não traz data de pagamento explícita, como a Stone, essa coluna fica
         vazia). Diferença de prazo/taxa pequena pode ser só arredondamento de dias úteis — confira o
-        contexto antes de considerar erro.
+        contexto antes de considerar erro. A taxa cadastrada é a de Visa/Master: Elo e outras bandeiras cobram mais e
+        aparecem em linha separada, sem alerta.
       </p>
 
       {!linhas && (

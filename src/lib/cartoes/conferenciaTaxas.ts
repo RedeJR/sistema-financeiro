@@ -23,6 +23,8 @@ export type LinhaConferenciaTaxas = {
   taxaRealPct: number | null; // média, em % do bruto
   taxaCadastradaPct: number | null;
   semTaxaCadastrada: boolean; // adquirente sem TaxaCartao pra esse posto
+  // Grupo "Elo e outras" bandeiras: a taxa cadastrada é a de Visa/Master, então esse grupo só mostra o que foi cobrado.
+  outrasBandeiras: boolean;
 };
 
 const CAMPO_POR_MODALIDADE: Record<
@@ -64,7 +66,7 @@ export async function buscarConferenciaTaxas(params: {
   // apareceu no arquivo.
   const grupos = new Map<
     string,
-    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; tipoOriginal: string; antecipado: boolean; qtd: number; somaBruto: number; somaTaxa: number; somaBrutoComTaxa: number; somaLiquido: number; qtdSemLiquido: number; prazos: number[] }
+    { postoId: string; posto: string; adquirente: string; adquirenteId: string; tipoVenda: string; tipoOriginal: string; antecipado: boolean; outras: boolean; qtd: number; somaBruto: number; somaTaxa: number; somaBrutoComTaxa: number; somaLiquido: number; qtdSemLiquido: number; prazos: number[] }
   >();
 
   for (const t of transacoes) {
@@ -78,15 +80,19 @@ export async function buscarConferenciaTaxas(params: {
       (modalidadeVenda === "CREDITO_VISTA" || modalidadeVenda === "CREDITO_PARCELADO") &&
       diasPagamento !== null &&
       diasPagamento <= PRAZO_MAXIMO_ANTECIPADO_DIAS;
-    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}|${antecipado ? "A" : "N"}`;
+    // A taxa cadastrada é a de Visa/Master (Maestro e Visa Electron entram); Elo e demais cobram mais.
+    const outras = t.bandeira !== null && !/VISA|MASTER|MAESTRO/.test(t.bandeira);
+    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}|${antecipado ? "A" : "N"}|${t.bandeira === null ? "-" : outras ? "O" : "V"}`;
+    const sufixo = [antecipado ? "antecipado" : "", t.bandeira === null ? "" : outras ? "Elo e outras" : "Visa/Master"].filter(Boolean).join(" · ");
     const grupo = grupos.get(chave) ?? {
       postoId: t.postoId,
       posto: t.posto.nome,
       adquirente: t.adquirente.nome,
       adquirenteId: t.adquirenteId,
-      tipoVenda: antecipado ? `${t.tipoVenda} (antecipado)` : t.tipoVenda,
+      tipoVenda: sufixo ? `${t.tipoVenda} (${sufixo})` : t.tipoVenda,
       tipoOriginal: t.tipoVenda,
       antecipado,
+      outras,
       qtd: 0,
       somaBruto: 0,
       somaTaxa: 0,
@@ -147,6 +153,7 @@ export async function buscarConferenciaTaxas(params: {
       taxaRealPct: g.somaBrutoComTaxa > 0 ? (g.somaTaxa / g.somaBrutoComTaxa) * 100 : null,
       taxaCadastradaPct: taxaCartao && taxaCartao[campos.taxa] !== null ? Number(taxaCartao[campos.taxa]) : null,
       semTaxaCadastrada: !taxaCartao,
+      outrasBandeiras: g.outras,
     });
   }
 

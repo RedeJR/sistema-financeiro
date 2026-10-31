@@ -29,6 +29,7 @@ type DadoTransacao = {
   valorBruto: string;
   taxaRs: string | null;
   valorLiquido: string | null;
+  bandeira: string | null;
   dataPagamento: Date | null;
   identificadorExterno: string | null;
   arquivoOrigem: string;
@@ -91,6 +92,30 @@ async function preencherLiquidoAusente(linhas: DadoTransacao[]): Promise<number>
     atualizados += ids.length;
   }
   return atualizados;
+}
+
+// Vendas já gravadas antes de o sistema guardar a bandeira: reimportar o arquivo preenche só a bandeira delas
+// (por posto, adquirente e identificador), sem criar nada novo.
+async function preencherBandeiraAusente(linhas: DadoTransacao[]): Promise<number> {
+  const porGrupo = new Map<string, { postoId: string; adquirenteId: string; bandeira: string; ids: string[] }>();
+  for (const d of linhas) {
+    if (!d.bandeira || !d.identificadorExterno) continue;
+    const k = `${d.postoId}|${d.adquirenteId}|${d.bandeira}`;
+    const g = porGrupo.get(k) ?? { postoId: d.postoId, adquirenteId: d.adquirenteId, bandeira: d.bandeira, ids: [] };
+    g.ids.push(d.identificadorExterno);
+    porGrupo.set(k, g);
+  }
+  let atualizadas = 0;
+  for (const g of porGrupo.values()) {
+    for (let i = 0; i < g.ids.length; i += 2000) {
+      const r = await prisma.transacaoCartao.updateMany({
+        where: { postoId: g.postoId, adquirenteId: g.adquirenteId, bandeira: null, identificadorExterno: { in: g.ids.slice(i, i + 2000) } },
+        data: { bandeira: g.bandeira },
+      });
+      atualizadas += r.count;
+    }
+  }
+  return atualizadas;
 }
 
 // `limite` (com `deslocamento`): grava só uma fatia das vendas do arquivo por
@@ -203,6 +228,7 @@ export async function importarTransacoesCartao(params: {
           valorBruto: l.valorBruto,
           taxaRs: l.taxaRs,
           valorLiquido: l.valorLiquido,
+          bandeira: l.bandeira ?? null,
           dataPagamento: l.dataPagamento,
           identificadorExterno: l.identificadorExterno,
           arquivoOrigem: arq.nome,
@@ -386,6 +412,7 @@ export async function importarTransacoesCartao(params: {
       }
 
       const atualizados = await preencherLiquidoAusente(dadosParaGravar);
+      await preencherBandeiraAusente(dadosParaGravar);
 
       let gravadosTotal = 0;
       for (let i = 0; i < dadosParaGravar.length; i += TAMANHO_LOTE) {

@@ -13,6 +13,7 @@ import {
   criarBuscadorDeColuna,
   decodificarTexto,
   dividirLinhasCsv,
+  normalizarBandeira,
   identificadorComposto,
   paraData,
   paraHoraSimples,
@@ -30,6 +31,7 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
   const iStatus = idx("status da venda");
   const iBruto = idx("valor da venda original");
   const iModalidade = idx("modalidade");
+  const iBandeira = idx("bandeira");
   const iTipo = idx("tipo");
   const iTaxaTotal = idx("valor total das taxas descontadas (mdr+recebimento automático)");
   const iLiquido = idx("valor líquido");
@@ -59,6 +61,7 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
     const nsu = iNsu >= 0 ? String(valores[iNsu] ?? "").trim() : "";
 
     resultado.push({
+      bandeira: iBandeira >= 0 ? normalizarBandeira(valores[iBandeira]) : undefined,
       dataVenda,
       horaVenda,
       tipoVenda,

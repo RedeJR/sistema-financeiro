@@ -15,6 +15,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  normalizarBandeira,
   identificadorComposto,
   paraData,
   paraHoraSimples,
@@ -115,6 +116,7 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
   const iHora = idx("Hora da venda");
   const iForma = idx("Forma de pagamento");
   const iTipoLancamento = idx("Tipo de lançamento");
+  const iBandeira = idx("Bandeira");
   const iBruto = idx("Valor bruto");
   const iTaxaMdr = idx("Valor da taxa administrativa (MDR)");
   const iTaxaTarifa = idx("Valor Taxa/Tarifa");
@@ -141,6 +143,7 @@ export function parseCielo(arq: ArquivoEntrada): LinhaTransacao[] {
     const horaVenda = paraHoraSimples(linha[iHora]);
     const tipoVenda = (iForma >= 0 ? linha[iForma] : linha[iTipoLancamento]) || "—";
     resultado.push({
+      bandeira: iBandeira >= 0 ? normalizarBandeira(linha[iBandeira]) : undefined,
       dataVenda,
       horaVenda,
       tipoVenda,

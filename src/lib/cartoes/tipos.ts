@@ -11,7 +11,9 @@ export type LinhaTransacao = {
   postoCnpjSugerido?: string;
   postoTextoLivreSugerido?: string;
   dataVenda: Date;
-  horaVenda: string; // "" quando a adquirente não informa hora
+  horaVenda: string;
+  // Bandeira do cartão quando o arquivo traz (em maiúsculas, sem acento)
+  bandeira?: string; // "" quando a adquirente não informa hora
   tipoVenda: string;
   valorBruto: string; // string decimal, pronta pro Prisma
   taxaRs: string | null;

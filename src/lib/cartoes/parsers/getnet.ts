@@ -11,6 +11,7 @@ import {
   calcularTaxaRs,
   decodificarTexto,
   dividirLinhasCsv,
+  normalizarBandeira,
   identificadorComposto,
   paraData,
   paraDataHora,
@@ -24,6 +25,7 @@ function parseGetnetVendas(linhas: string[][]): LinhaTransacao[] {
 
   const iData = idx("DATA/HORA DA VENDA");
   const iForma = idx("FORMA DE PAGAMENTO");
+  const iBandeira = idx("BANDEIRA");
   const iBruto = idx("VALOR BRUTO");
   const iTaxa = idx("VALOR TAXA");
   const iLiquido = idx("VALOR LÍQUIDO");
@@ -47,6 +49,7 @@ function parseGetnetVendas(linhas: string[][]): LinhaTransacao[] {
     const comprovante = iComprovante >= 0 ? linha[iComprovante] || "" : "";
 
     resultado.push({
+      bandeira: iBandeira >= 0 ? normalizarBandeira(linha[iBandeira]) : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
       tipoVenda,

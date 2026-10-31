@@ -178,6 +178,9 @@ model TransacaoCartao {
   valorBruto           Decimal          @db.Decimal(12, 2)
   taxaRs               Decimal?         @db.Decimal(12, 2)
   valorLiquido         Decimal?         @db.Decimal(12, 2)
+  // Bandeira do cartão (VISA, MASTERCARD, ELO...) quando o arquivo da adquirente traz — a taxa cadastrada é a de
+  // Visa/Master; Elo e outras cobram mais, então a conferência de taxas separa os dois grupos.
+  bandeira             String?
   dataPagamento        DateTime?        @db.Date
   // NSU/CV/Código da venda/Stone ID — identificador único que a adquirente
   // dá pra cada transação, quando o arquivo traz um. É a chave de dedupe

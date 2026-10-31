@@ -12,6 +12,7 @@ import {
   criarBuscadorDeColuna,
   decodificarTexto,
   dividirLinhasCsv,
+  normalizarBandeira,
   identificadorComposto,
   paraDataHora,
   paraValorDecimal,
@@ -40,6 +41,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
   const iDocumento = idx("DOCUMENTO");
   const iData = idx("DATA DA VENDA");
   const iProduto = idx("PRODUTO");
+  const iBandeira = idx("BANDEIRA");
   const iBruto = idx("VALOR BRUTO");
   const iLiquido = idx("VALOR LIQUIDO");
   const iStatus = idx("ULTIMO STATUS");
@@ -69,6 +71,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
 
     resultado.push({
       postoCnpjSugerido,
+      bandeira: iBandeira >= 0 ? normalizarBandeira(linha[iBandeira]) : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,
       tipoVenda: produto,

@@ -145,6 +145,12 @@ function normalizarBruto(bruto: string): string {
   return /^\d+$/.test(bruto) ? bruto.replace(/^0+(?=\d)/, "") : bruto;
 }
 
+// Bandeira como vem no arquivo → texto padronizado (maiúsculas, sem acento); vazio vira undefined.
+export function normalizarBandeira(valor: unknown): string | undefined {
+  const t = String(valor ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
+  return t && t !== "-" ? t : undefined;
+}
+
 export function identificadorComposto(
   bruto: string | null | undefined,
   dataVenda: Date,
