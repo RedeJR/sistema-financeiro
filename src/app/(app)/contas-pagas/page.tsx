@@ -115,7 +115,7 @@ export default async function ContasPagasPage({ searchParams }: { searchParams: 
               nome="fornecedorId"
               rotuloTodos="Todos os fornecedores"
               selecionados={fornecedorIdsSelecionados}
-              itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome }))}
+              itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome, documento: f.documento }))}
             />
           </div>
 

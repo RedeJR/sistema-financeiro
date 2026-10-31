@@ -81,9 +81,10 @@ export async function buscarConferenciaTaxas(params: {
       diasPagamento !== null &&
       diasPagamento <= PRAZO_MAXIMO_ANTECIPADO_DIAS;
     // A taxa cadastrada é a de Visa/Master (Maestro e Visa Electron entram); Elo e demais cobram mais.
-    const outras = t.bandeira !== null && !/VISA|MASTER|MAESTRO/.test(t.bandeira);
-    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}|${antecipado ? "A" : "N"}|${t.bandeira === null ? "-" : outras ? "O" : "V"}`;
-    const sufixo = [antecipado ? "antecipado" : "", t.bandeira === null ? "" : outras ? "Elo e outras" : "Visa/Master"].filter(Boolean).join(" · ");
+    const bandeira = MAQUININHAS_COM_VOUCHER.includes(t.adquirente.nome) ? t.bandeira : null;
+    const outras = bandeira !== null && !/VISA|MASTER|MAESTRO/.test(bandeira);
+    const chave = `${t.postoId}|${t.adquirenteId}|${t.tipoVenda}|${antecipado ? "A" : "N"}|${bandeira === null ? "-" : outras ? "O" : "V"}`;
+    const sufixo = [antecipado ? "antecipado" : "", bandeira === null ? "" : outras ? "Elo e outras" : "Visa/Master"].filter(Boolean).join(" · ");
     const grupo = grupos.get(chave) ?? {
       postoId: t.postoId,
       posto: t.posto.nome,

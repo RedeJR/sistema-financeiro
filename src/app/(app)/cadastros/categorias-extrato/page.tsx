@@ -3,17 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoCategoriaExtrato, excluirCategoriaExtrato } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { BuscaCadastro } from "@/components/ui/busca-cadastro";
+import { casaBusca } from "@/lib/busca";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export const metadata = { title: "Cadastros - Categorias de Extrato" };
 
-export default async function CategoriasExtratoPage() {
+export default async function CategoriasExtratoPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
+  const termo = (q ?? "").trim();
   const [categorias, podeEditar] = await Promise.all([
     prisma.categoriaExtrato.findMany({
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],
     }),
     podeEditarModulo("CADASTROS"),
   ]);
+  const visiveis = categorias.filter((c) => casaBusca(termo, [c.nome, c.tipo === "ADQUIRENTE" ? "adquirente" : c.tipo === "VOUCHER" ? "voucher" : "padrao"]));
 
   return (
     <div className="space-y-6">
@@ -40,6 +45,8 @@ export default async function CategoriasExtratoPage() {
         )}
       </div>
 
+      <BuscaCadastro caminho="/cadastros/categorias-extrato" termo={termo} exibidos={visiveis.length} total={categorias.length} placeholder="Buscar categoria pelo nome..." />
+
       <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead className={CABECALHO_TABELA}>
@@ -52,7 +59,7 @@ export default async function CategoriasExtratoPage() {
             </tr>
           </thead>
           <tbody>
-            {categorias.map((c) => (
+            {visiveis.map((c) => (
               <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
                 <td className="px-4 py-2 text-foreground/50">{c.ordem}</td>
                 <td className="px-4 py-3">{c.nome}</td>

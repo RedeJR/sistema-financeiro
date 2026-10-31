@@ -25,8 +25,13 @@ export async function parsePluxee(arq: ArquivoEntrada): Promise<LinhaTransacao[]
 
   let linhaHeader = -1;
   let cabecalho: unknown[] = [];
+  // "Produto: PLUXEE GIFT" / "PLUXEE COMBUSTIVEL" no preâmbulo — guardado como "bandeira" da venda, porque a taxa
+  // do Gift é diferente da do Combustível (ver Taxas de Cartão).
+  let produto: string | undefined;
   for (let r = 1; r <= Math.min(MAX_LINHAS_PREAMBULO, planilha.rowCount); r++) {
     const valores = (planilha.getRow(r).values as unknown[]).map((v) => (v == null ? "" : String(v).trim()));
+    const iProduto = valores.findIndex((v) => /^produto:?$/i.test(v));
+    if (iProduto >= 0 && valores[iProduto + 1]) produto = /gift/i.test(valores[iProduto + 1]) ? "GIFT" : /combust/i.test(valores[iProduto + 1]) ? "COMBUSTIVEL" : undefined;
     if (valores.some((v) => v.toLowerCase() === "data da transação")) {
       linhaHeader = r;
       cabecalho = valores;
@@ -40,6 +45,7 @@ export async function parsePluxee(arq: ArquivoEntrada): Promise<LinhaTransacao[]
   const idx = criarBuscadorDeColuna(cabecalho);
   const iDataTransacao = idx("Data da transação");
   const iDescricao = idx("Descrição");
+  const iCartao = idx("Número do cartão");
   const iAutorizacao = idx("Número da autorização") >= 0 ? idx("Número da autorização") : idx("Nº de Autorização");
   const iValorBruto = idx("Valor bruto") >= 0 ? idx("Valor bruto") : idx("Valor Bruto R$");
   const iDataPagamento = idx("Data de pagamento") >= 0 ? idx("Data de pagamento") : idx("Data do Pagamento");
@@ -56,7 +62,9 @@ export async function parsePluxee(arq: ArquivoEntrada): Promise<LinhaTransacao[]
     const tipoVenda = (iDescricao >= 0 ? String(valores[iDescricao] ?? "").trim() : "") || "—";
     const autorizacao = iAutorizacao >= 0 ? String(valores[iAutorizacao] ?? "").trim() : "";
 
+    const cartao = iCartao >= 0 ? String(valores[iCartao] ?? "") : "";
     resultado.push({
+      bandeira: produto ?? (cartao.startsWith("6060") ? "GIFT" : cartao.startsWith("6008") ? "COMBUSTIVEL" : undefined),
       dataVenda,
       horaVenda: "",
       tipoVenda,

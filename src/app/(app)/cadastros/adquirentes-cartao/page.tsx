@@ -4,6 +4,8 @@ import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoAdquirenteCartao, excluirAdquirenteCartao } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
+import { BuscaCadastro } from "@/components/ui/busca-cadastro";
+import { casaBusca } from "@/lib/busca";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export const metadata = { title: "Cadastros - Adquirentes de Cartão" };
@@ -11,13 +13,15 @@ export const metadata = { title: "Cadastros - Adquirentes de Cartão" };
 export default async function AdquirentesCartaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; q?: string }>;
 }) {
-  const { erro } = await searchParams;
+  const { erro, q } = await searchParams;
+  const termo = (q ?? "").trim();
   const [adquirentes, podeEditar] = await Promise.all([
     prisma.adquirenteCartao.findMany({ orderBy: { nome: "asc" } }),
     podeEditarModulo("CADASTROS"),
   ]);
+  const visiveis = adquirentes.filter((a) => casaBusca(termo, [a.nome], []));
 
   return (
     <div className="space-y-6">
@@ -39,6 +43,8 @@ export default async function AdquirentesCartaoPage({
         )}
       </div>
 
+      <BuscaCadastro caminho="/cadastros/adquirentes-cartao" termo={termo} exibidos={visiveis.length} total={adquirentes.length} placeholder="Buscar adquirente pelo nome..." />
+
       <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead className={CABECALHO_TABELA}>
@@ -49,7 +55,7 @@ export default async function AdquirentesCartaoPage({
             </tr>
           </thead>
           <tbody>
-            {adquirentes.map((a) => (
+            {visiveis.map((a) => (
               <tr key={a.id} className="border-t border-black/10 dark:border-white/10">
                 <td className="px-4 py-3">{a.nome}</td>
                 <td className="px-4 py-3">
@@ -94,10 +100,10 @@ export default async function AdquirentesCartaoPage({
                 )}
               </tr>
             ))}
-            {adquirentes.length === 0 && (
+            {visiveis.length === 0 && (
               <tr>
                 <td colSpan={podeEditar ? 3 : 2} className="px-4 py-6 text-center text-foreground/50">
-                  Nenhuma adquirente cadastrada ainda.
+                  {termo ? "Nada encontrado para essa busca." : "Nenhuma adquirente cadastrada ainda."}
                 </td>
               </tr>
             )}

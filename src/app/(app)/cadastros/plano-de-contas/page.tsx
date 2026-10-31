@@ -8,6 +8,8 @@ import {
   excluirPlanoConta,
 } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { BuscaCadastro } from "@/components/ui/busca-cadastro";
+import { casaBusca } from "@/lib/busca";
 import { BOTAO_EDITAR } from "@/lib/estilo";
 
 function Status({ ativo }: { ativo: boolean }) {
@@ -29,9 +31,10 @@ export const metadata = { title: "Cadastros - Plano de Contas" };
 export default async function PlanoDeContasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; q?: string }>;
 }) {
-  const { erro } = await searchParams;
+  const { erro, q } = await searchParams;
+  const termo = (q ?? "").trim();
   const [grupos, podeEditar] = await Promise.all([
     prisma.grupoPlanoConta.findMany({
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],
@@ -40,6 +43,12 @@ export default async function PlanoDeContasPage({
     podeEditarModulo("CADASTROS"),
   ]);
   const totalContas = grupos.reduce((soma, g) => soma + g.contas.length, 0);
+  // Busca: grupo cujo nome casa mostra todas as contas dele; senão só as contas que casam
+  const gruposVisiveis = termo
+    ? grupos
+        .map((g) => (casaBusca(termo, [g.nome]) ? g : { ...g, contas: g.contas.filter((c) => casaBusca(termo, [c.nome])) }))
+        .filter((g) => casaBusca(termo, [g.nome]) || g.contas.length > 0)
+    : grupos;
 
   return (
     <div className="space-y-6">
@@ -85,12 +94,14 @@ export default async function PlanoDeContasPage({
         )}
       </div>
 
+      <BuscaCadastro caminho="/cadastros/plano-de-contas" termo={termo} exibidos={gruposVisiveis.length} total={grupos.length} placeholder="Buscar grupo ou conta pelo nome..." />
+
       {grupos.length === 0 && (
         <p className="text-center text-foreground/50">Nenhum grupo cadastrado ainda.</p>
       )}
 
       <div className="space-y-6">
-        {grupos.map((grupo) => (
+        {gruposVisiveis.map((grupo) => (
           <div key={grupo.id} className="rounded-lg border border-black/10 dark:border-white/15">
             <div className="flex items-center justify-between gap-2 border-b border-black/10 bg-black/5 px-4 py-2 dark:border-white/10 dark:bg-white/5">
               <div className="flex items-center gap-2">

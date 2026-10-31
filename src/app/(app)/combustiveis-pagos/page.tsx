@@ -94,7 +94,7 @@ export default async function CombustiveisPagosPage({
             nome="fornecedorId"
             rotuloTodos="Todos os fornecedores"
             selecionados={fornecedorIds}
-            itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome }))}
+            itens={fornecedores.map((f) => ({ id: f.id, nome: f.nome, documento: f.documento }))}
           />
         </div>
         <div className="flex flex-col gap-1">

@@ -318,11 +318,13 @@ export async function importarTransacoesCartao(params: {
       if (ADQUIRENTES_LIQUIDO_PELA_TAXA.has(definicao.nomeExibicao)) {
         const cadastrosTaxa = await prisma.taxaCartao.findMany({
           where: { adquirenteId: adquirente.id, postoId: { in: [...new Set(dados.map((d) => d.postoId))] } },
-          select: { postoId: true, taxaDebito: true },
+          select: { postoId: true, taxaDebito: true, taxaCreditoVista: true },
         });
         const pctPorPosto = new Map(cadastrosTaxa.filter((c) => c.taxaDebito !== null).map((c) => [c.postoId, Number(c.taxaDebito)]));
+        // Pluxee: o Gift tem taxa própria, cadastrada em "Crédito à vista" (o Combustível usa o campo Débito)
+        const pctGiftPorPosto = new Map(cadastrosTaxa.filter((c) => c.taxaCreditoVista !== null).map((c) => [c.postoId, Number(c.taxaCreditoVista)]));
         for (const d of dados) {
-          const pct = pctPorPosto.get(d.postoId);
+          const pct = (definicao.nomeExibicao === "PLUXEE" && d.bandeira === "GIFT" ? pctGiftPorPosto.get(d.postoId) : undefined) ?? pctPorPosto.get(d.postoId);
           if (pct === undefined) continue;
           const taxa = Math.round(Number(d.valorBruto) * pct) / 100;
           d.taxaRs = taxa.toFixed(2);

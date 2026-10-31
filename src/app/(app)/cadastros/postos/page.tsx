@@ -4,6 +4,8 @@ import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoPosto, excluirPosto } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
+import { BuscaCadastro } from "@/components/ui/busca-cadastro";
+import { casaBusca } from "@/lib/busca";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export const metadata = { title: "Cadastros - Postos" };
@@ -11,13 +13,15 @@ export const metadata = { title: "Cadastros - Postos" };
 export default async function PostosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; q?: string }>;
 }) {
-  const { erro } = await searchParams;
+  const { erro, q } = await searchParams;
+  const termo = (q ?? "").trim();
   const [postos, podeEditar] = await Promise.all([
     prisma.posto.findMany({ orderBy: { nome: "asc" } }),
     podeEditarModulo("CADASTROS"),
   ]);
+  const visiveis = postos.filter((posto) => casaBusca(termo, [posto.nome], [posto.cnpj]));
 
   return (
     <div className="space-y-6">
@@ -39,6 +43,8 @@ export default async function PostosPage({
         )}
       </div>
 
+      <BuscaCadastro caminho="/cadastros/postos" termo={termo} exibidos={visiveis.length} total={postos.length} placeholder="Buscar posto por nome ou CNPJ..." />
+
       <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead className={CABECALHO_TABELA}>
@@ -50,7 +56,7 @@ export default async function PostosPage({
             </tr>
           </thead>
           <tbody>
-            {postos.map((posto) => (
+            {visiveis.map((posto) => (
               <tr key={posto.id} className="border-t border-black/10 dark:border-white/10">
                 <td className="px-4 py-3">{posto.nome}</td>
                 <td className="px-4 py-2 text-foreground/70">{posto.cnpj ?? "—"}</td>
@@ -94,10 +100,10 @@ export default async function PostosPage({
                 )}
               </tr>
             ))}
-            {postos.length === 0 && (
+            {visiveis.length === 0 && (
               <tr>
                 <td colSpan={podeEditar ? 4 : 3} className="px-4 py-6 text-center text-foreground/50">
-                  Nenhum posto cadastrado ainda.
+                  {termo ? "Nada encontrado para essa busca." : "Nenhum posto cadastrado ainda."}
                 </td>
               </tr>
             )}

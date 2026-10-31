@@ -11,7 +11,7 @@ export default async function ImportarDespesasPage() {
 
   const [postos, fornecedores, grupos, bancos] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true, documento: true } }),
     prisma.grupoPlanoConta.findMany({
       where: { ativo: true },
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],

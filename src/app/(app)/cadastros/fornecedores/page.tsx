@@ -4,6 +4,8 @@ import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoFornecedor, excluirFornecedor } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
+import { BuscaCadastro } from "@/components/ui/busca-cadastro";
+import { casaBusca } from "@/lib/busca";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export const metadata = { title: "Cadastros - Fornecedores" };
@@ -11,13 +13,15 @@ export const metadata = { title: "Cadastros - Fornecedores" };
 export default async function FornecedoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; q?: string }>;
 }) {
-  const { erro } = await searchParams;
+  const { erro, q } = await searchParams;
+  const termo = (q ?? "").trim();
   const [fornecedores, podeEditar] = await Promise.all([
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" } }),
     podeEditarModulo("CADASTROS"),
   ]);
+  const visiveis = fornecedores.filter((f) => casaBusca(termo, [f.nome], [f.documento]));
 
   return (
     <div className="space-y-6">
@@ -39,6 +43,8 @@ export default async function FornecedoresPage({
         )}
       </div>
 
+      <BuscaCadastro caminho="/cadastros/fornecedores" termo={termo} exibidos={visiveis.length} total={fornecedores.length} placeholder="Buscar fornecedor por nome ou CNPJ/CPF..." />
+
       <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead className={CABECALHO_TABELA}>
@@ -50,7 +56,7 @@ export default async function FornecedoresPage({
             </tr>
           </thead>
           <tbody>
-            {fornecedores.map((f) => (
+            {visiveis.map((f) => (
               <tr key={f.id} className="border-t border-black/10 dark:border-white/10">
                 <td className="px-4 py-3">{f.nome}</td>
                 <td className="px-4 py-2 text-foreground/70">{f.documento ?? "—"}</td>
@@ -94,10 +100,10 @@ export default async function FornecedoresPage({
                 )}
               </tr>
             ))}
-            {fornecedores.length === 0 && (
+            {visiveis.length === 0 && (
               <tr>
                 <td colSpan={podeEditar ? 4 : 3} className="px-4 py-6 text-center text-foreground/50">
-                  Nenhum fornecedor cadastrado ainda.
+                  {termo ? "Nada encontrado para essa busca." : "Nenhum fornecedor cadastrado ainda."}
                 </td>
               </tr>
             )}

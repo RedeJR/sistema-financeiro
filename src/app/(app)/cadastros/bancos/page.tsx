@@ -4,6 +4,8 @@ import { podeEditarModulo } from "@/lib/auth";
 import { alternarAtivoBanco, excluirBanco } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
+import { BuscaCadastro } from "@/components/ui/busca-cadastro";
+import { casaBusca } from "@/lib/busca";
 import { BOTAO_EDITAR, CABECALHO_TABELA, CARTAO } from "@/lib/estilo";
 
 export const metadata = { title: "Cadastros - Bancos" };
@@ -11,13 +13,15 @@ export const metadata = { title: "Cadastros - Bancos" };
 export default async function BancosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; q?: string }>;
 }) {
-  const { erro } = await searchParams;
+  const { erro, q } = await searchParams;
+  const termo = (q ?? "").trim();
   const [bancos, podeEditar] = await Promise.all([
     prisma.banco.findMany({ orderBy: { nome: "asc" } }),
     podeEditarModulo("CADASTROS"),
   ]);
+  const visiveis = bancos.filter((b) => casaBusca(termo, [b.nome, b.codigoArquivo], []));
 
   return (
     <div className="space-y-6">
@@ -37,6 +41,8 @@ export default async function BancosPage({
         )}
       </div>
 
+      <BuscaCadastro caminho="/cadastros/bancos" termo={termo} exibidos={visiveis.length} total={bancos.length} placeholder="Buscar banco pelo nome..." />
+
       <div className={`${CARTAO} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead className={CABECALHO_TABELA}>
@@ -48,7 +54,7 @@ export default async function BancosPage({
             </tr>
           </thead>
           <tbody>
-            {bancos.map((b) => (
+            {visiveis.map((b) => (
               <tr key={b.id} className="border-t border-black/10 dark:border-white/10">
                 <td className="px-4 py-3">{b.nome}</td>
                 <td className="px-4 py-2 font-mono text-xs text-foreground/70">{b.codigoArquivo}</td>
@@ -92,10 +98,10 @@ export default async function BancosPage({
                 )}
               </tr>
             ))}
-            {bancos.length === 0 && (
+            {visiveis.length === 0 && (
               <tr>
                 <td colSpan={podeEditar ? 4 : 3} className="px-4 py-6 text-center text-foreground/50">
-                  Nenhum banco cadastrado ainda.
+                  {termo ? "Nada encontrado para essa busca." : "Nenhum banco cadastrado ainda."}
                 </td>
               </tr>
             )}

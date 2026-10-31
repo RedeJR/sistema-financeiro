@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { casaBusca } from "@/lib/busca";
 
-type Item = { id: string; nome: string };
+type Item = { id: string; nome: string; documento?: string | null };
 
 type Props = {
   nome: string;
@@ -22,10 +23,6 @@ type Props = {
   className?: string;
 };
 
-function normalizar(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-
 // Select com busca por nome (pedido da usuária: são muitos fornecedores, e
 // rolar uma lista nativa é lento). Digita pra filtrar — ignora acento e
 // maiúscula —, clica pra escolher. O id escolhido vai num <input hidden
@@ -36,7 +33,7 @@ export function SeletorBusca({
   valorInicial = "",
   valor,
   onChange,
-  placeholder = "Buscar pelo nome...",
+  placeholder = "Buscar pelo nome ou CNPJ/CPF...",
   rotuloVazio,
   required,
   id,
@@ -66,9 +63,8 @@ export function SeletorBusca({
   }, []);
 
   const filtrados = useMemo(() => {
-    const termo = normalizar(busca.trim());
-    if (!termo) return itens;
-    return itens.filter((i) => normalizar(i.nome).includes(termo));
+    if (!busca.trim()) return itens;
+    return itens.filter((i) => casaBusca(busca, [i.nome], [i.documento]));
   }, [itens, busca]);
 
   // Mantém a opção destacada visível ao andar com as setas numa lista longa.
@@ -162,6 +158,7 @@ export function SeletorBusca({
                   }`}
                 >
                   {i.nome}
+                  {i.documento && <span className="ml-2 text-xs text-foreground/50">{i.documento}</span>}
                 </button>
               </li>
             ))
