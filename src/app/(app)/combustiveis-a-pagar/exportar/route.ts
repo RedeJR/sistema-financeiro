@@ -3,15 +3,12 @@ import { emLista } from "@/lib/filtro-multiplo";
 import * as XLSX from "xlsx";
 import { exigirPermissao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { filtroDatasCombustivel } from "../filtro-datas";
 
 // .xlsx de verdade (não CSV) — mesmo motivo do exportar de Fechamento: guarda
 // o valor numérico real, sem depender da configuração regional do Excel pra
 // decidir se vírgula é decimal ou milhar.
 const FORMATO_MOEDA = "#,##0.00;-#,##0.00";
-
-function dataUTC(iso: string): Date {
-  return new Date(`${iso}T00:00:00.000Z`);
-}
 
 function paraDataPlanilha(d: Date | null): string {
   return d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "";
@@ -24,36 +21,40 @@ export async function GET(request: NextRequest) {
   const postoIds = params.getAll("postoId").filter(Boolean);
   const de = params.get("de");
   const ate = params.get("ate");
+  const descDe = params.get("descDe");
+  const descAte = params.get("descAte");
 
   const contas = await prisma.contaAPagar.findMany({
     where: {
       combustivel: true,
       paga: false,
       ...emLista("postoId", postoIds),
-      ...(de || ate
-        ? {
-            dataVencimento: {
-              ...(de ? { gte: dataUTC(de) } : {}),
-              ...(ate ? { lte: dataUTC(ate) } : {}),
-            },
-          }
-        : {}),
+      ...filtroDatasCombustivel({ de, ate, descDe, descAte }),
     },
     include: { posto: true, fornecedor: true },
-    orderBy: { dataVencimento: "asc" },
+    orderBy: [{ posto: { nome: "asc" } }, { dataVencimento: "asc" }],
   });
 
   const cabecalho = ["Vencimento", "Descarga", "Posto", "Fornecedor", "Descrição", "Valor"];
-  const linhas = contas.map((c) => [
-    paraDataPlanilha(c.dataVencimento),
-    paraDataPlanilha(c.dataDescarga),
-    c.posto.nome,
-    c.fornecedor.nome,
-    c.descricao ?? "",
-    Number(c.valor) - Number(c.desconto), // líquido (valor do boleto menos o desconto)
-  ]);
+  // Agrupado por posto, com a soma de cada um (pedido da usuária: sem isso não dá pra usar no fechamento).
+  const linhas: (string | number)[][] = [];
+  for (const posto of [...new Set(contas.map((c) => c.posto.nome))]) {
+    const doPosto = contas.filter((c) => c.posto.nome === posto);
+    for (const c of doPosto) {
+      linhas.push([
+        paraDataPlanilha(c.dataVencimento),
+        paraDataPlanilha(c.dataDescarga),
+        c.posto.nome,
+        c.fornecedor.nome,
+        c.descricao ?? "",
+        Number(c.valor) - Number(c.desconto), // líquido (valor do boleto menos o desconto)
+      ]);
+    }
+    const soma = doPosto.reduce((s, c) => s + Number(c.valor) - Number(c.desconto), 0);
+    linhas.push(["", "", posto, "", `Total ${posto}`, soma]);
+  }
   const total = contas.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
-  const linhaTotal = ["", "", "", "", "Total", total];
+  const linhaTotal = ["", "", "", "", "Total geral", total];
 
   const titulo = "COMBUSTÍVEIS A PAGAR";
   const aoa: (string | number)[][] = [[titulo], cabecalho, ...linhas, linhaTotal];

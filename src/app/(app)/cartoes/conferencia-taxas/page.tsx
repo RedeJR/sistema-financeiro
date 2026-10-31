@@ -26,8 +26,8 @@ function formatarPct(p: number | null): string {
 // 0.98 vs cadastro 1).
 function temDivergencia(l: LinhaConferenciaTaxas): boolean {
   if (l.semTaxaCadastrada || l.outrasBandeiras) return false;
-  const difPrazo = l.prazoRealDias !== null && l.prazoCadastradoDias !== null ? Math.abs(l.prazoRealDias - l.prazoCadastradoDias) : 0;
-  const difTaxa = l.taxaRealPct !== null && l.taxaCadastradaPct !== null ? Math.abs(l.taxaRealPct - l.taxaCadastradaPct) : 0;
+  const difPrazo = l.prazoRealDias !== null && l.prazoCadastradoDias !== null && !l.taxaDoCadastro ? Math.abs(l.prazoRealDias - l.prazoCadastradoDias) : 0;
+  const difTaxa = l.taxaRealPct !== null && l.taxaCadastradaPct !== null && !l.taxaDoCadastro ? Math.abs(l.taxaRealPct - l.taxaCadastradaPct) : 0;
   return difPrazo >= 1 || difTaxa >= 0.1;
 }
 
@@ -155,7 +155,9 @@ export default async function ConferenciaTaxasPage({
         arquivo (quando o arquivo não traz data de pagamento explícita, como a Stone, essa coluna fica
         vazia). Diferença de prazo/taxa pequena pode ser só arredondamento de dias úteis — confira o
         contexto antes de considerar erro. A taxa cadastrada é a de Visa/Master: Elo e outras bandeiras cobram mais e
-        aparecem em linha separada, sem alerta.
+        aparecem em linha separada, sem alerta. "Calculada pelo cadastro" indica que o arquivo não traz o líquido
+        daquele grupo (Pluxee, crédito com antecipação automática, VR ainda sem a guia): a taxa foi aplicada pelo sistema
+        a partir do cadastro, então não serve como conferência.
       </p>
 
       {!linhas && (
@@ -208,7 +210,7 @@ export default async function ConferenciaTaxasPage({
                     <td className="px-4 py-3 text-right">
                       {l.qtd}
                       {l.qtdSemLiquido > 0 && (
-                        <span className="block text-xs text-foreground/50">{l.qtdSemLiquido} sem líquido ainda</span>
+                        <span className="block text-xs text-foreground/50 print:hidden">{l.qtdSemLiquido} sem líquido ainda</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(l.somaBruto)}</td>
@@ -223,7 +225,10 @@ export default async function ConferenciaTaxasPage({
                         <td className="px-4 py-3 text-right whitespace-nowrap">{formatarDias(l.prazoCadastradoDias)}</td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">{formatarDias(l.prazoRealDias)}</td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">{formatarPct(l.taxaCadastradaPct)}</td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">{formatarPct(l.taxaRealPct)}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          {formatarPct(l.taxaRealPct)}
+                          {l.taxaDoCadastro && <span className="block text-xs text-foreground/50">calculada pelo cadastro</span>}
+                        </td>
                       </>
                     )}
                   </tr>

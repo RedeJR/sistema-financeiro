@@ -25,6 +25,9 @@ export type LinhaConferenciaTaxas = {
   semTaxaCadastrada: boolean; // adquirente sem TaxaCartao pra esse posto
   // Grupo "Elo e outras" bandeiras: a taxa cadastrada é a de Visa/Master, então esse grupo só mostra o que foi cobrado.
   outrasBandeiras: boolean;
+  // A taxa "real" foi calculada pelo sistema a partir do cadastro (o arquivo não traz o líquido), então não é
+  // uma conferência independente: Pluxee, crédito com antecipação automática e VR sem o líquido da guia.
+  taxaDoCadastro: boolean;
 };
 
 const CAMPO_POR_MODALIDADE: Record<
@@ -135,6 +138,12 @@ export async function buscarConferenciaTaxas(params: {
           : CAMPO_POR_MODALIDADE.CREDITO_VISTA
         : CAMPO_POR_MODALIDADE.CREDITO_VISTA;
 
+    const taxaCadastrada = taxaCartao && taxaCartao[campos.taxa] !== null ? Number(taxaCartao[campos.taxa]) : null;
+    const taxaRealPct = g.somaBrutoComTaxa > 0 ? (g.somaTaxa / g.somaBrutoComTaxa) * 100 : null;
+    const antecipadoPeloCadastro = Boolean(taxaCartao?.antecipacaoAutomatica) && (ehCredito || modalidade === "CREDITO_PRE_PAGO") && taxaCadastrada !== null;
+    const vrIgualAoCadastro = g.adquirente === "VR" && taxaRealPct !== null && taxaCadastrada !== null && Math.abs(taxaRealPct - taxaCadastrada) < 0.005;
+    const taxaDoCadastro = g.adquirente === "PLUXEE" || antecipadoPeloCadastro || vrIgualAoCadastro;
+
     resultado.push({
       postoId: g.postoId,
       posto: g.posto,
@@ -151,10 +160,11 @@ export async function buscarConferenciaTaxas(params: {
       // Ponderada pelo valor (taxa total ÷ bruto total das vendas com taxa), igual a
       // bruto − líquido ÷ bruto. A média simples dos % de cada venda (que era usada
       // antes) pesava uma venda de R$ 5 igual a uma de R$ 500 e não fechava com a conta.
-      taxaRealPct: g.somaBrutoComTaxa > 0 ? (g.somaTaxa / g.somaBrutoComTaxa) * 100 : null,
-      taxaCadastradaPct: taxaCartao && taxaCartao[campos.taxa] !== null ? Number(taxaCartao[campos.taxa]) : null,
+      taxaRealPct,
+      taxaCadastradaPct: taxaCadastrada,
       semTaxaCadastrada: !taxaCartao,
       outrasBandeiras: g.outras,
+      taxaDoCadastro,
     });
   }
 

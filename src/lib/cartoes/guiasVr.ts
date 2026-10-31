@@ -105,9 +105,19 @@ function regraDoProduto(regras: Map<string, Regra>, chave: string): Regra | null
   return [...regras.values()].find((r) => r.pat === pat) ?? null;
 }
 
-function corteDaVenda(dataVenda: Date, regra: Regra): Date {
+// Venda feita no próprio dia do corte semanal, depois deste horário, entra na guia da semana seguinte (conferido nas
+// guias do Torino e da Paineira: o corte fica entre 21:26 e 21:51; 21:30 fecha todas as guias).
+const CORTE_SEMANAL_MINUTOS = 21 * 60 + 30;
+
+function minutosDaHora(hora: string): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hora);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+}
+
+function corteDaVenda(dataVenda: Date, regra: Regra, hora: string): Date {
   if (regra.pat || regra.diaSemana === null) return dataVenda;
   const d = new Date(dataVenda);
+  if (d.getUTCDay() === regra.diaSemana && minutosDaHora(hora) > CORTE_SEMANAL_MINUTOS) d.setUTCDate(d.getUTCDate() + 1);
   while (d.getUTCDay() !== regra.diaSemana) d.setUTCDate(d.getUTCDate() + 1);
   return d;
 }
@@ -172,7 +182,7 @@ export async function aplicarGuiasVrVarios(params: { nomeArquivo: string; buffer
       semRegra++;
       continue;
     }
-    const corte = corteDaVenda(v.dataVenda, regra);
+    const corte = corteDaVenda(v.dataVenda, regra, v.horaVenda);
     const guia = guiaPorCorte.get(`${chave}|${iso(corte)}`);
     if (guia) {
       novaData.set(v.id, guia.pagamento);

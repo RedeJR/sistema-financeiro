@@ -15,6 +15,7 @@ import { BOTAO_EDITAR, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO
 import { ErroFormulario } from "@/components/ui/erro-formulario";
 import { padraoDeDatas } from "@/lib/datas-padrao";
 import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
+import { filtroDatasCombustivel } from "./filtro-datas";
 
 const MENSAGENS_ERRO: Record<string, string> = {
   "ja-paga": "Esse combustível já foi baixado pela conciliação — não dá mais pra excluir por aqui.",
@@ -45,10 +46,6 @@ function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
-function dataUTC(iso: string): Date {
-  return new Date(`${iso}T00:00:00.000Z`);
-}
-
 export const metadata = { title: "Combustíveis a Pagar" };
 
 export default async function CombustiveisAPagarPage({
@@ -59,6 +56,8 @@ export default async function CombustiveisAPagarPage({
     status?: string;
     de?: string;
     ate?: string;
+    descDe?: string;
+    descAte?: string;
     q?: string;
     erro?: string;
     ordem?: string;
@@ -83,7 +82,7 @@ export default async function CombustiveisAPagarPage({
   // função em conciliacao.ts.
   const semConta = await combustiveisNoExtratoSemConta();
 
-  const { postoId, status, de: deParam, ate: ateParam, q, erro, ordem, dir, pagina, porPagina } = await searchParams;
+  const { postoId, status, de: deParam, ate: ateParam, descDe, descAte, q, erro, ordem, dir, pagina, porPagina } = await searchParams;
   const { de, ate, padrao } = padraoDeDatas(deParam, ateParam, "hoje");
   const postoIds = paraLista(postoId);
   const busca = q?.trim();
@@ -97,14 +96,7 @@ export default async function CombustiveisAPagarPage({
         combustivel: true,
         paga: false,
         ...emLista("postoId", postoIds),
-        ...(de || ate
-          ? {
-              dataVencimento: {
-                ...(de ? { gte: dataUTC(de) } : {}),
-                ...(ate ? { lte: dataUTC(ate) } : {}),
-              },
-            }
-          : {}),
+        ...filtroDatasCombustivel({ de, ate, descDe, descAte }),
         // Campo "Descrição" aqui é o que noutros módulos chamamos assim —
         // não confundir com o campo Observação (esse não existe em
         // Combustíveis a Pagar, pedido da usuária).
@@ -129,11 +121,11 @@ export default async function CombustiveisAPagarPage({
     .filter((c) => !status || c.status === status);
 
   const total = contasComStatus.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
-  const qsExportar = new URLSearchParams(Object.entries({ de, ate }).filter(([, v]) => v) as [string, string][]);
+  const qsExportar = new URLSearchParams(Object.entries({ de, ate, descDe, descAte }).filter(([, v]) => v) as [string, string][]);
   anexarLista(qsExportar, "postoId", postoIds);
-  const temFiltro = Boolean(postoIds.length || status || de || ate || busca);
+  const temFiltro = Boolean(postoIds.length || status || de || ate || descDe || descAte || busca);
   const qsAtualParams = new URLSearchParams(
-    Object.entries({ status, de, ate, q: busca }).filter(([, v]) => v) as [string, string][]
+    Object.entries({ status, de, ate, descDe, descAte, q: busca }).filter(([, v]) => v) as [string, string][]
   );
   anexarLista(qsAtualParams, "postoId", postoIds);
   const qsAtual = qsAtualParams.toString();
@@ -164,7 +156,7 @@ export default async function CombustiveisAPagarPage({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/combustiveis-a-pagar/relatorio"
+            href={`/combustiveis-a-pagar/relatorio?${qsExportar.toString()}`}
             className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >
             Relatório (PDF)
@@ -284,6 +276,18 @@ export default async function CombustiveisAPagarPage({
             defaultValue={ate ?? ""}
             className={CAMPO}
           />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="descDe" className="text-foreground/60">
+            Descarga de
+          </label>
+          <input id="descDe" type="date" name="descDe" defaultValue={descDe ?? ""} className={CAMPO} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="descAte" className="text-foreground/60">
+            até
+          </label>
+          <input id="descAte" type="date" name="descAte" defaultValue={descAte ?? ""} className={CAMPO} />
         </div>
         <button type="submit" className={BOTAO_PRIMARIO}>
           Filtrar

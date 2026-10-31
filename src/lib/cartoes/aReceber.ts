@@ -195,8 +195,8 @@ export function formatarPeriodoVendas(de: Date, ate: Date): string {
   return de.getTime() === ate.getTime() ? f(de) : `${f(de)} a ${f(ate)}`;
 }
 
-// Blocos da planilha de entrega do dia 01: Crédito, Débito e Outros, com as
-// linhas fixas de cada um (aparecem com "—" quando não há valor).
+// Blocos da planilha de entrega do dia 01: Crédito, Débito e Outros, na ordem das linhas fixas de cada um —
+// só aparecem as adquirentes com valor (e os blocos que sobram com alguma linha).
 export type LinhaBloco = { rotulo: string; bruto: number; de: Date | null; ate: Date | null };
 export type BlocoAReceber = { titulo: "Crédito" | "Débito" | "Outros"; linhas: LinhaBloco[]; total: number };
 export type PostoAReceber = { posto: string; postoId: string; blocos: BlocoAReceber[]; total: number };
@@ -252,9 +252,12 @@ export function agruparEmBlocos(linhas: LinhaAReceber[]): PostoAReceber[] {
         .filter(([chave]) => blocoDoRotulo.get(chave) === titulo && !fixas.includes(acumulado.get(chave)!.rotulo))
         .map(([, v]) => v.rotulo)
         .sort();
-      const linhasBloco = [...fixas, ...extras].map((rotulo) => acumulado.get(`${titulo}|${rotulo}`) ?? { rotulo, bruto: 0, de: null, ate: null });
+      const linhasBloco = [...fixas, ...extras].flatMap((rotulo) => {
+        const linha = acumulado.get(`${titulo}|${rotulo}`);
+        return linha && linha.bruto !== 0 ? [linha] : [];
+      });
       return { titulo, linhas: linhasBloco, total: linhasBloco.reduce((s, x) => s + x.bruto, 0) };
-    });
+    }).filter((b) => b.linhas.length > 0);
     return { posto, postoId, blocos, total: blocos.reduce((s, b) => s + b.total, 0) };
   });
 }

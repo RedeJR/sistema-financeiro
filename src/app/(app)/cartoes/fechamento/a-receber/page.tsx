@@ -167,7 +167,7 @@ export default async function VendasAReceberPage({
                     {bloco.linhas.map((l) => (
                       <tr key={l.rotulo} className="border-t border-black/5 dark:border-white/10">
                         <td className="px-4 py-3">{l.rotulo}</td>
-                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{l.bruto === 0 ? "—" : formatarMoeda(l.bruto)}</td>
+                        <td className="px-4 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.bruto)}</td>
                         <td className="px-4 py-1.5 whitespace-nowrap">{l.de && l.ate ? formatarPeriodoVendas(l.de, l.ate) : ""}</td>
                       </tr>
                     ))}

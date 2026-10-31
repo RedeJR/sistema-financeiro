@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
     "Prazo real (dias)",
     "Taxa cadastrada (%)",
     "Taxa real (%)",
+    "Origem da taxa real",
   ];
   const aoa: (string | number)[][] = [
     [titulo],
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
       l.prazoRealDias ?? "",
       l.semTaxaCadastrada ? "sem cadastro" : (l.taxaCadastradaPct ?? ""),
       l.taxaRealPct ?? "",
+      l.taxaDoCadastro ? "calculada pelo cadastro" : "arquivo da adquirente",
     ]),
   ];
 
@@ -96,6 +98,7 @@ export async function GET(request: NextRequest) {
     { wch: 16 },
     { wch: 18 },
     { wch: 14 },
+    { wch: 24 },
   ];
 
   const workbook = XLSX.utils.book_new();
