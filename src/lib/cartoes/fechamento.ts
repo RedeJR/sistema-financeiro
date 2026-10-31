@@ -2,6 +2,14 @@ import "server-only";
 import { paraLista, emLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { classificarTipoFechamento, ehVendaEmDinheiro, ORDEM_TIPO_FECHAMENTO, type TipoFechamento } from "./normalizar";
+import { MAQUININHAS_COM_VOUCHER } from "./vouchersDuplicados";
+
+// Voucher passado na maquininha (Stone, Rede, PagSeguro...) é da emissora (Pluxee, VR): o fechamento mostra na linha dela,
+// junto com o relatório do próprio voucher, e não na da maquininha.
+function adquirenteDaVenda(t: { adquirente: { nome: string }; tipoVenda: string; bandeira: string | null }): string {
+  const ehVoucherDeMaquininha = MAQUININHAS_COM_VOUCHER.includes(t.adquirente.nome) && /^voucher/i.test(t.tipoVenda.trim());
+  return ehVoucherDeMaquininha && (t.bandeira === "PLUXEE" || t.bandeira === "VR") ? t.bandeira : t.adquirente.nome;
+}
 
 export type ModalidadeFechamento = TipoFechamento;
 
@@ -31,23 +39,36 @@ export async function buscarFechamentoCartoes(params: {
   const { postoId, adquirenteId, dataInicio, dataFim } = params;
   const postoIds = paraLista(postoId);
 
+  // Com adquirente escolhida, traz também os vouchers de maquininha que pertencem a ela (se for Pluxee/VR).
+  const filtrada = adquirenteId ? await prisma.adquirenteCartao.findUnique({ where: { id: adquirenteId }, select: { nome: true } }) : null;
   const transacoes = await prisma.transacaoCartao.findMany({
     where: {
       dataVenda: { gte: dataInicio, lte: dataFim },
       ...emLista("postoId", postoIds),
-      ...(adquirenteId ? { adquirenteId } : {}),
+      ...(adquirenteId
+        ? {
+            OR: [
+              { adquirenteId },
+              ...(filtrada && ["PLUXEE", "VR"].includes(filtrada.nome)
+                ? [{ adquirente: { nome: { in: MAQUININHAS_COM_VOUCHER } }, tipoVenda: { startsWith: "voucher", mode: "insensitive" as const }, bandeira: filtrada.nome }]
+                : []),
+            ],
+          }
+        : {}),
     },
     include: { adquirente: true, posto: true },
   });
 
   const grupos = new Map<string, LinhaFechamento>();
   for (const t of transacoes) {
-    const modalidade = classificarTipoFechamento(t.tipoVenda, t.adquirente.nome);
-    const chave = `${t.postoId}|${t.adquirenteId}|${modalidade}`;
+    const adquirenteNome = adquirenteDaVenda(t);
+    if (filtrada && adquirenteNome !== filtrada.nome) continue; // voucher de maquininha que foi pra linha da emissora
+    const modalidade = classificarTipoFechamento(t.tipoVenda, adquirenteNome);
+    const chave = `${t.postoId}|${adquirenteNome}|${modalidade}`;
     const grupo = grupos.get(chave) ?? {
       posto: t.posto.nome,
       postoId: t.postoId,
-      adquirente: t.adquirente.nome,
+      adquirente: adquirenteNome,
       modalidade,
       qtd: 0,
       totalBruto: 0,

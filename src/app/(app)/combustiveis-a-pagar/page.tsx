@@ -190,113 +190,108 @@ export default async function CombustiveisAPagarPage({
       </p>
 
       {semConta.length > 0 && (
-        <div className="space-y-1.5 rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 dark:border-amber-900 dark:bg-amber-950/40">
-          {semConta.map((l) => (
-            <p key={l.id} className="text-sm text-amber-800 dark:text-amber-400">
-              ⚠️ {formatarData(l.data)} — saiu {formatarMoeda(Math.abs(l.valor).toString())} do{" "}
-              {l.bancoNome} do posto {l.postoNome} como Combustíveis, mas não tem nenhuma Combustível a
-              Pagar vinculada.{" "}
-              <Link
-                href={`/extratos/conciliacao?${new URLSearchParams({
-                  postoId: l.postoId,
-                  bancoId: l.bancoId,
-                  de: l.data.toISOString().slice(0, 10),
-                  ate: l.data.toISOString().slice(0, 10),
-                }).toString()}`}
-                className="underline"
-              >
-                Ver no extrato
-              </Link>
-            </p>
-          ))}
-        </div>
+        <details className="group rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 px-5 py-3">
+            <span>
+              ⚠️ {semConta.length} saída{semConta.length === 1 ? "" : "s"} de Combustíveis no extrato sem Combustível a Pagar vinculada — total{" "}
+              <strong>{formatarMoeda(semConta.reduce((s, l) => s + Math.abs(l.valor), 0).toString())}</strong>.
+            </span>
+            <span className="font-medium underline group-open:hidden">Ver mais</span>
+            <span className="hidden font-medium underline group-open:inline">Ver menos</span>
+          </summary>
+          <div className="overflow-x-auto border-t border-amber-300/70 px-5 pb-3 pt-1 dark:border-amber-900">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-amber-900/70 dark:text-amber-400/70">
+                  <th className="py-2 pr-4 font-medium">Data</th>
+                  <th className="py-2 pr-4 font-medium">Posto</th>
+                  <th className="py-2 pr-4 font-medium">Banco</th>
+                  <th className="py-2 pr-4 text-right font-medium">Valor</th>
+                  <th className="py-2 text-right font-medium">Extrato</th>
+                </tr>
+              </thead>
+              <tbody>
+                {semConta.map((l) => (
+                  <tr key={l.id} className="border-t border-amber-300/50 dark:border-amber-900/60">
+                    <td className="py-1.5 pr-4 whitespace-nowrap">{formatarData(l.data)}</td>
+                    <td className="py-1.5 pr-4">{l.postoNome}</td>
+                    <td className="py-1.5 pr-4">{l.bancoNome}</td>
+                    <td className="py-1.5 pr-4 text-right whitespace-nowrap">{formatarMoeda(Math.abs(l.valor).toString())}</td>
+                    <td className="py-1.5 text-right whitespace-nowrap">
+                      <Link
+                        href={`/extratos/conciliacao?${new URLSearchParams({
+                          postoId: l.postoId,
+                          bancoId: l.bancoId,
+                          de: l.data.toISOString().slice(0, 10),
+                          ate: l.data.toISOString().slice(0, 10),
+                        }).toString()}`}
+                        className="underline"
+                      >
+                        Ver no extrato
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
 
       {padrao && <AvisoPadraoDia modo="hoje" dia={de!} />}
-      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="q" className="text-foreground/60">
-            Buscar
-          </label>
-          <input
-            id="q"
-            type="text"
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Fornecedor ou descrição"
-            className={`${CAMPO} min-w-[14rem]`}
-          />
+      <form className={`${CARTAO} space-y-4 px-5 py-4 text-sm`}>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex min-w-[14rem] flex-1 flex-col gap-1">
+            <label htmlFor="q" className="text-foreground/60">
+              Buscar
+            </label>
+            <input id="q" type="text" name="q" defaultValue={q ?? ""} placeholder="Fornecedor ou descrição" className={`${CAMPO} w-full`} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="postoId" className="text-foreground/60">
+              Posto
+            </label>
+            <SeletorDropdown nome="postoId" rotuloTodos="Todos os postos" selecionados={postoIds} itens={postos.map((p) => ({ id: p.id, nome: p.nome }))} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="status" className="text-foreground/60">
+              Status
+            </label>
+            <select id="status" name="status" defaultValue={status ?? ""} className={CAMPO}>
+              <option value="">Todos</option>
+              <option value="A_VENCER">A vencer</option>
+              <option value="VENCIDA">Vencida</option>
+            </select>
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="postoId" className="text-foreground/60">
-            Posto
-          </label>
-          <SeletorDropdown
-            nome="postoId"
-            rotuloTodos="Todos os postos"
-            selecionados={postoIds}
-            itens={postos.map((p) => ({ id: p.id, nome: p.nome }))}
-          />
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-foreground/60">Vencimento</span>
+            <div className="flex items-center gap-2">
+              <input id="de" type="date" name="de" aria-label="Vencimento de" defaultValue={de ?? ""} className={CAMPO} />
+              <span className="text-foreground/50">até</span>
+              <input id="ate" type="date" name="ate" aria-label="Vencimento até" defaultValue={ate ?? ""} className={CAMPO} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-foreground/60">Descarga</span>
+            <div className="flex items-center gap-2">
+              <input id="descDe" type="date" name="descDe" aria-label="Descarga de" defaultValue={descDe ?? ""} className={CAMPO} />
+              <span className="text-foreground/50">até</span>
+              <input id="descAte" type="date" name="descAte" aria-label="Descarga até" defaultValue={descAte ?? ""} className={CAMPO} />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <button type="submit" className={BOTAO_PRIMARIO}>
+              Filtrar
+            </button>
+            {temFiltro && (
+              <Link href="/combustiveis-a-pagar" className="text-foreground/60 underline">
+                Limpar filtros
+              </Link>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="status" className="text-foreground/60">
-            Status
-          </label>
-          <select
-            id="status"
-            name="status"
-            defaultValue={status ?? ""}
-            className={CAMPO}
-          >
-            <option value="">Todos</option>
-            <option value="A_VENCER">A vencer</option>
-            <option value="VENCIDA">Vencida</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="de" className="text-foreground/60">
-            Vencimento de
-          </label>
-          <input
-            id="de"
-            type="date"
-            name="de"
-            defaultValue={de ?? ""}
-            className={CAMPO}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="ate" className="text-foreground/60">
-            até
-          </label>
-          <input
-            id="ate"
-            type="date"
-            name="ate"
-            defaultValue={ate ?? ""}
-            className={CAMPO}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="descDe" className="text-foreground/60">
-            Descarga de
-          </label>
-          <input id="descDe" type="date" name="descDe" defaultValue={descDe ?? ""} className={CAMPO} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="descAte" className="text-foreground/60">
-            até
-          </label>
-          <input id="descAte" type="date" name="descAte" defaultValue={descAte ?? ""} className={CAMPO} />
-        </div>
-        <button type="submit" className={BOTAO_PRIMARIO}>
-          Filtrar
-        </button>
-        {temFiltro && (
-          <Link href="/combustiveis-a-pagar" className="self-center text-foreground/60 underline">
-            Limpar filtros
-          </Link>
-        )}
       </form>
 
       <section aria-label="Resumo" className="flex flex-wrap gap-4">
