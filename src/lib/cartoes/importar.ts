@@ -4,6 +4,7 @@ import { PARSERS, detectarAdquirente } from "./parsers";
 import { encontrarPostoPorCnpj, encontrarPostoPorFragmento } from "./postos";
 import type { ArquivoEntrada } from "./tipos";
 import { calcularAjusteAntecipacao } from "./antecipacao";
+import { prazoParaDataPagamento } from "./normalizar";
 import { aplicarGuiasVr, ehArquivoGuiasVr } from "./guiasVr";
 import { MAQUININHAS_COM_VOUCHER, postoQueJaTemAsMesmasVendas, removerVouchersDuplicadosDasMaquininhas } from "./vouchersDuplicados";
 
@@ -326,6 +327,42 @@ export async function importarTransacoesCartao(params: {
         for (const d of dados) {
           const pct = (definicao.nomeExibicao === "PLUXEE" && d.bandeira === "GIFT" ? pctGiftPorPosto.get(d.postoId) : undefined) ?? pctPorPosto.get(d.postoId);
           if (pct === undefined) continue;
+          const taxa = Math.round(Number(d.valorBruto) * pct) / 100;
+          d.taxaRs = taxa.toFixed(2);
+          d.valorLiquido = (Number(d.valorBruto) - taxa).toFixed(2);
+        }
+      }
+
+      // Stone: o arquivo de vendas não traz data de pagamento, e o leitor assume crédito em D+2. Posto com crédito à
+      // vista cadastrado em prazo longo e sem antecipação automática (ex: Goodbye, D+30) recebe o crédito no prazo
+      // do cadastro — conferido com o arquivo de recebíveis da Stone (vencimento original = venda + 30 dias). O
+      // crédito pré-pago segue em D+2.
+      if (definicao.nomeExibicao === "STONE") {
+        const cadastrosPrazo = await prisma.taxaCartao.findMany({
+          where: { adquirenteId: adquirente.id, antecipacaoAutomatica: false, prazoCreditoVistaDias: { gte: 15 }, postoId: { in: [...new Set(dados.map((d) => d.postoId))] } },
+          select: { postoId: true, prazoCreditoVistaDias: true },
+        });
+        const prazoPorPostoStone = new Map(cadastrosPrazo.map((c) => [c.postoId, c.prazoCreditoVistaDias]));
+        for (const d of dados) {
+          const prazo = prazoPorPostoStone.get(d.postoId);
+          if (prazo && /^cr[eé]dito$/i.test(d.tipoVenda.trim())) d.dataPagamento = prazoParaDataPagamento(d.dataVenda, prazo);
+        }
+      }
+
+      // Voucher passado na maquininha (Stone, PagSeguro, Rede): quem cobra a taxa é a emissora do voucher (a
+      // "bandeira" da venda: PLUXEE ou VR), então vale a taxa dela cadastrada pro posto. Gift do Pluxee usa a taxa
+      // própria (Crédito à vista no cadastro); o resto, a do Combustível (Débito).
+      if (MAQUININHAS_COM_VOUCHER.includes(definicao.nomeExibicao)) {
+        const emissoras = await prisma.taxaCartao.findMany({
+          where: { adquirente: { nome: { in: ["PLUXEE", "VR"] } }, postoId: { in: [...new Set(dados.map((d) => d.postoId))] } },
+          select: { postoId: true, taxaDebito: true, taxaCreditoVista: true, adquirente: { select: { nome: true } } },
+        });
+        const taxaEmissora = new Map(emissoras.map((e) => [`${e.postoId}|${e.adquirente.nome}`, e]));
+        for (const d of dados) {
+          if (!/^voucher/i.test(d.tipoVenda.trim()) || (d.bandeira !== "PLUXEE" && d.bandeira !== "VR")) continue;
+          const e = taxaEmissora.get(`${d.postoId}|${d.bandeira}`);
+          const pct = d.bandeira === "PLUXEE" && /gift/i.test(d.tipoVenda) && e?.taxaCreditoVista != null ? Number(e.taxaCreditoVista) : e?.taxaDebito != null ? Number(e.taxaDebito) : null;
+          if (pct === null) continue;
           const taxa = Math.round(Number(d.valorBruto) * pct) / 100;
           d.taxaRs = taxa.toFixed(2);
           d.valorLiquido = (Number(d.valorBruto) - taxa).toFixed(2);
