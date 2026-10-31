@@ -260,6 +260,32 @@ export async function importarTransacoesCartao(params: {
         });
       }
 
+      // Premmia: o mesmo código de venda sai com a hora deslocada em 3h entre exportações (fuso), e como a hora
+      // faz parte do identificador a venda entrava duas vezes (visto nos vales de setembro). Quando já existe
+      // venda do mesmo posto com o mesmo código, dia, valor e tipo, não entra de novo, seja qual for a hora.
+      if (definicao.nomeExibicao === "PREMMIA" && dados.length > 0) {
+        const semHora = (identificador: string | null): string | null => {
+          if (!identificador) return null;
+          const [codigo, dia, , valor, tipo] = identificador.split("|");
+          return codigo && dia && valor !== undefined && tipo !== undefined ? `${codigo}|${dia}|${valor}|${tipo}` : null;
+        };
+        const dias = dados.map((d) => d.dataVenda.getTime());
+        const existentes = await prisma.transacaoCartao.findMany({
+          where: {
+            adquirenteId: adquirente.id,
+            postoId: { in: [...new Set(dados.map((d) => d.postoId))] },
+            dataVenda: { gte: new Date(Math.min(...dias)), lte: new Date(Math.max(...dias)) },
+          },
+          select: { postoId: true, identificadorExterno: true },
+        });
+        const jaTem = new Set(existentes.map((e) => `${e.postoId}|${semHora(e.identificadorExterno)}`));
+        const idsExatos = new Set(existentes.map((e) => `${e.postoId}|${e.identificadorExterno}`));
+        dados = dados.filter((d) => {
+          const chave = semHora(d.identificadorExterno);
+          return chave === null || !jaTem.has(`${d.postoId}|${chave}`) || idsExatos.has(`${d.postoId}|${d.identificadorExterno}`);
+        });
+      }
+
       // Relatório de vendas sem líquido (Pluxee, VR): o parser deixa
       // líquido = bruto; aqui aplica a taxa cadastrada pro posto em Taxas de
       // Cartão (campo Débito, único usado por adquirente voucher).
