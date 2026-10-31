@@ -382,7 +382,7 @@ export const ROTULO_TIPO_FECHAMENTO: Record<TipoFechamento, string> = {
 export function classificarTipoFechamento(tipoVenda: string, adquirenteNome: string): TipoFechamento {
   if (adquirenteNome === "SAQPAY") return "SAQUE_PIX";
   if (["PLUXEE", "VR", "ALELO", "NAIP", "SODEXO"].includes(adquirenteNome)) return "VOUCHER";
-  if (["ABASTECE AÍ", "SEM PARAR", "PREMMIA"].includes(adquirenteNome)) return "APLICATIVO";
+  if (["ABASTECE AÍ", "SEM PARAR", "PREMMIA", "BARATÃO"].includes(adquirenteNome)) return "APLICATIVO";
   // Voucher capturado na maquininha (sem relatório próprio): Rede/Stone/PagSeguro "voucher ...", Cielo "Auto".
   if (/voucher/i.test(tipoVenda) || (adquirenteNome === "CIELO" && tipoVenda === "Auto")) return "VOUCHER";
   return classificarModalidadeVenda(tipoVenda, adquirenteNome);

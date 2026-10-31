@@ -206,9 +206,9 @@ export async function aplicarGuiasVr(params: { nomeArquivo: string; buffer: Buff
     });
   }
 
-  // Venda sem guia e sem líquido: usa a proporção do produto.
+  // Venda sem guia e sem líquido (tenha ou não data de pagamento definida): usa a proporção do produto.
   for (const v of vendas) {
-    if (comGuiaLiquido.has(v.id) || v.valorLiquido !== null || !novaData.has(v.id)) continue;
+    if (comGuiaLiquido.has(v.id) || v.valorLiquido !== null) continue;
     const p = proporcaoPorProduto.get(chaveProduto(v.tipoVenda));
     if (p === undefined) continue;
     const liquido = Math.round(Number(v.valorBruto) * p * 100) / 100;

@@ -63,8 +63,7 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
       horaVenda,
       tipoVenda,
       valorBruto,
-      taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna),
-      valorLiquido,
+      ...taxaELiquido(tipoVenda, valorBruto, valorLiquido, taxaColuna),
       dataPagamento: prazoDias !== null ? prazoParaDataPagamento(dataVenda, prazoDias) : null,
       identificadorExterno: identificadorComposto(nsu, dataVenda, horaVenda, valorBruto, tipoVenda),
     });
@@ -108,6 +107,13 @@ function parseRedecardCsv(arq: ArquivoEntrada): LinhaTransacao[] {
   if (linhas.length === 0) return [];
   const [cabecalho, ...resto] = linhas;
   return extrairLinhas(cabecalho, resto);
+}
+
+// Voucher passado na Rede ("recebimento pela bandeira") vem sem valor líquido: o repasse é o valor cheio, sem
+// taxa da Rede (igual aos vouchers da PagSeguro e da Stone). Sem isso a venda fica fora do líquido e das taxas.
+function taxaELiquido(tipoVenda: string, valorBruto: string, valorLiquido: string | null, taxaColuna: string | null) {
+  if (valorLiquido === null && /^voucher/i.test(tipoVenda.trim())) return { taxaRs: "0.00", valorLiquido: valorBruto };
+  return { taxaRs: calcularTaxaRs(valorBruto, valorLiquido, taxaColuna), valorLiquido };
 }
 
 export async function parseRedecard(arq: ArquivoEntrada): Promise<LinhaTransacao[]> {
