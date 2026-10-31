@@ -72,6 +72,34 @@ export default async function RelatorioCombustiveisAPagarPage({
         {periodoDescarga && <> · descarga {periodoDescarga}</>}
       </p>
 
+      {postos.length > 0 && (
+        <table className="w-full border-collapse text-sm [break-inside:avoid]">
+          <thead>
+            <tr className="bg-black/[0.06]">
+              <th className="px-2 py-1.5 text-left text-[13px] font-semibold uppercase">Resumo por posto</th>
+              <th className="px-2 py-1.5 text-right font-medium">Contas</th>
+              <th className="px-2 py-1.5 text-right font-medium">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {postos.map((p) => (
+              <tr key={p.nome} className="border-b border-black/10">
+                <td className="px-2 py-1.5">{p.nome}</td>
+                <td className="px-2 py-1.5 text-right">{p.contas.length}</td>
+                <td className="px-2 py-1.5 text-right">{formatarMoeda(p.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-black/30 font-semibold">
+              <td className="px-2 py-2">Total geral</td>
+              <td className="px-2 py-2 text-right">{contas.length}</td>
+              <td className="px-2 py-2 text-right">{formatarMoeda(total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+
       {postos.map((p) => (
         <table key={p.nome} className="w-full border-collapse text-sm [break-inside:avoid]">
           <thead>
@@ -116,34 +144,6 @@ export default async function RelatorioCombustiveisAPagarPage({
           </tfoot>
         </table>
       ))}
-
-      {postos.length > 0 && (
-        <table className="w-full border-collapse text-sm [break-inside:avoid]">
-          <thead>
-            <tr className="bg-black/[0.06]">
-              <th className="px-2 py-1.5 text-left text-[13px] font-semibold uppercase">Resumo por posto</th>
-              <th className="px-2 py-1.5 text-right font-medium">Contas</th>
-              <th className="px-2 py-1.5 text-right font-medium">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {postos.map((p) => (
-              <tr key={p.nome} className="border-b border-black/10">
-                <td className="px-2 py-1.5">{p.nome}</td>
-                <td className="px-2 py-1.5 text-right">{p.contas.length}</td>
-                <td className="px-2 py-1.5 text-right">{formatarMoeda(p.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-black/30 font-semibold">
-              <td className="px-2 py-2">Total geral</td>
-              <td className="px-2 py-2 text-right">{contas.length}</td>
-              <td className="px-2 py-2 text-right">{formatarMoeda(total)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      )}
 
       {postos.length === 0 && <p className="py-10 text-center text-sm text-foreground/50">Nenhum combustível a pagar nesse filtro.</p>}
     </div>
