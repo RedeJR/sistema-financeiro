@@ -65,7 +65,7 @@ export async function buscarVendasAReceber(params: {
 
   const [grupos, semData, postos, adquirentes] = await Promise.all([
     prisma.transacaoCartao.groupBy({
-      by: ["postoId", "adquirenteId", "tipoVenda"],
+      by: ["postoId", "adquirenteId", "tipoVenda", "bandeira"],
       where,
       _count: { _all: true },
       _sum: { valorBruto: true, valorLiquido: true },
@@ -73,7 +73,7 @@ export async function buscarVendasAReceber(params: {
       _max: { dataVenda: true },
     }),
     prisma.transacaoCartao.groupBy({
-      by: ["postoId", "adquirenteId", "tipoVenda"],
+      by: ["postoId", "adquirenteId", "tipoVenda", "bandeira"],
       where: { ...where, dataPagamento: null },
       _count: { _all: true },
     }),
@@ -83,18 +83,25 @@ export async function buscarVendasAReceber(params: {
 
   const nomePosto = new Map(postos.map((p) => [p.id, p.nome]));
   const nomeAdquirente = new Map(adquirentes.map((a) => [a.id, a.nome]));
-  const semDataPorChave = new Map(semData.map((s) => [`${s.postoId}|${s.adquirenteId}|${s.tipoVenda}`, s._count._all]));
+  const semDataPorChave = new Map(semData.map((s) => [`${s.postoId}|${s.adquirenteId}|${s.tipoVenda}|${s.bandeira ?? ""}`, s._count._all]));
+  const idPorNome = new Map(adquirentes.map((a) => [a.nome, a.id]));
 
   const linhas = new Map<string, LinhaAReceber>();
   for (const g of grupos) {
     if (ehVendaEmDinheiro(g.tipoVenda)) continue;
-    const adquirente = nomeAdquirente.get(g.adquirenteId) ?? g.adquirenteId;
+    const nomeMaquina = nomeAdquirente.get(g.adquirenteId) ?? g.adquirenteId;
+    // Voucher passado na maquininha (Stone, Rede...) é da emissora (Pluxee, VR): vai pra linha dela, e não pra
+    // "débito" da maquininha (o voucher não é pago pela Stone no prazo do débito).
+    const ehVoucherDeMaquininha =
+      MAQUININHAS_COM_VOUCHER.includes(nomeMaquina) && /^voucher/i.test(g.tipoVenda.trim()) && (g.bandeira === "PLUXEE" || g.bandeira === "VR") && idPorNome.has(g.bandeira);
+    const adquirente = ehVoucherDeMaquininha ? g.bandeira! : nomeMaquina;
+    const adquirenteId = ehVoucherDeMaquininha ? idPorNome.get(g.bandeira!)! : g.adquirenteId;
     const modalidade = classificarModalidadeVenda(g.tipoVenda, adquirente);
-    const chave = `${g.postoId}|${g.adquirenteId}|${modalidade}`;
+    const chave = `${g.postoId}|${adquirenteId}|${modalidade}`;
     const de = g._min.dataVenda!;
     const ate = g._max.dataVenda!;
     const atual = linhas.get(chave);
-    const semDataGrupo = semDataPorChave.get(`${g.postoId}|${g.adquirenteId}|${g.tipoVenda}`) ?? 0;
+    const semDataGrupo = semDataPorChave.get(`${g.postoId}|${g.adquirenteId}|${g.tipoVenda}|${g.bandeira ?? ""}`) ?? 0;
     if (!atual) {
       linhas.set(chave, {
         posto: nomePosto.get(g.postoId) ?? g.postoId,
