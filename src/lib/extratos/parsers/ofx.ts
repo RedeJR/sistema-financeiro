@@ -85,6 +85,9 @@ function extrairCampo(bloco: string, tag: string): string | null {
 
 // "20260801120000[-3:BRT]" ou só "20260801" -> Date em meia-noite UTC.
 function parseDataOfx(dtposted: string): Date | null {
+  // PagSeguro manda a data do saldo (DTASOF) como "31/10/2026", fora do padrão OFX.
+  const br = dtposted.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (br) return new Date(Date.UTC(Number(br[3]), Number(br[2]) - 1, Number(br[1])));
   const digitos = dtposted.match(/^(\d{4})(\d{2})(\d{2})/);
   if (!digitos) return null;
   const [, ano, mes, dia] = digitos;
@@ -96,7 +99,8 @@ function parseDataOfx(dtposted: string): Date | null {
 // spec, mas é o que o arquivo real tem. Se tiver vírgula, trata como decimal
 // BR (ponto vira separador de milhar, removido antes); senão usa como veio.
 function parseValorOfx(trnamt: string): number {
-  let s = trnamt.trim();
+  // PagSeguro manda o saldo com símbolo da moeda ("R$ 3.535,70").
+  let s = trnamt.replace(/R\$|\s/g, "");
   if (s.includes(",")) {
     s = s.replace(/\./g, "").replace(",", ".");
   }
