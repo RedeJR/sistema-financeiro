@@ -261,13 +261,14 @@ export default async function FechamentoPage({
             </form>
           )}
 
+          {/* No papel só o saldo final calculado (o saldo inicial já está no cabeçalho); o resto fica só na tela. */}
           <section aria-label="Resumo do mês" className="fech-resumo flex flex-wrap gap-3">
-            <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
+            <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3 print:hidden`}>
               <p className="text-[12px] text-foreground/60">Saldo inicial</p>
               <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.saldoInicial)}`}>{formatarMoedaBR(resultado.saldoInicial)}</p>
               <p className="mt-1 text-[10.5px] leading-snug text-foreground/50">{resultado.saldoInicialObs}</p>
             </div>
-            <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3`}>
+            <div className={`${CARTAO} min-w-[160px] flex-1 px-4 py-3 print:hidden`}>
               <p className="text-[12px] text-foreground/60">Movimento do mês</p>
               <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.totalGeral + resultado.totalSemCategoria)}`}>
                 {formatarMoedaBR(resultado.totalGeral + resultado.totalSemCategoria)}
@@ -283,7 +284,7 @@ export default async function FechamentoPage({
               <p className={`mt-1 text-xl font-bold tabular-nums ${classeValor(resultado.saldoFinal)}`}>{formatarMoedaBR(resultado.saldoFinal)}</p>
             </div>
             <div
-              className={`min-w-[160px] flex-1 rounded-xl border px-4 py-3 ${
+              className={`min-w-[160px] flex-1 rounded-xl border px-4 py-3 print:hidden ${
                 !resultado.saldoBanco
                   ? "border-black/10 bg-white dark:border-white/15 dark:bg-white/[0.03]"
                   : Math.abs(resultado.saldoBanco.diferenca) < 0.005
