@@ -43,12 +43,13 @@ const SITUACAO: Record<Situacao, { texto: string; classe: string }> = {
 export default async function BonificacaoPostecipadaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postoId?: string | string[]; bandeira?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ postoId?: string | string[]; bandeira?: string; de?: string; ate?: string; mes?: string }>;
 }) {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "visualizar");
   const filtros = await searchParams;
   const postoIds = paraLista(filtros.postoId);
   const bandeira = (["IPIRANGA", "VIBRA", "SHELL"] as const).find((b) => b === filtros.bandeira);
+  const mes = /^d{4}-(0[1-9]|1[0-2])$/.test(filtros.mes ?? "") ? filtros.mes : undefined;
 
   const [postos, itens, podeEditar] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -57,6 +58,7 @@ export default async function BonificacaoPostecipadaPage({
       bandeira: bandeira as BandeiraCombustivel | undefined,
       de: filtros.de ? dataUTC(filtros.de) : undefined,
       ate: filtros.ate ? dataUTC(filtros.ate) : undefined,
+      mesRecebimento: mes,
     }),
     podeEditarModulo("COMBUSTIVEIS_A_PAGAR"),
   ]);
@@ -78,7 +80,7 @@ export default async function BonificacaoPostecipadaPage({
   const totalLitros = itens.reduce((s, i) => s + i.litros, 0);
   const totalEsperado = itens.reduce((s, i) => s + i.esperado, 0);
   const totalRecebido = itens.reduce((s, i) => s + (i.recebido ?? 0), 0);
-  const temFiltro = Boolean(postoIds.length || bandeira || filtros.de || filtros.ate);
+  const temFiltro = Boolean(postoIds.length || bandeira || filtros.de || filtros.ate || mes);
 
   const nomesPostos = postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ");
   const periodoFiltro = filtros.de || filtros.ate ? `${filtros.de ? formatarData(dataUTC(filtros.de)) : "início"} a ${filtros.ate ? formatarData(dataUTC(filtros.ate)) : "hoje"}` : "";
@@ -91,6 +93,7 @@ export default async function BonificacaoPostecipadaPage({
         detalhes={[
           { rotulo: "Posto", valor: nomesPostos },
           { rotulo: "Fornecedor", valor: bandeira ? ROTULO_BANDEIRA[bandeira] : "" },
+          { rotulo: "Mês de recebimento", valor: mes ? `${mes.slice(5)}/${mes.slice(0, 4)}` : "" },
           { rotulo: "Período", valor: periodoFiltro },
         ]}
       />
@@ -129,6 +132,12 @@ export default async function BonificacaoPostecipadaPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
+          <label htmlFor="mes" className="text-foreground/60">
+            Mês de recebimento
+          </label>
+          <input id="mes" name="mes" type="month" defaultValue={mes ?? ""} className={CAMPO} />
+        </div>
+        <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">
             Período de
           </label>
@@ -159,6 +168,7 @@ export default async function BonificacaoPostecipadaPage({
               <tr>
                 <th className="px-4 py-2.5 text-left">Posto</th>
                 <th className="px-4 py-2.5 text-left">Período</th>
+                <th className="px-4 py-2.5 text-left">Mês receb.</th>
                 <th className="px-4 py-2.5 text-right">Retorno (R$/L)</th>
                 <th className="px-4 py-2.5 text-right">Litragem</th>
                 <th className="px-4 py-2.5 text-right">Valor</th>
@@ -175,7 +185,7 @@ export default async function BonificacaoPostecipadaPage({
                 return (
                   <Fragment key={g.bandeira}>
                     <tr className="border-t border-black/10 bg-black/[0.04] dark:border-white/10 dark:bg-white/[0.06]">
-                      <td colSpan={11} className="px-4 py-2 text-[13px] font-bold tracking-wide uppercase">
+                      <td colSpan={12} className="px-4 py-2 text-[13px] font-bold tracking-wide uppercase">
                         {ROTULO_BANDEIRA[g.bandeira]}
                       </td>
                     </tr>
@@ -185,6 +195,7 @@ export default async function BonificacaoPostecipadaPage({
                   <td className="px-4 py-3 whitespace-nowrap">
                     {formatarData(b.periodoDe)} a {formatarData(b.periodoAte)}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap">{b.mesRecebimento ? `${b.mesRecebimento.slice(5)}/${b.mesRecebimento.slice(0, 4)}` : "—"}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(b.retornoPorLitro, 4)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(b.litros)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">{formatarMoeda(b.esperado)}</td>
@@ -231,7 +242,7 @@ export default async function BonificacaoPostecipadaPage({
                 </tr>
                     ))}
                     <tr className="border-t border-black/10 bg-black/[0.02] font-semibold dark:border-white/10">
-                      <td className="px-4 py-2" colSpan={3}>
+                      <td className="px-4 py-2" colSpan={4}>
                         Subtotal {ROTULO_BANDEIRA[g.bandeira]}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">{formatarNumero(sub.litros)}</td>
@@ -247,7 +258,7 @@ export default async function BonificacaoPostecipadaPage({
             </tbody>
             <tfoot>
               <tr className="border-t border-black/10 bg-[#DCE7FA] font-bold dark:border-white/10 dark:bg-blue-950/40">
-                <td className="px-4 py-3" colSpan={3}>
+                <td className="px-4 py-3" colSpan={4}>
                   Total
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">{formatarNumero(totalLitros)}</td>

@@ -24,6 +24,7 @@ const schema = z
     postoId: z.string().trim().min(1, "Escolha um posto."),
     periodoDe: data("Início do período"),
     periodoAte: data("Fim do período"),
+    mesRecebimento: z.string().trim().regex(/^d{4}-(0[1-9]|1[0-2])$/, "Escolha o mês de recebimento."),
     retornoPorLitro: z
       .string()
       .trim()
@@ -80,6 +81,7 @@ function ler(formData: FormData) {
     postoId: formData.get("postoId"),
     periodoDe: formData.get("periodoDe"),
     periodoAte: formData.get("periodoAte"),
+    mesRecebimento: formData.get("mesRecebimento"),
     retornoPorLitro: formData.get("retornoPorLitro"),
     litros: formData.get("litros"),
     valor: formData.get("valor"),

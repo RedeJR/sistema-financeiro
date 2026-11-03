@@ -36,6 +36,7 @@ export default async function EditarBonificacaoPage({ params }: { params: Promis
           postoId: b.postoId,
           periodoDe: paraDataInput(b.periodoDe),
           periodoAte: paraDataInput(b.periodoAte),
+          mesRecebimento: b.mesRecebimento ?? "",
           retornoPorLitro: Number(b.retornoPorLitro).toFixed(4).replace(".", ","),
           litros: Number(b.litros).toFixed(2).replace(".", ","),
           valor: Number(b.valor).toFixed(2).replace(".", ","),

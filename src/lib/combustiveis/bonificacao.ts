@@ -32,6 +32,7 @@ export type BonificacaoConciliada = {
   posto: string;
   periodoDe: Date;
   periodoAte: Date;
+  mesRecebimento: string | null; // "AAAA-MM"
   retornoPorLitro: number; // R$ por litro
   litros: number;
   esperado: number;
@@ -102,11 +103,12 @@ export function alocar(bonificacoes: BonifBase[], itens: OrigemBonificacao[]): M
   return resultado;
 }
 
-export async function conciliarBonificacoes(filtro: { postoIds?: string[]; bandeira?: BandeiraCombustivel; de?: Date; ate?: Date }): Promise<BonificacaoConciliada[]> {
+export async function conciliarBonificacoes(filtro: { postoIds?: string[]; bandeira?: BandeiraCombustivel; de?: Date; ate?: Date; mesRecebimento?: string }): Promise<BonificacaoConciliada[]> {
   const itens = await prisma.bonificacaoPostecipada.findMany({
     where: {
       ...(filtro.postoIds?.length ? { postoId: { in: filtro.postoIds } } : {}),
       ...(filtro.bandeira ? { bandeira: filtro.bandeira } : {}),
+      ...(filtro.mesRecebimento ? { mesRecebimento: filtro.mesRecebimento } : {}),
       // período da bonificação que encosta no intervalo pedido
       ...(filtro.ate ? { periodoDe: { lte: filtro.ate } } : {}),
       ...(filtro.de ? { periodoAte: { gte: filtro.de } } : {}),
@@ -171,6 +173,7 @@ export async function conciliarBonificacoes(filtro: { postoIds?: string[]; bande
       posto: b.posto.nome,
       periodoDe: b.periodoDe,
       periodoAte: b.periodoAte,
+      mesRecebimento: b.mesRecebimento,
       retornoPorLitro: Number(b.retornoPorLitro),
       litros: Number(b.litros),
       esperado,

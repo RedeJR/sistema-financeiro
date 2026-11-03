@@ -14,6 +14,7 @@ type Valores = {
   postoId: string;
   periodoDe: string;
   periodoAte: string;
+  mesRecebimento: string;
   retornoPorLitro: string;
   litros: string;
   valor: string;
@@ -36,6 +37,11 @@ function paraNumero(texto: string): number | null {
   if (limpo === "") return null;
   const n = Number(limpo);
   return Number.isNaN(n) ? null : n;
+}
+
+// Mês de hoje no Brasil ("AAAA-MM") — sugestão inicial do campo.
+function mesAtual(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 7);
 }
 
 function calcular(retorno: string, litros: string): string {
@@ -125,6 +131,14 @@ function CorpoFormulario({ v, postos, erro }: { v: Partial<Valores> | undefined;
             <input id="periodoAte" name="periodoAte" type="date" defaultValue={v?.periodoAte} required className={campoTexto} />
           </div>
         </div>
+      </div>
+
+      <div className="flex max-w-xs flex-col gap-1">
+        <label htmlFor="mesRecebimento" className="text-sm font-medium text-foreground/80">
+          Mês de recebimento
+        </label>
+        <input id="mesRecebimento" name="mesRecebimento" type="month" defaultValue={v?.mesRecebimento ?? mesAtual()} required className={campoTexto} />
+        <span className="text-xs text-foreground/50">Mês em que a bonificação entra na conta. É por ele que o relatório filtra e imprime.</span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
