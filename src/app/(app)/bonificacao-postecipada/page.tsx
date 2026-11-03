@@ -49,7 +49,7 @@ export default async function BonificacaoPostecipadaPage({
   const filtros = await searchParams;
   const postoIds = paraLista(filtros.postoId);
   const bandeira = (["IPIRANGA", "VIBRA", "SHELL"] as const).find((b) => b === filtros.bandeira);
-  const mes = /^d{4}-(0[1-9]|1[0-2])$/.test(filtros.mes ?? "") ? filtros.mes : undefined;
+  const mes = /^\d{4}-(0[1-9]|1[0-2])$/.test(filtros.mes ?? "") ? filtros.mes : undefined;
 
   const [postos, itens, podeEditar] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),

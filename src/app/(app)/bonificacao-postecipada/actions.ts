@@ -24,7 +24,7 @@ const schema = z
     postoId: z.string().trim().min(1, "Escolha um posto."),
     periodoDe: data("Início do período"),
     periodoAte: data("Fim do período"),
-    mesRecebimento: z.string().trim().regex(/^d{4}-(0[1-9]|1[0-2])$/, "Escolha o mês de recebimento."),
+    mesRecebimento: z.string().trim().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Escolha o mês de recebimento."),
     retornoPorLitro: z
       .string()
       .trim()
