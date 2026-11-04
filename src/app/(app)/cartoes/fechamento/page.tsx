@@ -175,7 +175,7 @@ export default async function FechamentoCartoesPage({
       {linhas && linhas.length > 0 && totalGeral && (
         <div className="space-y-4 print:space-y-1.5">
           {semLiquido.qtd > 0 && (
-            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm print:hidden">
               {semLiquido.qtd} venda(s), {formatarMoeda(semLiquido.bruto)} de bruto, estão sem valor líquido no arquivo (ex: VR) — entram no bruto, mas ficam fora do líquido e das taxas.
             </p>
           )}
