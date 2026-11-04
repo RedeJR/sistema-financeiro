@@ -115,7 +115,7 @@ export const metadata = { title: "Despesas Pagas" };
 export default async function DespesasPagasPage({
   searchParams,
 }: {
-  searchParams: Promise<FiltrosDespesasPagas & { pagina?: string; porPagina?: string }>;
+  searchParams: Promise<FiltrosDespesasPagas & { pagina?: string; porPagina?: string; status?: string }>;
 }) {
   await exigirPermissao("DESPESAS_PAGAS", "visualizar");
   const podeEditarDespesas = await podeEditarModulo("DESPESAS_PAGAS");
@@ -128,6 +128,7 @@ export default async function DespesasPagasPage({
   const padrao = padraoData.padrao;
   const { postoId, postoDono, fornecedorId, planoContaId, bancoId, de, ate, q } = filtros;
   const postoIds = paraLista(postoId);
+  const statusFiltro = (Object.keys(ROTULO_STATUS) as StatusConciliacaoGrupo[]).find((st) => st === filtrosBrutos.status);
 
   // Roda a sugestão automática de conciliação (idempotente) antes de calcular
   // o status dos grupos — sem isso, um extrato importado agorinha mesmo
@@ -169,8 +170,7 @@ export default async function DespesasPagasPage({
   // aviso aqui.
   const diasPendentes = conferenciaDiaria.filter((l) => l.diferenca < -0.005);
 
-  const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
-  const temFiltro = Boolean(postoIds.length || fornecedorId || planoContaId || bancoId || de || ate || q);
+  const temFiltro = Boolean(postoIds.length || fornecedorId || planoContaId || bancoId || de || ate || q || statusFiltro);
   const qsParams = new URLSearchParams(
     Object.entries(filtros).filter(([k, v]) => v && k !== "postoId" && k !== "pagina" && k !== "porPagina") as [string, string][]
   );
@@ -193,20 +193,31 @@ export default async function DespesasPagasPage({
   if (planoContaId) qsRelatorio.append("planoContaId", planoContaId);
   const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
 
-  const grupos = agruparPorDia(contas);
+  const todosGrupos = agruparPorDia(contas);
+  const paraStatus = (gs: GrupoDespesa[]) =>
+    statusConciliacaoPorGrupo(
+      gs
+        .filter((g): g is GrupoDespesa & { bancoId: string } => g.bancoId !== null)
+        .map((g) => ({
+          chave: g.chave,
+          postoId: g.postoId,
+          bancoId: g.bancoId,
+          data: g.data,
+          despesas: g.despesas.map((d) => ({ id: d.id, valor: Number(d.valor) })),
+        }))
+    );
+  // Com filtro de status, o status é calculado pra TODOS os grupos (antes da paginação) e só ficam os do status
+  // escolhido. Grupo sem banco não dá pra comparar com extrato, então conta como "não conciliado".
+  let statusPorChave = statusFiltro ? await paraStatus(todosGrupos) : null;
+  const grupos = statusFiltro
+    ? todosGrupos.filter((g) => (g.bancoId ? statusPorChave!.get(g.chave)?.status : "NAO_CONCILIADO") === statusFiltro)
+    : todosGrupos;
   // Paginação por grupo (dia + posto + banco): 10/25/50 grupos por página.
   const estadoPag = lerParamsLista({ pagina: filtros.pagina, porPagina: filtros.porPagina }, { ordem: "x", dir: "asc" }, ["x"]);
   const pagGrupos = paginar(grupos, estadoPag.pagina, estadoPag.porPagina);
-  const gruposComBanco = pagGrupos.itens.filter((g): g is GrupoDespesa & { bancoId: string } => g.bancoId !== null);
-  const statusPorChave = await statusConciliacaoPorGrupo(
-    gruposComBanco.map((g) => ({
-      chave: g.chave,
-      postoId: g.postoId,
-      bancoId: g.bancoId,
-      data: g.data,
-      despesas: g.despesas.map((d) => ({ id: d.id, valor: Number(d.valor) })),
-    }))
-  );
+  if (!statusPorChave) statusPorChave = await paraStatus(pagGrupos.itens);
+  const despesasMostradas = grupos.flatMap((g) => g.despesas);
+  const totalMostrado = despesasMostradas.reduce((soma, c) => soma + Number(c.valor), 0);
 
   const linkVerMais = (g: GrupoDespesa) => {
     if (!g.bancoId) return null;
@@ -248,11 +259,11 @@ export default async function DespesasPagasPage({
       <section aria-label="Resumo do período" className="flex flex-wrap gap-4">
         <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
           <p className="text-[13px] text-foreground/60">Despesas no período</p>
-          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{contas.length}</p>
+          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{despesasMostradas.length}</p>
         </div>
         <div className={`${CARTAO} min-w-[220px] flex-1 px-5 py-4`}>
           <p className="text-[13px] text-foreground/60">Total pago</p>
-          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{formatarMoeda(total)}</p>
+          <p className="mt-1.5 text-[28px] font-bold tracking-tight">{formatarMoeda(totalMostrado)}</p>
         </div>
       </section>
 
@@ -336,6 +347,17 @@ export default async function DespesasPagasPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
+          <label htmlFor="status" className="text-foreground/60">
+            Status
+          </label>
+          <select id="status" name="status" defaultValue={statusFiltro ?? ""} className={CAMPO}>
+            <option value="">Todos</option>
+            <option value="NAO_CONCILIADO">Não conciliado</option>
+            <option value="DIVERGENTE">Divergente</option>
+            <option value="CONCILIADO">Conciliado</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
           <label htmlFor="de" className="text-foreground/60">
             Pago de
           </label>
@@ -373,7 +395,7 @@ export default async function DespesasPagasPage({
       <div className={`${CARTAO} overflow-x-auto ${grupos.length === 0 ? "hidden" : ""}`}>
        <div className="min-w-[900px]">
         {pagGrupos.itens.map((g) => {
-          const status = g.bancoId ? statusPorChave.get(g.chave)?.status : undefined;
+          const status = g.bancoId ? statusPorChave!.get(g.chave)?.status : undefined;
           const verMais = linkVerMais(g);
           return (
             <div key={g.chave} className="border-t border-black/10 first:border-t-0 dark:border-white/15">
