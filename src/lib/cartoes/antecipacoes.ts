@@ -49,8 +49,12 @@ export async function calcularAjustesAntecipacao(params: {
   postoId?: string | string[];
   dataInicio: Date;
   dataFim: Date;
+  // Se vier, é preenchido com a data de corte de cada posto|adquirente: o último dia de recebimento (data
+  // original de pagamento) que a antecipação atingiu. Vendas a receber usa pra mostrar só o período que
+  // ainda não foi antecipado.
+  cortes?: Map<string, string>;
 }): Promise<AjusteAntecipacao[]> {
-  const { postoId, dataInicio, dataFim } = params;
+  const { postoId, dataInicio, dataFim, cortes } = params;
   const postoIds = paraLista(postoId);
 
   const antecipacoes = await prisma.antecipacaoCartao.findMany({
@@ -114,6 +118,10 @@ export async function calcularAjustesAntecipacao(params: {
     const dias = restante.get(`${a.postoId}|${a.adquirenteId}`)!;
     const tirar = (d: string, fator: number) => {
       const dia = dias.get(d)!;
+      if (cortes && fator > 0.000001) {
+        const chave = `${a.postoId}|${a.adquirenteId}`;
+        if (d > (cortes.get(chave) ?? "")) cortes.set(chave, d);
+      }
       const reducaoLiquido = dia.liquido * fator;
       const reducaoBruto = dia.bruto * fator;
       dia.liquido -= reducaoLiquido;

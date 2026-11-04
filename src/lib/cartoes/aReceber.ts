@@ -140,7 +140,8 @@ export async function buscarVendasAReceber(params: {
     const diaSeguinte = new Date(dataFim);
     diaSeguinte.setUTCDate(diaSeguinte.getUTCDate() + 1);
 
-    const ajustes = await calcularAjustesAntecipacao({ postoId, dataInicio: diaSeguinte, dataFim: doisAnosDepois });
+    const cortes = new Map<string, string>();
+    const ajustes = await calcularAjustesAntecipacao({ postoId, dataInicio: diaSeguinte, dataFim: doisAnosDepois, cortes });
     for (const a of ajustes) {
       if (a.delta >= 0) continue; // só as reduções (dinheiro já antecipado), não o dia do recebimento em si
       if (adquirenteId && a.adquirenteId !== adquirenteId) continue;
@@ -155,6 +156,28 @@ export async function buscarVendasAReceber(params: {
       // Nunca deixa negativo.
       linha.totalLiquido = Math.max(0, linha.totalLiquido + a.delta); // delta já é negativo
       linha.totalBruto = Math.max(0, linha.totalBruto + a.deltaBruto);
+    }
+
+    // Data de corte da antecipação: o período mostrado passa a começar na primeira venda que ainda não foi
+    // antecipada (pagamento depois do último dia atingido pela antecipação), em vez do período inteiro.
+    for (const [k, corte] of cortes) {
+      const [pId, aId] = k.split("|");
+      if (adquirenteId && aId !== adquirenteId) continue;
+      const nome = nomeAdquirente.get(aId) ?? "";
+      const linha = linhas.get(`${pId}|${aId}|CREDITO`) ?? (ehMaquininha(nome) ? undefined : [...linhas.entries()].find(([c]) => c.startsWith(`${pId}|${aId}|`))?.[1]);
+      if (!linha) continue;
+      const restantes = await prisma.transacaoCartao.groupBy({
+        by: ["tipoVenda"],
+        where: { postoId: pId, adquirenteId: aId, dataVenda: { gte: dataInicio, lte: dataFim }, dataPagamento: { gte: new Date(`${corte}T00:00:00.000Z`) } },
+        _min: { dataVenda: true },
+      });
+      const datas = restantes
+        .filter((r) => !ehMaquininha(nome) || classificarModalidadeVenda(r.tipoVenda, nome) === "CREDITO")
+        .map((r) => r._min.dataVenda)
+        .filter((d): d is Date => d !== null);
+      if (datas.length === 0) continue;
+      const primeira = new Date(Math.min(...datas.map((d) => d.getTime())));
+      if (primeira > linha.vendaDe) linha.vendaDe = primeira;
     }
   } else {
     // Vendas cujo pagamento previsto (nominal, do arquivo) cai dentro do
