@@ -38,6 +38,7 @@ model Posto {
   // Empréstimos entre postos: um posto aparece aqui tanto como quem
   // emprestou/recebeu de volta (Origem) quanto como quem tomou emprestado/
   // devolveu (Destino) — ver MovimentacaoEntrePostos.
+  vendasAPrazo                    VendaAPrazo[]
   movimentacoesEntrePostosOrigem  MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosOrigem")
   movimentacoesEntrePostosDestino MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosDestino")
   createdAt                       DateTime                  @default(now())
@@ -453,6 +454,7 @@ model LancamentoExtrato {
   // Ver MovimentacaoEntrePostos acima — listas só porque o Prisma exige o
   // lado reverso da relação nomeada; na prática, no máximo uma movimentação
   // usa esse lançamento como origem e no máximo uma como destino.
+  vendasAPrazo                    VendaAPrazo[]
   movimentacoesEntrePostosOrigem  MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoOrigem")
   movimentacoesEntrePostosDestino MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoDestino")
 
@@ -880,6 +882,30 @@ model BonificacaoPostecipada {
   @@index([postoId, periodoDe])
   @@index([mesRecebimento])
   @@map("bonificacoes_postecipadas")
+}
+
+// Vendas a Prazo: venda de combustível a cliente (frota, empresa) com pagamento depois. A assistente informa o
+// cliente, o período dos abastecimentos, o valor total e a data prevista de pagamento; o sistema liga cada
+// registro ao crédito correspondente no extrato do posto (mesmo valor, perto da data) — ver
+// src/lib/vendasAPrazo/vinculo.ts. Sem vínculo = ainda não recebido (ou recebido e não conciliado).
+model VendaAPrazo {
+  id                String            @id @default(cuid())
+  postoId           String
+  posto             Posto             @relation(fields: [postoId], references: [id], onDelete: Restrict)
+  cliente           String
+  periodoDe         DateTime          @db.Date
+  periodoAte        DateTime          @db.Date
+  valor             Decimal           @db.Decimal(12, 2)
+  dataPagamento     DateTime          @db.Date
+  observacao        String?
+  lancamentoExtratoId String?
+  lancamentoExtrato LancamentoExtrato? @relation(fields: [lancamentoExtratoId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([postoId, dataPagamento])
+  @@index([lancamentoExtratoId])
+  @@map("vendas_a_prazo")
 }
 
 model SaldoBancario {

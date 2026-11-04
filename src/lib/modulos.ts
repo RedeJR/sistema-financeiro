@@ -20,9 +20,9 @@ export const MODULOS: { valor: Modulo; label: string; disponivel: boolean }[] = 
   // CONFERENCIA_CAIXA, abaixo. Mais abas (conciliação venda x extrato)
   // ainda vêm.
   { valor: "CARTOES", label: "Cartões", disponivel: true },
-  // Módulo novo pedido no menu, ainda sem tela — desabilitado até ser
-  // construído numa fase futura.
-  { valor: "VENDAS_A_PRAZO", label: "Vendas a Prazo", disponivel: false },
+  // Venda de combustível a cliente com pagamento depois: cliente, período do abastecimento, valor e data de
+  // pagamento, ligados ao crédito do extrato — ver src/app/(app)/vendas-a-prazo.
+  { valor: "VENDAS_A_PRAZO", label: "Vendas a Prazo", disponivel: true },
   { valor: "FLUXO_DE_CAIXA", label: "Fluxo de Caixa", disponivel: true },
   { valor: "CONFERENCIA_CAIXA", label: "Conferência de Caixa", disponivel: true },
   { valor: "USUARIOS", label: "Usuários", disponivel: true },
