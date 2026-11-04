@@ -16,8 +16,18 @@ import {
   identificadorComposto,
   paraDataHora,
   paraValorDecimal,
+  prazoParaDataPagamento,
   proximoDiaUtil,
 } from "../normalizar";
+
+// Maquininha que ficou em outro posto mas continua cadastrada (EC) no CNPJ de origem: o relatório da Stone traz as
+// vendas dela no CNPJ de origem, então a regra por número de série lança no posto onde ela estava. Vale em
+// qualquer importação (ex: se alguém subir o relatório de novo), e as vendas já lançadas não duplicam.
+// Crédito à vista segue o contrato do EC de origem (30 dias); débito, pix e pré-pago, o prazo normal.
+const MAQUININHAS_EM_OUTRO_POSTO = [
+  // Goodbye -> Oliveira: de 27/10/2026 até a devolução, em 03/11/2026 às 10h03 (última venda).
+  { serie: "XC03025046576", de: "2026-10-27", ate: "2026-11-03", horaAte: "10:03", cnpjPosto: "53060723000142", prazoCreditoDias: 30 },
+];
 
 function prazoPorProduto(produto: string): number {
   const p = produto.toLowerCase();
@@ -52,6 +62,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
   // 100% único (identificadorComposto cobre isso combinando com data/hora/
   // valor/modalidade).
   const iCodigoAutorizacao = idx("CÓDIGO DE AUTORIZAÇÃO");
+  const iSerie = idx("N DE SERIE");
 
   const resultado: LinhaTransacao[] = [];
   for (const linha of linhas.slice(1)) {
@@ -66,8 +77,21 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
     const taxaRs = calcularTaxaRs(valorBruto, valorLiquido, null);
 
     const produto = iProduto >= 0 ? linha[iProduto] || "—" : "—";
-    const postoCnpjSugerido = iDocumento >= 0 ? linha[iDocumento] || undefined : undefined;
+    let postoCnpjSugerido = iDocumento >= 0 ? linha[iDocumento] || undefined : undefined;
     const autorizacao = iCodigoAutorizacao >= 0 ? linha[iCodigoAutorizacao] || "" : "";
+
+    let dataPagamento = proximoDiaUtil(dh.data, prazoPorProduto(produto));
+    const serie = iSerie >= 0 ? (linha[iSerie] ?? "").trim() : "";
+    const emOutroPosto = serie
+      ? MAQUININHAS_EM_OUTRO_POSTO.find((m) => {
+          const dia = dh.data.toISOString().slice(0, 10);
+          return m.serie === serie && dia >= m.de && (dia < m.ate || (dia === m.ate && dh.hora.slice(0, 5) <= m.horaAte));
+        })
+      : undefined;
+    if (emOutroPosto) {
+      postoCnpjSugerido = emOutroPosto.cnpjPosto;
+      if (/^cr[eé]dito$/i.test(produto.trim())) dataPagamento = prazoParaDataPagamento(dh.data, emOutroPosto.prazoCreditoDias);
+    }
 
     resultado.push({
       postoCnpjSugerido,
@@ -78,7 +102,7 @@ export function parseStone(arq: ArquivoEntrada): LinhaTransacao[] {
       valorBruto,
       taxaRs,
       valorLiquido,
-      dataPagamento: proximoDiaUtil(dh.data, prazoPorProduto(produto)),
+      dataPagamento,
       identificadorExterno: identificadorComposto(autorizacao, dh.data, dh.hora, valorBruto, produto),
     });
   }
