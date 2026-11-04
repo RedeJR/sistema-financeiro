@@ -302,7 +302,7 @@ export function FormularioContaAPagar({
           ))}
         </select>
         <p className="text-xs text-foreground/50">
-          Já vem preenchido com o banco padrão do posto (Sinergia = Stone, Lago = Itaú, Aveiro = Banco do Brasil, demais = Bradesco) — troque aqui se for diferente. Na
+          Já vem preenchido com o banco padrão do posto (Sinergia = Stone, Lago = Itaú, Aveiro e Guaipá = Banco do Brasil, demais = Bradesco) — troque aqui se for diferente. Na
           Conferência Diária, vale como banco do pagamento se você não escolher outro.
         </p>
       </div>

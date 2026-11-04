@@ -37,7 +37,7 @@ export async function marcarComoPagas(formData: FormData) {
   // "previsto" = usa o banco escolhido no lançamento de cada conta (ver
   // ContaAPagar.bancoPrevistoId) — agrupa por banco e atualiza um grupo por
   // vez. Conta sem banco previsto usa o padrão do posto que paga (Sinergia =
-  // Stone, Lago = Itaú, Aveiro = Banco do Brasil, demais = Bradesco — ver
+  // Stone, Lago = Itaú, Aveiro e Guaipá = Banco do Brasil, demais = Bradesco — ver
   // banco-padrao-posto.ts); só não paga nada se nem isso existir.
   const porBanco = new Map<string, string[]>();
   if (bancoId === "previsto") {

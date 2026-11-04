@@ -1,5 +1,5 @@
-// Banco padrão de cada posto (regra da usuária, 08/10/2026): Sinergia = Stone,
-// Lago = Itaú, Aveiro = Banco do Brasil, todos os demais = Bradesco. Serve
+// Banco padrão de cada posto (regra da usuária, 08/10/2026; Guaipá em 04/11/2026): Sinergia = Stone,
+// Lago = Itaú, Aveiro e Guaipá = Banco do Brasil, todos os demais = Bradesco. Serve
 // pra já preencher o banco ao lançar uma conta / despesa — ela troca na hora
 // se for diferente. (Antes a sugestão era pelo fornecedor, o que estava errado:
 // o banco depende de qual posto paga, não de quem recebe.)
@@ -7,6 +7,7 @@ const BANCO_POR_POSTO: Record<string, string> = {
   SINERGIA: "STONE",
   LAGO: "ITAÚ",
   AVEIRO: "BANCO DO BRASIL",
+  GUAIPA: "BANCO DO BRASIL", // chave sem acento: normalizar() tira o acento do nome do posto
 };
 const BANCO_PADRAO = "BRADESCO";
 
