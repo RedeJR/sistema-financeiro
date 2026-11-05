@@ -299,6 +299,10 @@ model MovimentacaoEntrePostos {
   contaAPagarId String?
   contaAPagar   ContaAPagar? @relation("AcertoEntrePostosCombustivel", fields: [contaAPagarId], references: [id], onDelete: SetNull)
 
+  // Lançamentos do extrato que a usuária já desvinculou desta movimentação — o vínculo automático não liga
+  // de novo (ver VinculoEntrePostosRejeitado).
+  vinculosRejeitados VinculoEntrePostosRejeitado[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -307,6 +311,23 @@ model MovimentacaoEntrePostos {
   @@index([data])
   @@index([contaAPagarId])
   @@map("movimentacoes_entre_postos")
+}
+
+// Par (movimentação, lançamento do extrato) que a usuária desvinculou à mão. O vínculo automático
+// (rodarVinculoAutomaticoEntrePostos) roda a cada visita à tela e religava o mesmo lançamento toda vez — esse
+// registro faz o automático respeitar a decisão dela. Na tela de Vincular o lançamento continua aparecendo
+// como candidato, se ela quiser ligar de propósito.
+model VinculoEntrePostosRejeitado {
+  id                  String                  @id @default(cuid())
+  movimentacaoId      String
+  movimentacao        MovimentacaoEntrePostos @relation(fields: [movimentacaoId], references: [id], onDelete: Cascade)
+  lancamentoExtratoId String
+  lancamentoExtrato   LancamentoExtrato       @relation(fields: [lancamentoExtratoId], references: [id], onDelete: Cascade)
+  createdAt           DateTime                @default(now())
+
+  @@unique([movimentacaoId, lancamentoExtratoId])
+  @@index([lancamentoExtratoId])
+  @@map("vinculos_entre_postos_rejeitados")
 }
 
 enum StatusConferenciaCaixa {
@@ -457,6 +478,7 @@ model LancamentoExtrato {
   vendasAPrazo                    VendaAPrazo[]
   movimentacoesEntrePostosOrigem  MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoOrigem")
   movimentacoesEntrePostosDestino MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoDestino")
+  vinculosEntrePostosRejeitados   VinculoEntrePostosRejeitado[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

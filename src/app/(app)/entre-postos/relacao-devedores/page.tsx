@@ -1,6 +1,8 @@
 import { formatarMoeda } from "@/lib/dinheiro";
 import { calcularRelacaoDevedores, calcularSaldoLiquidoPorPosto, limitesDoMes } from "@/lib/entrePostos/relatorios";
 import { mesAtualISOBrasil } from "@/lib/datas-padrao";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { BotaoImprimir } from "@/app/(app)/relatorios/botao-imprimir";
 import { CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 export const metadata = { title: "Entre Postos - Relação de devedores" };
@@ -24,12 +26,13 @@ export default async function RelacaoDevedoresPage({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-foreground/60">
+      <CabecalhoImpressao titulo="Entre Postos — Relação de Devedores" detalhes={[{ rotulo: "Mês", valor: nomeMes }]} />
+      <p className="text-sm text-foreground/60 print:hidden">
         Saldo em aberto de cada relação de empréstimo <strong>dentro do mês</strong> — só aparece quem ainda deve, líquido das devoluções do
         mesmo mês. No fechamento os acertos zeram e um novo começa no mês seguinte. Relações quitadas somem daqui sozinhas.
       </p>
 
-      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="mes" className="text-foreground/60">
             Mês
@@ -43,6 +46,9 @@ export default async function RelacaoDevedoresPage({
           Calcular
         </button>
         <p className="text-xs text-foreground/50">Mostrando {nomeMes}.</p>
+        <div className="ml-auto">
+          <BotaoImprimir />
+        </div>
       </form>
 
       {saldosPorPosto.length > 0 && (

@@ -90,13 +90,30 @@ export async function vincularLancamento(params: { movimentacaoId: string; lado:
 
 // Desfaz o vínculo — não mexe na categoria do lançamento (pode ter sido
 // ajustada por outro motivo depois; se a usuária quiser, recategoriza na
-// tela de Editar Extrato como qualquer outra linha).
+// tela de Editar Extrato como qualquer outra linha). Guarda o par desfeito: o vínculo automático roda a cada
+// visita à tela e, sem isso, religava o mesmo lançamento logo em seguida.
 export async function desvincularLancamento(params: { movimentacaoId: string; lado: "origem" | "destino" }) {
   const { movimentacaoId, lado } = params;
-  await prisma.movimentacaoEntrePostos.update({
+  const mov = await prisma.movimentacaoEntrePostos.findUnique({
     where: { id: movimentacaoId },
-    data: lado === "origem" ? { lancamentoExtratoOrigemId: null } : { lancamentoExtratoDestinoId: null },
+    select: { lancamentoExtratoOrigemId: true, lancamentoExtratoDestinoId: true },
   });
+  const lancId = lado === "origem" ? mov?.lancamentoExtratoOrigemId : mov?.lancamentoExtratoDestinoId;
+  await prisma.$transaction([
+    prisma.movimentacaoEntrePostos.update({
+      where: { id: movimentacaoId },
+      data: lado === "origem" ? { lancamentoExtratoOrigemId: null } : { lancamentoExtratoDestinoId: null },
+    }),
+    ...(lancId
+      ? [
+          prisma.vinculoEntrePostosRejeitado.upsert({
+            where: { movimentacaoId_lancamentoExtratoId: { movimentacaoId, lancamentoExtratoId: lancId } },
+            update: {},
+            create: { movimentacaoId, lancamentoExtratoId: lancId },
+          }),
+        ]
+      : []),
+  ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +209,14 @@ export async function rodarVinculoAutomaticoEntrePostos(): Promise<{ vinculos: n
       }
     }
   }
+  // Pares que a usuária já desvinculou à mão: o automático não liga de novo.
+  const rejeitadas = await prisma.vinculoEntrePostosRejeitado.findMany({
+    where: { movimentacaoId: { in: movs.map((m) => m.id) } },
+    select: { movimentacaoId: true, lancamentoExtratoId: true },
+  });
+  const rejeitados = new Set(rejeitadas.map((r) => `${r.movimentacaoId}|${r.lancamentoExtratoId}`));
+  const rejeitado = (s: Slot, lancId: string) => rejeitados.has(`${s.movId}|${lancId}`);
+
   const slotsResolvidos = new Set<Slot>();
   const ligacoes: { slot: Slot; lancId: string }[] = [];
   const recategorizar = new Set<string>();
@@ -214,7 +239,7 @@ export async function rodarVinculoAutomaticoEntrePostos(): Promise<{ vinculos: n
     for (const s of slots) {
       if (slotsResolvidos.has(s)) continue;
       const cands = lancamentos.filter(
-        (l) => !lancsUsados.has(l.id) && l.postoId === s.postoId && Math.abs(l.valor - s.alvo) <= TOLERANCIA && dist(s, l) <= janelaMs
+        (l) => !lancsUsados.has(l.id) && !rejeitado(s, l.id) && l.postoId === s.postoId && Math.abs(l.valor - s.alvo) <= TOLERANCIA && dist(s, l) <= janelaMs
       );
       candidatosDoSlot.set(s, cands);
       for (const l of cands) slotsDoLanc.set(l.id, [...(slotsDoLanc.get(l.id) ?? []), s]);
@@ -266,7 +291,13 @@ export async function rodarVinculoAutomaticoEntrePostos(): Promise<{ vinculos: n
     const sinal = alvo < 0 ? -1 : 1;
     const doDia = () =>
       lancamentos.filter(
-        (l) => l.postoId === postoId && l.categoriaId === categoria.id && !lancsUsados.has(l.id) && Math.sign(l.valor) === sinal && Math.abs(l.data.getTime() - data.getTime()) <= DIA_MS
+        (l) =>
+          l.postoId === postoId &&
+          l.categoriaId === categoria.id &&
+          !lancsUsados.has(l.id) &&
+          !grupo.some((s) => rejeitado(s, l.id)) &&
+          Math.sign(l.valor) === sinal &&
+          Math.abs(l.data.getTime() - data.getTime()) <= DIA_MS
       );
 
     // (a) uma movimentação = vários Pix do banco
