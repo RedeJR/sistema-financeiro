@@ -474,6 +474,11 @@ export default async function DespesasPagasPage({
                                   despesa do posto {c.posto.nome}
                                 </span>
                               )}
+                              {c.totalParcelas ? (
+                                <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs text-foreground/60 dark:bg-white/10">
+                                  parcela {c.numeroParcela}/{c.totalParcelas}
+                                </span>
+                              ) : null}
                               {c.avulsa && (
                                 <span className="rounded-full bg-[#EAF1FF] px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                                   avulsa

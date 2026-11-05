@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     "Plano de Contas",
     "Banco",
     "Nº Documento",
+    "Parcela",
     "Descrição",
     "Valor",
   ];
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
       c.planoConta.nome,
       c.bancoPagamento?.nome ?? "",
       c.numeroDocumento ?? "",
+      c.totalParcelas ? `${c.numeroParcela}/${c.totalParcelas}` : "",
       c.descricao ?? "",
       formatarMoeda(c.valor.toString()),
     ]

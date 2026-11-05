@@ -104,7 +104,14 @@ export async function RelatorioContas({
 
   const linhaTabela = (l: (typeof linhas)[number], i: number) => (
     <tr key={l.id} className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}>
-      <td className="px-3 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
+      <td className="px-3 py-1.5 whitespace-nowrap">
+        {formatarData(l.dataVencimento)}
+        {l.totalParcelas ? (
+          <span className="block text-[11px] text-foreground/50">
+            parcela {l.numeroParcela}/{l.totalParcelas}
+          </span>
+        ) : null}
+      </td>
       <td className="px-3 py-1.5 whitespace-nowrap">
         {l.dataPagamento ? formatarData(l.dataPagamento) : <span className="text-foreground/40">a pagar</span>}
       </td>

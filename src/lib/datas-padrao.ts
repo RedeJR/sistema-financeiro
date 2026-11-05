@@ -30,7 +30,21 @@ export function ultimoDiaUtilISOBrasil(): string {
   return diaNoBrasil(-1);
 }
 
-export type PadraoDatas = { de: string | undefined; ate: string | undefined; padrao: boolean };
+// Primeiro e último dia do mês corrente (no horário de Brasília).
+export function mesAtualISOBrasil(): { de: string; ate: string } {
+  const [a, m] = hojeISOBrasil().split("-").map(Number);
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  const mm = String(m).padStart(2, "0");
+  return { de: `${a}-${mm}-01`, ate: `${a}-${mm}-${String(ultimo).padStart(2, "0")}` };
+}
+
+// Igual a padraoDeDatas, mas o padrão é o mês corrente inteiro (listas que se leem por mês).
+export function padraoDoMes(de: string | undefined, ate: string | undefined): PadraoDatas {
+  if (de === undefined && ate === undefined) return { ...mesAtualISOBrasil(), padrao: true };
+  return { de, ate, padrao: false };
+}
+
+export type PadraoDatas ={ de: string | undefined; ate: string | undefined; padrao: boolean };
 
 export function padraoDeDatas(de: string | undefined, ate: string | undefined, modo: "hoje" | "ontem"): PadraoDatas {
   if (de === undefined && ate === undefined) {

@@ -7,6 +7,7 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { listarMovimentacoes } from "@/lib/entrePostos/relatorios";
 import { rodarVinculoAutomaticoEntrePostos } from "@/lib/entrePostos/vinculo";
+import { padraoDoMes } from "@/lib/datas-padrao";
 import { excluirMovimentacao } from "./actions";
 import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
@@ -30,8 +31,13 @@ export default async function EntrePostosPage({
 }: {
   searchParams: Promise<{ postoId?: string | string[]; de?: string; ate?: string }>;
 }) {
-  const { postoId, de, ate } = await searchParams;
+  const { postoId, de: deUrl, ate: ateUrl } = await searchParams;
   const postoIds = paraLista(postoId);
+  // Sem datas na URL abre no mês corrente (a lista inteira começava lá em outubro e o mês atual ficava no
+  // fim). Quem esvazia as duas datas e filtra vê tudo.
+  const periodo = padraoDoMes(deUrl, ateUrl);
+  const { de, ate } = periodo;
+  const nomeMes = new Date(`${periodo.de}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", month: "long", year: "numeric" });
 
   // Vínculo automático com o extrato (idempotente; só liga o que é 1-pra-1
   // sem dúvida — ver vinculo.ts). Só quem pode editar dispara: visualização
@@ -59,6 +65,13 @@ export default async function EntrePostosPage({
         Todo empréstimo e devolução de dinheiro entre postos, em ordem cronológica. Pra ver quem deve pra quem
         hoje, veja a aba Relação de Devedores.
       </p>
+
+      {periodo.padrao && (
+        <p className="rounded-xl border border-blue-200 bg-[#EEF4FF] px-5 py-2.5 text-[13px] text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
+          Mostrando só <strong className="font-semibold">{nomeMes}</strong>. Mude as datas pra ver outros períodos, ou esvazie as duas e filtre pra ver
+          tudo.
+        </p>
+      )}
 
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
@@ -102,7 +115,7 @@ export default async function EntrePostosPage({
         >
           Filtrar
         </button>
-        {(postoIds.length || de || ate) && (
+        {(postoIds.length || deUrl || ateUrl) && (
           <Link href="/entre-postos" className="self-center text-foreground/60 underline">
             Limpar filtros
           </Link>
