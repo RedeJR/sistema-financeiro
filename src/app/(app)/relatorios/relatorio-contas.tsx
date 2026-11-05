@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
-import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
 import { padraoDeDatas } from "@/lib/datas-padrao";
 import { BOTAO_PRIMARIO, CAMPO, TITULO_PAGINA } from "@/lib/estilo";
@@ -102,15 +101,6 @@ export async function RelatorioContas({
 
   const rotuloDim = (v: string) => DIMENSOES.find((d) => d.valor === v)!.rotulo.split(" (")[0];
   const nomesPostos = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : null;
-  const situacaoImpressa = soPagas
-    ? null
-    : statusPagaMarcado && statusAPagarMarcado
-      ? "Pagas e a pagar"
-      : statusPagaMarcado
-        ? "Pagas"
-        : statusAPagarMarcado
-          ? "A pagar"
-          : "Nenhuma";
 
   const linhaTabela = (l: (typeof linhas)[number], i: number) => (
     <tr key={l.id} className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}>
@@ -153,7 +143,6 @@ export async function RelatorioContas({
 
   return (
     <div className="space-y-6">
-      <OrientacaoImpressao />
       <div className="flex items-center justify-between print:hidden">
         <h1 className={TITULO_PAGINA}>{titulo}</h1>
         <BotaoImprimir />
@@ -161,7 +150,6 @@ export async function RelatorioContas({
       <CabecalhoImpressao
         titulo={soPagas ? "Contas Pagas" : "Relatório de Contas"}
         detalhes={[
-          { rotulo: "Situação", valor: situacaoImpressa },
           { rotulo: pagador ? "Posto (quem pagou)" : "Posto (dono da despesa)", valor: nomesPostos },
           { rotulo: "Vencimento", valor: intervalo(filtros.de, filtros.ate) },
           { rotulo: "Pagamento", valor: intervalo(filtros.pagde, filtros.pagate) },
@@ -283,7 +271,7 @@ export async function RelatorioContas({
           não pode ter largura mínima (a página é mais estreita) — as % do colgroup repartem o que sobrar. */}
       {grupos.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border border-black/10 print:overflow-visible dark:border-white/15">
-          <table className="w-full min-w-[940px] table-fixed text-sm [&_td]:break-words print:min-w-0">
+          <table className="w-full min-w-[940px] table-fixed text-sm [&_td]:break-words print:min-w-0 print:text-[10px] print:[&_td]:px-1.5 print:[&_td]:py-1 print:[&_th]:px-1.5 print:[&_th]:py-1.5">
             <colgroup>
               <col style={{ width: "8%" }} />
               <col style={{ width: "8%" }} />
