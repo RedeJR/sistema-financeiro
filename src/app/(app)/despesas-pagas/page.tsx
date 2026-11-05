@@ -182,15 +182,18 @@ export default async function DespesasPagasPage({
 
   // Relatório unificado (ver /relatorios) — chega de lá já filtrado só pra
   // Pagas (esse módulo), carregando posto/fornecedor/plano de contas que já
-  // estavam aplicados aqui. "de"/"ate" não entra: aqui é data de PAGAMENTO,
-  // lá em /relatorios é data de VENCIMENTO — semântica diferente, carregar
-  // sem avisar confundiria mais do que ajudaria.
+  // estavam aplicados aqui. "Pago de/até" daqui vira o filtro de Pagamento de lá (pagde/pagate), não o de Vencimento.
   const qsRelatorio = new URLSearchParams();
   qsRelatorio.set("status", "PAGA");
   qsRelatorio.set("statusEnviado", "1");
+  // Aqui o posto filtra por quem pagou (a não ser que "buscar pelo dono" esteja marcado) — leva o mesmo critério.
+  if (postoDono !== "1") qsRelatorio.set("postoPagador", "1");
   anexarLista(qsRelatorio, "postoId", postoIds);
   if (fornecedorId) qsRelatorio.append("fornecedorId", fornecedorId);
   if (planoContaId) qsRelatorio.append("planoContaId", planoContaId);
+  // "Pago de/até" daqui é a data de pagamento — o relatório agora tem o mesmo filtro.
+  if (de) qsRelatorio.set("pagde", de);
+  if (ate) qsRelatorio.set("pagate", ate);
   const linkRelatorio = `/relatorios?${qsRelatorio.toString()}`;
 
   const todosGrupos = agruparPorDia(contas);

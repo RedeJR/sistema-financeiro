@@ -130,6 +130,7 @@ export default async function ContasAPagarPage({
   const qsRelatorio = new URLSearchParams();
   qsRelatorio.set("status", "A_PAGAR");
   qsRelatorio.set("statusEnviado", "1");
+  qsRelatorio.set("postoPagador", "1"); // o relatório filtra o posto por quem pagou (padrão de sempre)
   anexarLista(qsRelatorio, "postoId", postoIds);
   if (de) qsRelatorio.set("de", de);
   if (ate) qsRelatorio.set("ate", ate);

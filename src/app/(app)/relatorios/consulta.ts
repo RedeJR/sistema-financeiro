@@ -30,9 +30,13 @@ export type FiltrosRelatorio = {
   postoPagador?: string;
   fornecedorId?: string | string[];
   planoContaId?: string | string[];
-  de?: string;
-  ate?: string;
-  ordem?: string; // "vencimento" (padrão) | "planoConta" | "posto"
+  de?: string; // vencimento de
+  ate?: string; // vencimento até
+  pagde?: string; // data de pagamento de
+  pagate?: string; // data de pagamento até
+  // Agrupamento em até dois níveis: "ordem" é o 1º, "ordem2" o 2º (vazio = só um nível). Valores: ver Dimensao.
+  ordem?: string;
+  ordem2?: string;
 };
 
 export async function buscarRelatorio(filtros: FiltrosRelatorio) {
@@ -77,6 +81,14 @@ export async function buscarRelatorio(filtros: FiltrosRelatorio) {
           dataVencimento: {
             ...(filtros.de ? { gte: dataUTC(filtros.de) } : {}),
             ...(filtros.ate ? { lte: dataUTC(filtros.ate) } : {}),
+          },
+        }
+      : {}),
+    ...(filtros.pagde || filtros.pagate
+      ? {
+          dataPagamento: {
+            ...(filtros.pagde ? { gte: dataUTC(filtros.pagde) } : {}),
+            ...(filtros.pagate ? { lte: dataUTC(filtros.pagate) } : {}),
           },
         }
       : {}),
@@ -149,6 +161,77 @@ export function agruparPorPlanoConta(linhas: LinhaRelatorio[]): GrupoRelatorio[]
   const grupos = [...porPlano.values()];
   for (const g of grupos) g.linhas.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
   return grupos.sort((a, b) => a.ordem - b.ordem || a.titulo.localeCompare(b.titulo));
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Agrupamento em até dois níveis (ex.: Posto > Plano de contas). Usado por Relatórios e Contas Pagas.
+// ---------------------------------------------------------------------------------------------------
+export type Dimensao = "vencimento" | "pagamento" | "planoConta" | "posto";
+
+export const DIMENSOES: { valor: Dimensao; rotulo: string }[] = [
+  { valor: "vencimento", rotulo: "Vencimento (por data)" },
+  { valor: "pagamento", rotulo: "Pagamento (por data paga)" },
+  { valor: "planoConta", rotulo: "Plano de contas" },
+  { valor: "posto", rotulo: "Posto (quem pagou)" },
+];
+
+export function dimensaoDe(v: string | undefined): Dimensao | null {
+  return DIMENSOES.find((d) => d.valor === v)?.valor ?? null;
+}
+
+export type NoRelatorio = {
+  chave: string;
+  titulo: string;
+  subtitulo?: string;
+  quantidade: number;
+  total: number;
+  filhos: NoRelatorio[]; // preenchido quando há um nível abaixo
+  linhas: LinhaRelatorio[]; // preenchido só no último nível
+};
+
+type ChaveGrupo = { chave: string; titulo: string; subtitulo?: string; ordem: number };
+
+function chaveDaDimensao(l: LinhaRelatorio, dim: Dimensao): ChaveGrupo {
+  switch (dim) {
+    case "vencimento":
+      return { chave: l.dataVencimento.toISOString(), titulo: `Vencimento: ${formatarDataGrupo(l.dataVencimento)}`, ordem: l.dataVencimento.getTime() };
+    case "pagamento":
+      return l.dataPagamento
+        ? { chave: l.dataPagamento.toISOString(), titulo: `Pagamento: ${formatarDataGrupo(l.dataPagamento)}`, ordem: l.dataPagamento.getTime() }
+        : { chave: "sem-pagamento", titulo: "Sem pagamento (a pagar)", ordem: Number.MAX_SAFE_INTEGER };
+    case "planoConta":
+      return { chave: l.planoContaId, titulo: l.planoConta.nome, subtitulo: l.planoConta.grupo.nome, ordem: l.planoConta.grupo.ordem };
+    case "posto": {
+      const pagador = l.postoPagamento ?? l.posto;
+      return { chave: pagador.id, titulo: pagador.nome, ordem: 0 };
+    }
+  }
+}
+
+export function agruparEm(linhas: LinhaRelatorio[], dims: Dimensao[]): NoRelatorio[] {
+  if (dims.length === 0) return [];
+  const [dim, ...resto] = dims;
+  const mapa = new Map<string, { k: ChaveGrupo; linhas: LinhaRelatorio[] }>();
+  for (const l of linhas) {
+    const k = chaveDaDimensao(l, dim);
+    const g = mapa.get(k.chave);
+    if (g) g.linhas.push(l);
+    else mapa.set(k.chave, { k, linhas: [l] });
+  }
+  return [...mapa.values()]
+    .sort((a, b) => a.k.ordem - b.k.ordem || a.k.titulo.localeCompare(b.k.titulo))
+    .map(({ k, linhas: ls }) => {
+      const ordenadas = [...ls].sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+      return {
+        chave: k.chave,
+        titulo: k.titulo,
+        subtitulo: k.subtitulo,
+        quantidade: ls.length,
+        total: ls.reduce((s, l) => s + Number(l.valor), 0),
+        filhos: resto.length ? agruparEm(ordenadas, resto) : [],
+        linhas: resto.length ? [] : ordenadas,
+      };
+    });
 }
 
 // Agrupa pelo posto PAGADOR (postoPagamentoId ?? postoId), não pelo dono da
