@@ -1,50 +1,40 @@
 import { formatarMoeda } from "@/lib/dinheiro";
-import { calcularRelacaoDevedores, calcularSaldoLiquidoPorPosto } from "@/lib/entrePostos/relatorios";
+import { calcularRelacaoDevedores, calcularSaldoLiquidoPorPosto, limitesDoMes } from "@/lib/entrePostos/relatorios";
+import { mesAtualISOBrasil } from "@/lib/datas-padrao";
 import { CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
-
-function dataUTC(iso: string): Date {
-  return new Date(`${iso}T23:59:59.999Z`);
-}
 
 export const metadata = { title: "Entre Postos - Relação de devedores" };
 
 export default async function RelacaoDevedoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ate?: string }>;
+  searchParams: Promise<{ mes?: string }>;
 }) {
-  const { ate } = await searchParams;
-  const dataFim = ate ? dataUTC(ate) : undefined;
+  const { mes: mesUrl } = await searchParams;
+  // Os acertos fecham a cada mês: o saldo considera só os movimentos do mês escolhido (padrão: o mês corrente).
+  const mesAtual = mesAtualISOBrasil().de.slice(0, 7);
+  const mes = mesUrl && /^\d{4}-(0[1-9]|1[0-2])$/.test(mesUrl) ? mesUrl : mesAtual;
+  const periodo = limitesDoMes(mes);
+  const nomeMes = new Date(`${mes}-15T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", month: "long", year: "numeric" });
 
-  const [blocos, saldosPorPosto] = await Promise.all([
-    calcularRelacaoDevedores({ dataFim }),
-    calcularSaldoLiquidoPorPosto({ dataFim }),
-  ]);
+  const [blocos, saldosPorPosto] = await Promise.all([calcularRelacaoDevedores(periodo), calcularSaldoLiquidoPorPosto(periodo)]);
 
   const totalGeral = blocos.reduce((s, b) => s + b.total, 0);
   const somaLiquidos = saldosPorPosto.reduce((s, p) => s + p.liquido, 0);
-  const hojeISO = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-foreground/60">
-        Saldo em aberto de cada relação de empréstimo — só aparece quem ainda deve, líquido de todas as
-        devoluções já lançadas. Relações totalmente quitadas somem daqui sozinhas.
+        Saldo em aberto de cada relação de empréstimo <strong>dentro do mês</strong> — só aparece quem ainda deve, líquido das devoluções do
+        mesmo mês. No fechamento os acertos zeram e um novo começa no mês seguinte. Relações quitadas somem daqui sozinhas.
       </p>
 
       <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
         <div className="flex flex-col gap-1">
-          <label htmlFor="ate" className="text-foreground/60">
-            Saldo até
+          <label htmlFor="mes" className="text-foreground/60">
+            Mês
           </label>
-          <input
-            id="ate"
-            type="date"
-            name="ate"
-            defaultValue={ate ?? ""}
-            max={hojeISO}
-            className={CAMPO}
-          />
+          <input id="mes" type="month" name="mes" defaultValue={mes} max={mesAtual} className={CAMPO} />
         </div>
         <button
           type="submit"
@@ -52,7 +42,7 @@ export default async function RelacaoDevedoresPage({
         >
           Calcular
         </button>
-        <p className="text-xs text-foreground/50">Em branco = considera tudo lançado até hoje.</p>
+        <p className="text-xs text-foreground/50">Mostrando {nomeMes}.</p>
       </form>
 
       {saldosPorPosto.length > 0 && (

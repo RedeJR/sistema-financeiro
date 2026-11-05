@@ -8,6 +8,7 @@ import { exigirPermissao } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
 import { valoresDoFormulario, type ActionState } from "@/lib/form-state";
 import { vincularLancamentosCombustivel } from "@/lib/combustiveis/vinculo";
+import { saldoAbertoDoParNoMes } from "@/lib/entrePostos/relatorios";
 
 const ROTA = "/combustiveis-a-pagar";
 
@@ -44,9 +45,10 @@ function revalidar(contaId: string) {
 }
 
 // "Acerto entre postos": o boleto foi quitado por fora do extrato (ex: um terceiro pagou e isso abateu a
-// dívida de um posto com o posto dono da conta). Vira uma DEVOLUÇÃO no Entre Postos — do posto que
-// quitou para o dono do boleto — ligada à conta, e conta como pagamento dela (a conta é dada como paga
-// quando extrato + acertos fecham com o líquido do boleto).
+// dívida de um posto com o posto dono da conta). Vira, no Entre Postos, uma DEVOLUÇÃO (se o posto que quitou
+// devia pro dono do boleto no mês) ou um EMPRÉSTIMO (se não devia) — do posto que quitou para o dono do
+// boleto — ligada à conta, e conta como pagamento dela (a conta é dada como paga quando extrato + acertos
+// fecham com o líquido do boleto).
 export async function registrarAcertoEntrePostos(contaId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   await exigirPermissao("COMBUSTIVEIS_A_PAGAR", "editar");
 
@@ -83,18 +85,35 @@ export async function registrarAcertoEntrePostos(contaId: string, _prev: ActionS
     };
   }
 
+  // O sistema decide se o acerto é DEVOLUÇÃO ou EMPRÉSTIMO olhando o que existe no mês: se o posto que quitou
+  // já devia pro dono do boleto (empréstimo do dono pra ele, ainda não devolvido, no mesmo mês), o acerto
+  // devolve até o saldo da dívida; o que passar disso — ou tudo, se não havia dívida — é um empréstimo novo
+  // do posto que quitou pro dono do boleto (ele pagou com o dinheiro dele). Os acertos zeram a cada mês.
+  const valorAcerto = Number(parsed.data.valor);
+  const saldoDivida = await saldoAbertoDoParNoMes({ credorId: conta.postoId, tomadorId: parsed.data.devedorId, ateData: parsed.data.data });
+  const valorDevolucao = Math.round(Math.min(valorAcerto, Math.max(saldoDivida, 0)) * 100) / 100;
+  const valorEmprestimo = Math.round((valorAcerto - valorDevolucao) * 100) / 100;
+
   const descricaoConta = `${conta.fornecedor.nome}${conta.descricao ? ` — ${conta.descricao}` : ""}`;
-  await prisma.movimentacaoEntrePostos.create({
-    data: {
-      data: parsed.data.data,
-      postoOrigemId: parsed.data.devedorId,
-      postoDestinoId: conta.postoId,
-      valor: parsed.data.valor,
-      tipo: "DEVOLUCAO",
-      observacao: parsed.data.observacao ?? `Acerto — boleto de combustível (${descricaoConta})`,
-      contaAPagarId: contaId,
-    },
-  });
+  const base = {
+    data: parsed.data.data,
+    postoOrigemId: parsed.data.devedorId,
+    postoDestinoId: conta.postoId,
+    contaAPagarId: contaId,
+  };
+  const obs = (rotulo: string) => parsed.data.observacao ?? `Acerto — boleto de combustível (${descricaoConta}) — ${rotulo}`;
+  const criar = [];
+  if (valorDevolucao > 0) {
+    criar.push(prisma.movimentacaoEntrePostos.create({ data: { ...base, valor: valorDevolucao.toFixed(2), tipo: "DEVOLUCAO", observacao: obs("devolução") } }));
+  }
+  if (valorEmprestimo > 0) {
+    criar.push(
+      prisma.movimentacaoEntrePostos.create({
+        data: { ...base, valor: valorEmprestimo.toFixed(2), tipo: "EMPRESTIMO", observacao: obs("empréstimo (sem dívida em aberto no mês)") },
+      })
+    );
+  }
+  await prisma.$transaction(criar);
   await vincularLancamentosCombustivel({ contaId, lancamentoIds: [] }); // recalcula a baixa
 
   revalidar(contaId);

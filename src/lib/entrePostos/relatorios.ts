@@ -72,10 +72,43 @@ export type SaldoPorPar = {
 
 const TOLERANCIA = 0.01;
 
-export async function calcularSaldoPorPar(params: { dataFim?: Date } = {}): Promise<SaldoPorPar[]> {
-  const { dataFim } = params;
+export type PeriodoSaldo = { dataInicio?: Date; dataFim?: Date };
+
+// Primeiro dia e último dia (23:59:59.999Z) de um mês "YYYY-MM". Os acertos entre postos fecham a cada mês:
+// no fechamento o saldo zera e um novo começa no mês seguinte, então a relação de devedores só considera
+// os movimentos do próprio mês.
+export function limitesDoMes(mes: string): { dataInicio: Date; dataFim: Date } {
+  const [a, m] = mes.split("-").map(Number);
+  return { dataInicio: new Date(Date.UTC(a, m - 1, 1)), dataFim: new Date(Date.UTC(a, m, 0, 23, 59, 59, 999)) };
+}
+
+// Saldo em aberto, dentro do mês de `ateData` e até essa data, do par (credor, tomador): empréstimos do credor
+// pro tomador menos devoluções do tomador pro credor. Usado pelo acerto de combustível pra decidir se o
+// pagamento é uma devolução (existe dívida) ou um novo empréstimo.
+export async function saldoAbertoDoParNoMes(params: { credorId: string; tomadorId: string; ateData: Date }): Promise<number> {
+  const { credorId, tomadorId, ateData } = params;
+  const inicio = new Date(Date.UTC(ateData.getUTCFullYear(), ateData.getUTCMonth(), 1));
   const movs = await prisma.movimentacaoEntrePostos.findMany({
-    where: dataFim ? { data: { lte: dataFim } } : {},
+    where: {
+      data: { gte: inicio, lte: ateData },
+      OR: [
+        { tipo: "EMPRESTIMO", postoOrigemId: credorId, postoDestinoId: tomadorId },
+        { tipo: "DEVOLUCAO", postoOrigemId: tomadorId, postoDestinoId: credorId },
+      ],
+    },
+    select: { tipo: true, valor: true },
+  });
+  const saldo = movs.reduce((s, m) => s + (m.tipo === "EMPRESTIMO" ? 1 : -1) * Number(m.valor), 0);
+  return Math.round(saldo * 100) / 100;
+}
+
+export async function calcularSaldoPorPar(params: PeriodoSaldo = {}): Promise<SaldoPorPar[]> {
+  const { dataInicio, dataFim } = params;
+  const movs = await prisma.movimentacaoEntrePostos.findMany({
+    where:
+      dataInicio || dataFim
+        ? { data: { ...(dataInicio ? { gte: dataInicio } : {}), ...(dataFim ? { lte: dataFim } : {}) } }
+        : {},
     include: { postoOrigem: { select: { nome: true } }, postoDestino: { select: { nome: true } } },
   });
 
@@ -119,7 +152,7 @@ export type BlocoDevedor = {
 
 // Só relações com saldo em aberto (> 1 centavo) — quitadas não aparecem,
 // igual à planilha da usuária ("Relação de Devedores").
-export async function calcularRelacaoDevedores(params: { dataFim?: Date } = {}): Promise<BlocoDevedor[]> {
+export async function calcularRelacaoDevedores(params: PeriodoSaldo = {}): Promise<BlocoDevedor[]> {
   const pares = await calcularSaldoPorPar(params);
   const emAberto = pares.filter((p) => p.saldoAberto > TOLERANCIA);
 
@@ -146,7 +179,7 @@ export type SaldoLiquidoPosto = {
 // cada par onde o posto é credor menos onde é tomador. Serve de conferência
 // rápida: a soma de todos os líquidos deve dar zero (cada real emprestado em
 // aberto é, ao mesmo tempo, crédito de um posto e débito de outro).
-export async function calcularSaldoLiquidoPorPosto(params: { dataFim?: Date } = {}): Promise<SaldoLiquidoPosto[]> {
+export async function calcularSaldoLiquidoPorPosto(params: PeriodoSaldo = {}): Promise<SaldoLiquidoPosto[]> {
   const pares = await calcularSaldoPorPar(params);
   const emAberto = pares.filter((p) => p.saldoAberto > TOLERANCIA);
 

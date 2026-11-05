@@ -70,11 +70,11 @@ export default async function AcertoEntrePostosPage({ params }: { params: Promis
           {conta.acertosEntrePostos.map((m) => (
             <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/15">
               <span>
-                {formatarData(m.data)} — <strong>{m.postoOrigem.nome}</strong> quitou {formatarMoeda(Number(m.valor))} (devolução para {conta.posto.nome})
+                {formatarData(m.data)} — <strong>{m.postoOrigem.nome}</strong> quitou {formatarMoeda(Number(m.valor))} ({m.tipo === "DEVOLUCAO" ? "devolução" : "empréstimo"} para {conta.posto.nome})
               </span>
               <form action={desfazerAcertoEntrePostos}>
                 <input type="hidden" name="movimentacaoId" value={m.id} />
-                <ConfirmSubmitButton confirmMessage="Desfazer esse acerto? A devolução some do Entre Postos e a conta volta a ficar em aberto se faltar valor.">
+                <ConfirmSubmitButton confirmMessage="Desfazer esse acerto? O lançamento some do Entre Postos e a conta volta a ficar em aberto se faltar valor.">
                   Desfazer
                 </ConfirmSubmitButton>
               </form>
@@ -87,8 +87,9 @@ export default async function AcertoEntrePostosPage({ params }: { params: Promis
         <>
           <p className="max-w-xl text-sm text-foreground/60">
             Use quando o boleto foi quitado por fora do extrato (por exemplo, um terceiro pagou e isso abateu a dívida de um posto com o dono
-            do boleto). O sistema registra uma <strong>devolução</strong> no Entre Postos, do posto que quitou para <strong>{conta.posto.nome}</strong>, e dá o
-            boleto como pago quando extrato + acertos fecham o valor.
+            do boleto). O sistema olha o Entre Postos <strong>do mês</strong>: se o posto que quitou devia para <strong>{conta.posto.nome}</strong>, registra uma{" "}
+            <strong>devolução</strong> (até o valor da dívida); o que passar disso, ou tudo se não havia dívida, entra como <strong>empréstimo</strong> dele para{" "}
+            {conta.posto.nome}. O boleto é dado como pago quando extrato + acertos fecham o valor.
           </p>
           <FormularioAcerto
             postos={postos.filter((p) => p.id !== conta.postoId)}
