@@ -104,14 +104,7 @@ export async function RelatorioContas({
 
   const linhaTabela = (l: (typeof linhas)[number], i: number) => (
     <tr key={l.id} className={`border-t border-black/5 dark:border-white/10 ${i % 2 === 1 ? "bg-black/[0.015] dark:bg-white/[0.02]" : ""}`}>
-      <td className="px-3 py-1.5 whitespace-nowrap">
-        {formatarData(l.dataVencimento)}
-        {l.totalParcelas ? (
-          <span className="block text-[11px] text-foreground/50">
-            parcela {l.numeroParcela}/{l.totalParcelas}
-          </span>
-        ) : null}
-      </td>
+      <td className="px-3 py-1.5 whitespace-nowrap">{formatarData(l.dataVencimento)}</td>
       <td className="px-3 py-1.5 whitespace-nowrap">
         {l.dataPagamento ? formatarData(l.dataPagamento) : <span className="text-foreground/40">a pagar</span>}
       </td>
@@ -123,6 +116,7 @@ export async function RelatorioContas({
       <td className="px-3 py-1.5 text-foreground/70">
         {l.planoConta.grupo.nome} / {l.planoConta.nome}
       </td>
+      <td className="px-3 py-1.5 text-center whitespace-nowrap text-foreground/70">{l.totalParcelas ? `${l.numeroParcela}/${l.totalParcelas}` : ""}</td>
       <td className="px-3 py-1.5 text-foreground/70">{l.descricao ?? "—"}</td>
       <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatarMoeda(l.valor.toString())}</td>
     </tr>
@@ -137,7 +131,7 @@ export async function RelatorioContas({
     return (
       <Fragment key={no.chave}>
         <tr className={estilo}>
-          <td className={`py-2.5 pr-3 ${nivel === 0 ? "pl-3" : "pl-8"}`} colSpan={6}>
+          <td className={`py-2.5 pr-3 ${nivel === 0 ? "pl-3" : "pl-8"}`} colSpan={7}>
             {no.subtitulo ? `${no.subtitulo} / ${no.titulo}` : no.titulo} — {no.quantidade} conta{no.quantidade === 1 ? "" : "s"}
           </td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatarMoeda(no.total)}</td>
@@ -282,9 +276,10 @@ export async function RelatorioContas({
             <colgroup>
               <col style={{ width: "8%" }} />
               <col style={{ width: "8%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "19%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "5%" }} />
               <col />
               <col style={{ width: "10%" }} />
             </colgroup>
@@ -295,6 +290,7 @@ export async function RelatorioContas({
                 <th className="px-3 py-2.5 text-left">Posto</th>
                 <th className="px-3 py-2.5 text-left">Fornecedor</th>
                 <th className="px-3 py-2.5 text-left">Plano de contas</th>
+                <th className="px-3 py-2.5 text-center">Parc.</th>
                 <th className="px-3 py-2.5 text-left">Descrição</th>
                 <th className="px-3 py-2.5 text-right">Valor</th>
               </tr>
