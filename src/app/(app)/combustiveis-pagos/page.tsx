@@ -6,6 +6,8 @@ import { formatarMoeda } from "@/lib/dinheiro";
 import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { padraoDeDatas } from "@/lib/datas-padrao";
 import { AvisoPadraoDia } from "@/components/ui/aviso-padrao-dia";
+import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
+import { BotaoImprimir } from "@/app/(app)/relatorios/botao-imprimir";
 
 function formatarData(d: Date | null): string {
   return d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
@@ -60,12 +62,26 @@ export default async function CombustiveisPagosPage({
 
   const total = contas.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
   const temFiltro = Boolean(postoIds.length || fornecedorIds.length || de || ate);
+  const nomesPostos = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : null;
+  const nomesFornecedores = fornecedorIds.length ? fornecedores.filter((f) => fornecedorIds.includes(f.id)).map((f) => f.nome).join(", ") : null;
+  const dataBR = (iso?: string) => (iso ? iso.split("-").reverse().join("/") : null);
 
   return (
     <div className="space-y-6">
-      <h1 className={TITULO_PAGINA}>Combustíveis Pagos</h1>
+      <div className="flex items-center justify-between print:hidden">
+        <h1 className={TITULO_PAGINA}>Combustíveis Pagos</h1>
+        <BotaoImprimir />
+      </div>
+      <CabecalhoImpressao
+        titulo="Combustíveis Pagos"
+        detalhes={[
+          { rotulo: "Posto", valor: nomesPostos },
+          { rotulo: "Fornecedor", valor: nomesFornecedores },
+          { rotulo: "Pago em", valor: de || ate ? `${dataBR(de) ?? "início"} a ${dataBR(ate) ?? "sem limite"}` : null },
+        ]}
+      />
 
-      <p className="text-sm text-foreground/60">
+      <p className="text-sm text-foreground/60 print:hidden">
         Combustíveis já baixados pela conciliação automática — ver{" "}
         <Link href="/combustiveis-a-pagar" className="underline">
           Combustíveis a Pagar
@@ -74,7 +90,7 @@ export default async function CombustiveisPagosPage({
       </p>
 
       {padrao && <AvisoPadraoDia modo="ontem" dia={de!} />}
-      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm`}>
+      <form className={`${CARTAO} flex flex-wrap items-end gap-4 px-5 py-4 text-sm print:hidden`}>
         <div className="flex flex-col gap-1">
           <label htmlFor="postoId" className="text-foreground/60">
             Posto
