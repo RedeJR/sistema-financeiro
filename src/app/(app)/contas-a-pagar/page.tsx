@@ -357,7 +357,7 @@ export default async function ContasAPagarPage({
                       <form action={excluirContaAPagar}>
                         <input type="hidden" name="id" value={c.id} />
                         <ConfirmSubmitButton
-                          confirmMessage={`Excluir essa conta a pagar (${c.fornecedor.nome}, ${formatarMoeda(c.valor.toString())})? Essa ação não pode ser desfeita.`}
+                          confirmMessage={`Excluir essa conta a pagar (${c.fornecedor.nome}, ${formatarMoeda(c.valor.toString())})? Essa ação não pode ser desfeita.${c.recorrente ? " Como a conta é recorrente, se ela for a última da série a recorrência é encerrada e não volta mais." : ""}`}
                         >
                           Excluir
                         </ConfirmSubmitButton>

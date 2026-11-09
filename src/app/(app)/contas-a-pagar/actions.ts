@@ -358,10 +358,38 @@ export async function atualizarContaAPagar(
   redirect(destinoAposSalvar(formData));
 }
 
+// Despesa recorrente: o gerador (recorrencia.ts) recria, a cada visita à tela, as ocorrências que faltam depois
+// da ÚLTIMA existente. Por isso excluir as últimas ocorrências as fazia voltar sozinhas, e não havia como
+// encerrar uma série (nem desfazer uma série duplicada). Agora, se o que foi excluído era o final da série,
+// a série é encerrada: o que sobrou deixa de ser recorrente e nada mais é gerado. Excluir uma ocorrência do
+// meio não encerra nada.
+async function encerrarRecorrenciaSeExcluiuAFinal(excluidas: { grupoRecorrenciaId: string | null; dataVencimento: Date }[]) {
+  const maisRecente = new Map<string, Date>();
+  for (const c of excluidas) {
+    if (!c.grupoRecorrenciaId) continue;
+    const atual = maisRecente.get(c.grupoRecorrenciaId);
+    if (!atual || c.dataVencimento > atual) maisRecente.set(c.grupoRecorrenciaId, c.dataVencimento);
+  }
+  for (const [grupoRecorrenciaId, dataExcluida] of maisRecente) {
+    const ultimaQueSobrou = await prisma.contaAPagar.findFirst({
+      where: { grupoRecorrenciaId, recorrente: true },
+      orderBy: { dataVencimento: "desc" },
+      select: { dataVencimento: true },
+    });
+    if (ultimaQueSobrou && ultimaQueSobrou.dataVencimento < dataExcluida) {
+      await prisma.contaAPagar.updateMany({ where: { grupoRecorrenciaId, recorrente: true }, data: { recorrente: false } });
+    }
+  }
+}
+
 export async function excluirContaAPagar(formData: FormData) {
   await exigirPermissao("CONTAS_A_PAGAR", "editar");
   const id = formData.get("id");
   if (typeof id !== "string") return;
+  const antes = await prisma.contaAPagar.findFirst({
+    where: { id, paga: false, recorrente: true },
+    select: { grupoRecorrenciaId: true, dataVencimento: true },
+  });
   // paga: false no filtro em vez de checar antes — contas já pagas ficam
   // travadas pra exclusão por aqui (desfaz o pagamento em Despesas Pagas
   // pra poder mexer de novo).
@@ -369,6 +397,7 @@ export async function excluirContaAPagar(formData: FormData) {
   if (count === 0) {
     redirect(`${ROTA}?erro=ja-paga`);
   }
+  if (antes) await encerrarRecorrenciaSeExcluiuAFinal([antes]);
   revalidatePath(ROTA);
 }
 
@@ -376,6 +405,11 @@ export async function excluirContasEmMassa(formData: FormData) {
   await exigirPermissao("CONTAS_A_PAGAR", "editar");
   const ids = formData.getAll("ids").filter((v): v is string => typeof v === "string");
   if (ids.length === 0) return;
+  const antes = await prisma.contaAPagar.findMany({
+    where: { id: { in: ids }, paga: false, recorrente: true },
+    select: { grupoRecorrenciaId: true, dataVencimento: true },
+  });
   await prisma.contaAPagar.deleteMany({ where: { id: { in: ids }, paga: false } });
+  if (antes.length > 0) await encerrarRecorrenciaSeExcluiuAFinal(antes);
   revalidatePath(ROTA);
 }
