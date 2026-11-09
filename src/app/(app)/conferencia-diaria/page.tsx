@@ -135,14 +135,17 @@ export default async function ConferenciaDiariaPage({
     prisma.banco.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
   ]);
 
-  const total = contas.reduce((soma, c) => soma + Number(c.valor), 0);
+  // Valor a pagar = valor do boleto menos o desconto (só Combustíveis a Pagar tem desconto; nas demais contas
+  // é sempre 0). É o líquido que sai do banco e o que a conciliação compara com o extrato.
+  const liquidoDe = (c: { valor: { toString(): string }; desconto: { toString(): string } }) => Number(c.valor) - Number(c.desconto);
+  const total = contas.reduce((soma, c) => soma + liquidoDe(c), 0);
 
   // Lembrete: contas ainda não pagas que venceram ANTES do período mostrado.
   const vencidasAntes = deEfetivo
     ? await prisma.contaAPagar.aggregate({
         where: { paga: false, ...emLista("postoId", postoIds), dataVencimento: { lt: dataUTC(deEfetivo) } },
         _count: { _all: true },
-        _sum: { valor: true },
+        _sum: { valor: true, desconto: true },
       })
     : null;
   const qtdVencidasAntes = vencidasAntes?._count._all ?? 0;
@@ -165,7 +168,7 @@ export default async function ConferenciaDiariaPage({
     fornecedor: (c) => c.fornecedor.nome,
     plano: (c) => `${c.planoConta.grupo.nome} / ${c.planoConta.nome}`,
     banco: (c) => c.bancoPrevisto?.nome ?? nomeBancoPadraoDoPosto(c.posto.nome),
-    valor: (c) => Number(c.valor),
+    valor: (c) => liquidoDe(c),
   });
   const pag = paginar(contasOrdenadas, estado.pagina, estado.porPagina);
   const qsPaginacao = new URLSearchParams(qsAtual);
@@ -186,7 +189,7 @@ export default async function ConferenciaDiariaPage({
         <p className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
           <strong className="font-semibold">Atenção:</strong> {qtdVencidasAntes} conta{qtdVencidasAntes === 1 ? "" : "s"} já
           vencida{qtdVencidasAntes === 1 ? "" : "s"} antes de {formatarData(dataUTC(deEfetivo!))} e ainda não paga
-          {qtdVencidasAntes === 1 ? "" : "s"} ({formatarMoeda(Number(vencidasAntes?._sum.valor ?? 0))}).{" "}
+          {qtdVencidasAntes === 1 ? "" : "s"} ({formatarMoeda(Number(vencidasAntes?._sum.valor ?? 0) - Number(vencidasAntes?._sum.desconto ?? 0))}).{" "}
           <Link href={`/conferencia-diaria?${qsVencidas.toString()}`} className="font-semibold underline">
             Ver vencidas
           </Link>
@@ -436,7 +439,14 @@ export default async function ConferenciaDiariaPage({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right">{formatarMoeda(c.valor.toString())}</td>
+                  <td className="px-4 py-2 text-right">
+                    {formatarMoeda(liquidoDe(c))}
+                    {Number(c.desconto) > 0 && (
+                      <span className="block text-xs whitespace-nowrap text-foreground/50">
+                        boleto {formatarMoeda(c.valor.toString())} − desconto {formatarMoeda(c.desconto.toString())}
+                      </span>
+                    )}
+                  </td>
                   {podeEditar && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
                       <BotaoVerDescricao id={c.id} descricao={c.descricao} />
