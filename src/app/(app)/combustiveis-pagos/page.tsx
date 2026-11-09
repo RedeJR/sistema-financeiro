@@ -54,13 +54,19 @@ export default async function CombustiveisPagosPage({
           : {}),
       },
       include: { posto: true, fornecedor: true, acertosEntrePostos: { include: { postoOrigem: true } } },
-      orderBy: { dataPagamento: "desc" },
+      orderBy: [{ posto: { nome: "asc" } }, { dataPagamento: "asc" }, { dataDescarga: "asc" }],
     }),
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
     prisma.fornecedor.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
   ]);
 
-  const total = contas.reduce((soma, c) => soma + Number(c.valor) - Number(c.desconto), 0);
+  const liquido = (c: (typeof contas)[number]) => Number(c.valor) - Number(c.desconto);
+  // Agrupado por posto, cada um com a sua soma (mesma regra do relatório de Combustíveis a Pagar).
+  const porPosto = [...new Set(contas.map((c) => c.posto.nome))].map((nome) => {
+    const doPosto = contas.filter((c) => c.posto.nome === nome);
+    return { nome, contas: doPosto, total: doPosto.reduce((s, c) => s + liquido(c), 0) };
+  });
+  const total = porPosto.reduce((s, p) => s + p.total, 0);
   const temFiltro = Boolean(postoIds.length || fornecedorIds.length || de || ate);
   const nomesPostos = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : null;
   const nomesFornecedores = fornecedorIds.length ? fornecedores.filter((f) => fornecedorIds.includes(f.id)).map((f) => f.nome).join(", ") : null;
@@ -150,58 +156,107 @@ export default async function CombustiveisPagosPage({
         )}
       </form>
 
+
       <p className="text-sm text-foreground/60">
-        {contas.length} conta{contas.length === 1 ? "" : "s"} — total {formatarMoeda(total)}
+        {contas.length} conta{contas.length === 1 ? "" : "s"} em {porPosto.length} posto{porPosto.length === 1 ? "" : "s"} — total {formatarMoeda(total)}
       </p>
 
-      <div className={`${CARTAO} overflow-x-auto`}>
-        <table className="w-full text-sm">
-          <thead className={CABECALHO_TABELA}>
-            <tr>
-              <th className="px-4 py-2.5 text-left">Posto</th>
-              <th className="px-4 py-2.5 text-left">Data de descarga</th>
-              <th className="px-4 py-2.5 text-left">Data de pagamento</th>
-              <th className="px-4 py-2.5 text-left">Fornecedor</th>
-              <th className="px-4 py-2.5 text-right">Valor</th>
-              <th className="px-4 py-2.5 text-left">Descrição</th>
-              {podeEditar && <th className="px-4 py-2.5 text-right print:hidden">Ações</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {contas.map((c) => (
-              <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
-                <td className="px-4 py-3">{c.posto.nome}</td>
-                <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataDescarga)}</td>
-                <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataPagamento)}</td>
-                <td className="px-4 py-3">{c.fornecedor.nome}</td>
-                <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(c.valor.toString())}{Number(c.desconto) > 0 && <span className="block text-xs text-foreground/50">desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda((Number(c.valor) - Number(c.desconto)).toString())}</span>}</td>
-                <td className="px-4 py-2 text-foreground/70">
-                  {c.descricao ?? "—"}
-                  {c.acertosEntrePostos.map((m) => (
-                    <span key={m.id} className="block text-xs text-foreground/50">
-                      Acerto entre postos: {m.postoOrigem.nome} quitou {formatarMoeda(Number(m.valor))}
-                    </span>
-                  ))}
-                </td>
-                {podeEditar && (
-                  <td className="px-4 py-2 text-right print:hidden">
-                    <Link href={`/combustiveis-pagos/${c.id}/editar`} className={BOTAO_EDITAR}>
-                      Editar
-                    </Link>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {contas.length === 0 && (
+      {porPosto.length > 1 && (
+        <div className={`${CARTAO} overflow-hidden [break-inside:avoid]`}>
+          <table className="w-full text-sm">
+            <thead className={CABECALHO_TABELA}>
               <tr>
-                <td colSpan={podeEditar ? 7 : 6} className="px-4 py-6 text-center text-foreground/50">
-                  Nenhum combustível pago encontrado pra esse filtro.
-                </td>
+                <th className="px-4 py-2.5 text-left">Resumo por posto</th>
+                <th className="px-4 py-2.5 text-right">Contas</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {porPosto.map((p) => (
+                <tr key={p.nome} className="border-t border-black/10 dark:border-white/10">
+                  <td className="px-4 py-2">{p.nome}</td>
+                  <td className="px-4 py-2 text-right">{p.contas.length}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">{formatarMoeda(p.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-black/20 font-semibold dark:border-white/20">
+                <td className="px-4 py-2.5">Total geral</td>
+                <td className="px-4 py-2.5 text-right">{contas.length}</td>
+                <td className="px-4 py-2.5 text-right whitespace-nowrap">{formatarMoeda(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {porPosto.map((p) => (
+        <div key={p.nome} className={`${CARTAO} overflow-x-auto [break-inside:avoid]`}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#DCE7FA] dark:bg-blue-950/40">
+                <th colSpan={podeEditar ? 6 : 5} className="px-4 py-2.5 text-left text-[13px] font-semibold uppercase">
+                  {p.nome}
+                </th>
+              </tr>
+              <tr className={CABECALHO_TABELA}>
+                <th className="px-4 py-2.5 text-left">Data de descarga</th>
+                <th className="px-4 py-2.5 text-left">Data de pagamento</th>
+                <th className="px-4 py-2.5 text-left">Fornecedor</th>
+                <th className="px-4 py-2.5 text-left">Descrição</th>
+                <th className="px-4 py-2.5 text-right">Valor</th>
+                {podeEditar && <th className="px-4 py-2.5 text-right print:hidden">Ações</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {p.contas.map((c) => (
+                <tr key={c.id} className="border-t border-black/10 dark:border-white/10">
+                  <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataDescarga)}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{formatarData(c.dataPagamento)}</td>
+                  <td className="px-4 py-3">{c.fornecedor.nome}</td>
+                  <td className="px-4 py-2 text-foreground/70">
+                    {c.descricao ?? "—"}
+                    {c.acertosEntrePostos.map((m) => (
+                      <span key={m.id} className="block text-xs text-foreground/50">
+                        Acerto entre postos: {m.postoOrigem.nome} quitou {formatarMoeda(Number(m.valor))}
+                      </span>
+                    ))}
+                  </td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    {formatarMoeda(c.valor.toString())}
+                    {Number(c.desconto) > 0 && (
+                      <span className="block text-xs text-foreground/50">
+                        desc. {formatarMoeda(c.desconto.toString())} → {formatarMoeda(liquido(c).toString())}
+                      </span>
+                    )}
+                  </td>
+                  {podeEditar && (
+                    <td className="px-4 py-2 text-right print:hidden">
+                      <Link href={`/combustiveis-pagos/${c.id}/editar`} className={BOTAO_EDITAR}>
+                        Editar
+                      </Link>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-black/20 font-semibold dark:border-white/20">
+                <td colSpan={4} className="px-4 py-2.5 text-right">
+                  Total {p.nome}
+                </td>
+                <td className="px-4 py-2.5 text-right whitespace-nowrap">{formatarMoeda(p.total)}</td>
+                {podeEditar && <td className="print:hidden" />}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ))}
+
+      {porPosto.length === 0 && (
+        <p className={`${CARTAO} px-4 py-6 text-center text-sm text-foreground/50`}>Nenhum combustível pago encontrado pra esse filtro.</p>
+      )}
     </div>
   );
 }
