@@ -37,6 +37,7 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
   const iLiquido = idx("valor líquido");
   const iPrazo = idx("prazo de recebimento");
   const iNsu = idx("nsu/cv");
+  const iCnpj = idx("cnpj");
 
   const resultado: LinhaTransacao[] = [];
   for (const valores of linhas) {
@@ -69,6 +70,8 @@ function extrairLinhas(cabecalho: unknown[], linhas: unknown[][]): LinhaTransaca
       ...taxaELiquido(tipoVenda, valorBruto, valorLiquido, taxaColuna),
       dataPagamento: prazoDias !== null ? prazoParaDataPagamento(dataVenda, prazoDias) : null,
       identificadorExterno: identificadorComposto(nsu, dataVenda, horaVenda, valorBruto, tipoVenda),
+      // Só pra conferir, na importação, se o arquivo é mesmo do posto escolhido (a Rede é arquivo de posto único).
+      postoCnpjSugerido: iCnpj >= 0 ? String(valores[iCnpj] ?? "").trim() || undefined : undefined,
     });
   }
   return resultado;

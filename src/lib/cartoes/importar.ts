@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { PARSERS, detectarAdquirente } from "./parsers";
-import { encontrarPostoPorCnpj, encontrarPostoPorFragmento } from "./postos";
+import { encontrarPostoPorCnpj, encontrarPostoPorFragmento, paraCnpjDigitos } from "./postos";
 import type { ArquivoEntrada } from "./tipos";
 import { calcularAjusteAntecipacao } from "./antecipacao";
 import { prazoParaDataPagamento } from "./normalizar";
@@ -244,6 +244,32 @@ export async function importarTransacoesCartao(params: {
         };
         todosDados.push(dadoLinha);
         if (l.dedupePorHorario) dedupeSemTipo.add(dadoLinha);
+      }
+
+      // Arquivo de posto único que traz o CNPJ de cada venda (Rede): se há vendas de OUTRO posto cadastrado, o
+      // arquivo não é deste posto (ou é misto) e não pode entrar aqui. CNPJ que não bate com nenhum posto
+      // cadastrado não bloqueia (filial, CNPJ antigo) — só o que aponta com certeza para outro posto.
+      if (definicao.multiPosto === false && deslocamento === 0) {
+        const prefixoDoPosto = posto.cnpj?.replace(/\D/g, "").slice(0, 5) ?? null;
+        const outrosPostos = todosPostos.filter((p) => p.id !== postoId);
+        const deOutroPosto = new Map<string, number>();
+        for (const l of linhas) {
+          if (!l.postoCnpjSugerido || l.postoNomeForcado) continue;
+          const digitos = paraCnpjDigitos(l.postoCnpjSugerido);
+          if (!digitos || (prefixoDoPosto && digitos.slice(0, 5) === prefixoDoPosto)) continue;
+          const outro = encontrarPostoPorCnpj(outrosPostos, digitos);
+          if (outro) deOutroPosto.set(outro.nome, (deOutroPosto.get(outro.nome) ?? 0) + 1);
+        }
+        if (deOutroPosto.size > 0) {
+          const detalhe = [...deOutroPosto].map(([nome, n]) => `${n} de ${nome}`).join(", ");
+          resultados.push({
+            arquivo: arq.nome,
+            status: "erro",
+            adquirente: definicao.nomeExibicao,
+            mensagem: `Este arquivo tem vendas de outro posto (${detalhe}), não só de ${posto.nome}. Nada foi gravado; confira o posto escolhido na tela e o arquivo exportado.`,
+          });
+          continue;
+        }
       }
 
       if (definicao.multiPosto === false && deslocamento === 0) {
