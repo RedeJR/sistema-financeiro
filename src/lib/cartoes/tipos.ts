@@ -10,6 +10,9 @@ export type LinhaTransacao = {
   // posto escolhido na tela.
   postoCnpjSugerido?: string;
   postoTextoLivreSugerido?: string;
+  // Nome do posto onde a venda deve ser lançada, mesmo em formato de posto único: usado quando uma maquininha
+  // foi emprestada a outro posto (ex: PagSeguro do Paineira que passou pro Oliveira) — ver parsers/pagseguro.ts.
+  postoNomeForcado?: string;
   dataVenda: Date;
   horaVenda: string;
   // Bandeira do cartão quando o arquivo traz (em maiúsculas, sem acento)

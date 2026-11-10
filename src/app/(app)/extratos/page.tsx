@@ -148,6 +148,12 @@ export default async function ExtratosPage({
             Fechamento
           </Link>
           <Link
+            href="/extratos/transferencias"
+            className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
+          >
+            Transferências
+          </Link>
+          <Link
             href="/extratos/relatorios"
             className={`${BOTAO_SECUNDARIO} text-sm font-medium`}
           >

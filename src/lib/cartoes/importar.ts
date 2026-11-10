@@ -199,7 +199,15 @@ export async function importarTransacoesCartao(params: {
 
       for (const l of linhas) {
         let postoIdLinha = postoId;
-        if (definicao.multiPosto === "cnpj") {
+        if (l.postoNomeForcado) {
+          // Maquininha emprestada a outro posto (regra no parser): a venda vai pro posto indicado.
+          const forcado = todosPostos.find((p) => p.nome.toUpperCase() === l.postoNomeForcado!.toUpperCase());
+          if (!forcado) {
+            semPostoReconhecido++;
+            continue;
+          }
+          postoIdLinha = forcado.id;
+        } else if (definicao.multiPosto === "cnpj") {
           const encontrado = l.postoCnpjSugerido ? encontrarPostoPorCnpj(todosPostos, l.postoCnpjSugerido) : null;
           if (!encontrado) {
             semPostoReconhecido++;
@@ -242,7 +250,8 @@ export async function importarTransacoesCartao(params: {
         const outroPosto = await postoQueJaTemAsMesmasVendas({
           postoId,
           adquirenteId: adquirente.id,
-          identificadores: todosDados.map((d) => d.identificadorExterno).filter((i): i is string => i !== null),
+          // só as vendas do posto escolhido: as de maquininha emprestada vão pra outro posto de propósito.
+          identificadores: todosDados.filter((d) => d.postoId === postoId).map((d) => d.identificadorExterno).filter((i): i is string => i !== null),
         });
         if (outroPosto) {
           resultados.push({

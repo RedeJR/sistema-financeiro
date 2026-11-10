@@ -13,6 +13,15 @@ import {
   paraValorDecimal,
 } from "../normalizar";
 
+// Maquininha que mudou de posto mas continua cadastrada na conta PagSeguro de origem: o relatório da conta traz as
+// vendas dela junto com as do posto de origem, então a regra por "Identificação da Maquininha" lança no posto onde
+// ela está. Vale em qualquer importação (se alguém subir o relatório de novo), e as vendas já lançadas não
+// duplicam. Taxa e data de liberação seguem o relatório (contrato da conta de origem).
+const MAQUININHAS_EM_OUTRO_POSTO = [
+  // Paineira -> Oliveira: a partir de 05/11/2026 às 09:42 (venda de teste de R$ 1,00 no Pix).
+  { maquininha: "1731669115", de: "2026-11-05", horaDe: "09:42", posto: "OLIVEIRA" },
+];
+
 export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
   const texto = decodificarTexto(arq.buffer);
   const linhas = dividirLinhasCsv(texto);
@@ -31,6 +40,7 @@ export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
   const iStatus = idx("Status");
   const iDataLiberacao = idx("Data prevista de liberação");
   const iCodigoTransacao = idx("Código da Transação");
+  const iMaquininha = idx("Identificação da Maquininha");
 
   const resultado: LinhaTransacao[] = [];
   for (const linha of linhas.slice(1)) {
@@ -50,7 +60,16 @@ export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
 
     const codigoTransacao = iCodigoTransacao >= 0 ? linha[iCodigoTransacao] : null;
 
+    const maquininha = iMaquininha >= 0 ? (linha[iMaquininha] ?? "").trim() : "";
+    const emOutroPosto = maquininha
+      ? MAQUININHAS_EM_OUTRO_POSTO.find((m) => {
+          const dia = dh.data.toISOString().slice(0, 10);
+          return m.maquininha === maquininha && (dia > m.de || (dia === m.de && dh.hora.slice(0, 5) >= m.horaDe));
+        })
+      : undefined;
+
     resultado.push({
+      postoNomeForcado: emOutroPosto?.posto,
       bandeira: iBandeira >= 0 ? normalizarBandeira(linha[iBandeira]) : undefined,
       dataVenda: dh.data,
       horaVenda: dh.hora,

@@ -78,6 +78,8 @@ const CATEGORIAS_PADRAO = [
   "LIS/JUROS",
   "IOF",
   "SERV. COLETA",
+  // Crédito que entrou pela conta Daycoval (antecipação de recebíveis) — não é transferência entre contas.
+  "ANTECIPAÇÃO DAYCOVAL",
 ];
 
 // Plano de contas contábil (Grupo -> Contas), extraído do PDF "Plano de

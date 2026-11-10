@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
 import { gerarFechamento, MESES_PT } from "@/lib/extratos/fechamento";
+import { analisarTransferencias } from "@/lib/extratos/transferencias";
 import { BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO, TITULO_PAGINA } from "@/lib/estilo";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
@@ -78,7 +79,12 @@ export default async function FechamentoPage({
     resultado.saldoBanco.data.getTime() === dataConferencia.data.getTime() &&
     Math.abs(resultado.saldoBanco.valor - dataConferencia.saldo) < 0.005;
 
-  const temSemCategoria = !!resultado && resultado.linhas.some((l) => Math.round(l.semCategoria * 100) !== 0);
+  // Transferências entre contas do posto no mês que ficaram sem a outra ponta (ver /extratos/transferencias).
+  const transferenciasDoPosto = resultado
+    ? (await analisarTransferencias({ ano: resultado.ano, mes: resultado.mes, postoIds: postoId ? [postoId] : undefined }))[0] ?? null
+    : null;
+
+  const temSemCategoria = !!resultado &&resultado.linhas.some((l) => Math.round(l.semCategoria * 100) !== 0);
   const colunasCategoria = resultado ? resultado.categorias.length + (temSemCategoria ? 1 : 0) : 0;
 
   const qs = new URLSearchParams({
@@ -215,6 +221,19 @@ export default async function FechamentoPage({
               ({formatarMoedaBR(resultado.totalSemCategoria)}) — {resultado.semCategoria === 1 ? "aparece" : "aparecem"} na coluna &quot;Sem categoria&quot;.{" "}
               <Link href={`/extratos?postoId=${postoId}&bancoId=${bancoId}&categoria=sem`} className="underline">
                 Revisar agora →
+              </Link>
+            </p>
+          )}
+
+          {transferenciasDoPosto && (transferenciasDoPosto.entradasSemPar.length > 0 || transferenciasDoPosto.saidasSemPar.length > 0) && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 print:hidden dark:bg-amber-950/40 dark:text-amber-400">
+              <strong className="font-semibold">Transferências entre contas sem par em {resultado.postoNome}:</strong>{" "}
+              {transferenciasDoPosto.entradasSemPar.length} entrada{transferenciasDoPosto.entradasSemPar.length === 1 ? "" : "s"} (
+              {formatarMoedaBR(transferenciasDoPosto.somaEntradasSemPar)}) e {transferenciasDoPosto.saidasSemPar.length} saída
+              {transferenciasDoPosto.saidasSemPar.length === 1 ? "" : "s"} ({formatarMoedaBR(transferenciasDoPosto.somaSaidasSemPar)}) sem a conta da
+              outra ponta no sistema. Podem ser antecipação de recebíveis ou conta não importada.{" "}
+              <Link href={`/extratos/transferencias?mes=${mesValor}&postoId=${postoId}`} className="underline">
+                Conferir agora →
               </Link>
             </p>
           )}
