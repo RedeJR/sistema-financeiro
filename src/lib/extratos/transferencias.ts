@@ -74,7 +74,9 @@ export function casarTransferencias(linhas: LinhaTransferencia[]): { pares: ParT
   for (const e of entradas) {
     let melhor: LinhaTransferencia | null = null;
     for (const s of saidas) {
-      if (usados.has(s.id) || s.bancoId === e.bancoId || !perto(s, e)) continue;
+      // Mesmo banco vale: um posto pode ter duas contas no mesmo banco (ex: Cantareira, conta de cartões e conta
+      // corrente no Bradesco) e a transferência entre elas aparece no mesmo extrato.
+      if (usados.has(s.id) || !perto(s, e)) continue;
       if (Math.abs(Math.abs(s.valor) - e.valor) > TOLERANCIA) continue;
       if (!melhor || Math.abs(s.data.getTime() - e.data.getTime()) < Math.abs(melhor.data.getTime() - e.data.getTime())) melhor = s;
     }
@@ -87,7 +89,7 @@ export function casarTransferencias(linhas: LinhaTransferencia[]): { pares: ParT
 
   for (const s of saidas) {
     if (usados.has(s.id)) continue;
-    const candidatas = entradas.filter((e) => !usados.has(e.id) && e.bancoId !== s.bancoId && perto(e, s));
+    const candidatas = entradas.filter((e) => !usados.has(e.id) && perto(e, s));
     const combos = combinacoesQueSomam(candidatas, Math.abs(s.valor));
     if (combos.length !== 1) continue;
     usados.add(s.id);
@@ -96,12 +98,26 @@ export function casarTransferencias(linhas: LinhaTransferencia[]): { pares: ParT
   }
   for (const e of entradas) {
     if (usados.has(e.id)) continue;
-    const candidatas = saidas.filter((s) => !usados.has(s.id) && s.bancoId !== e.bancoId && perto(s, e));
+    const candidatas = saidas.filter((s) => !usados.has(s.id) && perto(s, e));
     const combos = combinacoesQueSomam(candidatas, e.valor);
     if (combos.length !== 1) continue;
     usados.add(e.id);
     combos[0].forEach((s) => usados.add(s.id));
     pares.push({ entradas: [e], saidas: combos[0] });
+  }
+
+  // Passada 3 — soma do dia: uma saída que é o total de TODAS as entradas ainda sem par na janela (ex: o repasse de
+  // fim de dia da conta de cartões, que no extrato da conta corrente chega em vários Pix pequenos). Só quando a soma
+  // fecha exata; é um sinal forte, mesmo com muitas entradas (a passada 2 só olha combinações de até 14).
+  for (const s of saidas) {
+    if (usados.has(s.id)) continue;
+    const livres = entradas.filter((e) => !usados.has(e.id) && perto(e, s) && e.data.getTime() >= s.data.getTime() - DIA_MS);
+    if (livres.length < 2) continue;
+    const soma = livres.reduce((t, e) => t + e.valor, 0);
+    if (Math.abs(soma - Math.abs(s.valor)) > TOLERANCIA) continue;
+    usados.add(s.id);
+    livres.forEach((e) => usados.add(e.id));
+    pares.push({ entradas: livres, saidas: [s] });
   }
 
   return {
@@ -113,6 +129,11 @@ export function casarTransferencias(linhas: LinhaTransferencia[]): { pares: ParT
 
 // Transferências de um mês (por posto). Busca também 3 dias além das pontas do mês, só pra poder casar uma saída
 // do dia 30 com a entrada do dia 2; o que aparece como "sem par" é sempre só do mês pedido.
+// Postos cadastrados separados que, pro controle de transferências, são "o mesmo posto": o dinheiro que passa de um
+// pro outro é transferência entre contas (não empréstimo), então as transferências deles são casadas em conjunto.
+// Paris recebe do Oliveira (CNPJ à parte, mesmo dono e operação).
+export const GRUPOS_DE_POSTOS: string[][] = [["OLIVEIRA", "PARIS"]];
+
 export async function analisarTransferencias(params: { ano: number; mes: number; postoIds?: string[] }): Promise<ResumoTransferenciasPosto[]> {
   const { ano, mes, postoIds } = params;
   const inicio = new Date(Date.UTC(ano, mes - 1, 1));
@@ -122,11 +143,26 @@ export async function analisarTransferencias(params: { ano: number; mes: number;
   const idAntecipacao = categorias.find((c) => c.nome === CATEGORIA_ANTECIPACAO_DAYCOVAL)?.id;
   if (!idTransf && !idAntecipacao) return [];
 
+  const todosPostos = await prisma.posto.findMany({ select: { id: true, nome: true } });
+  const grupoDe = (nome: string) => GRUPOS_DE_POSTOS.find((g) => g.includes(nome));
+  const chaveDe = (postoId: string, nome: string) => {
+    const g = grupoDe(nome);
+    return g ? `grupo:${g.join("+")}` : postoId;
+  };
+  // Filtrar um posto de um grupo traz o grupo inteiro (o par pode estar no outro posto).
+  const idsFiltro = postoIds && postoIds.length
+    ? [...new Set(postoIds.flatMap((id) => {
+        const nome = todosPostos.find((p) => p.id === id)?.nome;
+        const g = nome ? grupoDe(nome) : undefined;
+        return g ? todosPostos.filter((p) => g.includes(p.nome)).map((p) => p.id) : [id];
+      }))]
+    : undefined;
+
   const brutas = await prisma.lancamentoExtrato.findMany({
     where: {
       categoriaId: { in: [idTransf, idAntecipacao].filter((x): x is string => !!x) },
       data: { gte: new Date(inicio.getTime() - JANELA_DIAS * DIA_MS), lte: new Date(fim.getTime() + JANELA_DIAS * DIA_MS) },
-      ...(postoIds && postoIds.length ? { postoId: { in: postoIds } } : {}),
+      ...(idsFiltro ? { postoId: { in: idsFiltro } } : {}),
     },
     include: { posto: { select: { nome: true } }, banco: { select: { nome: true } } },
     orderBy: [{ data: "asc" }, { valor: "asc" }],
@@ -145,17 +181,20 @@ export async function analisarTransferencias(params: { ano: number; mes: number;
       valor: Number(l.valor),
       observacao: l.observacao,
     };
-    const g = porPosto.get(l.postoId) ?? { transf: [], antecipacoes: [] };
+    const chave = chaveDe(l.postoId, l.posto.nome);
+    const g = porPosto.get(chave) ?? { transf: [], antecipacoes: [] };
     if (l.categoriaId === idAntecipacao) {
       if (l.data >= inicio && l.data <= fim) g.antecipacoes.push(linha);
     } else {
       g.transf.push({ ...linha, categoriaId: l.categoriaId });
     }
-    porPosto.set(l.postoId, g);
+    porPosto.set(chave, g);
   }
 
   const resultado: ResumoTransferenciasPosto[] = [];
-  for (const [postoId, g] of porPosto) {
+  for (const [chave, g] of porPosto) {
+    const grupo = chave.startsWith("grupo:") ? GRUPOS_DE_POSTOS.find((x) => `grupo:${x.join("+")}` === chave) : undefined;
+    const postoId = grupo ? (todosPostos.find((p) => p.nome === grupo[0])?.id ?? chave) : chave;
     const { pares, entradasSemPar, saidasSemPar } = casarTransferencias(g.transf);
     const noMes = (l: LinhaTransferencia) => l.data >= inicio && l.data <= fim;
     const paresDoMes = pares.filter((p) => [...p.entradas, ...p.saidas].some(noMes));
@@ -164,7 +203,7 @@ export async function analisarTransferencias(params: { ano: number; mes: number;
     const semParSaidas = saidasSemPar.filter(noMes);
     resultado.push({
       postoId,
-      postoNome: g.transf[0]?.postoNome ?? g.antecipacoes[0]?.postoNome ?? "—",
+      postoNome: grupo ? grupo.join(" + ") : (g.transf[0]?.postoNome ?? g.antecipacoes[0]?.postoNome ?? "—"),
       totalEntradas: arred(doMes.filter((l) => l.valor > 0).reduce((s, l) => s + l.valor, 0)),
       totalSaidas: arred(doMes.filter((l) => l.valor < 0).reduce((s, l) => s + l.valor, 0)),
       pares: paresDoMes,

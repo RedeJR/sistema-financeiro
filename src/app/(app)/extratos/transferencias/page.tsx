@@ -58,13 +58,16 @@ export default async function TransferenciasPage({
   const urlAtual = `/extratos/transferencias?${qs.toString()}`;
   const nomesPostos = postoIds.length ? postos.filter((p) => postoIds.includes(p.id)).map((p) => p.nome).join(", ") : null;
 
-  const linhaTabela = (l: LinhaTransferencia, opcoes: { checkbox?: string }) => (
+  const linhaTabela = (l: LinhaTransferencia, opcoes: { checkbox?: string; grupo?: boolean }) => (
     <tr key={l.id} className="border-t border-black/5 align-top dark:border-white/10">
       {podeEditar && (
         <td className="px-4 py-2 print:hidden">{opcoes.checkbox && <input type="checkbox" name="ids" value={l.id} form={opcoes.checkbox} />}</td>
       )}
       <td className="px-4 py-2 whitespace-nowrap">{formatarData(l.data)}</td>
-      <td className="px-4 py-2">{l.bancoNome}</td>
+      <td className="px-4 py-2">
+        {opcoes.grupo ? `${l.postoNome} · ` : ""}
+        {l.bancoNome}
+      </td>
       <td className="px-4 py-2 break-words">{l.descricao}</td>
       <td className={`px-4 py-2 text-right whitespace-nowrap ${l.valor < 0 ? "text-[#A12727]" : ""}`}>{formatarMoeda(l.valor)}</td>
       {podeEditar && (
@@ -190,7 +193,7 @@ export default async function TransferenciasPage({
                 <p className="px-5 pt-3 text-[13px] font-semibold text-foreground/70">Entradas sem saída correspondente</p>
                 <table className="w-full text-sm">
                   {cabecalhoTabela(FORM_MARCAR)}
-                  <tbody>{p.entradasSemPar.map((l) => linhaTabela(l, { checkbox: FORM_MARCAR }))}</tbody>
+                  <tbody>{p.entradasSemPar.map((l) => linhaTabela(l, { checkbox: FORM_MARCAR, grupo: p.postoNome.includes("+") }))}</tbody>
                 </table>
               </div>
             )}
@@ -200,7 +203,7 @@ export default async function TransferenciasPage({
                 <p className="px-5 pt-3 text-[13px] font-semibold text-foreground/70">Saídas sem entrada correspondente</p>
                 <table className="w-full text-sm">
                   {cabecalhoTabela()}
-                  <tbody>{p.saidasSemPar.map((l) => linhaTabela(l, {}))}</tbody>
+                  <tbody>{p.saidasSemPar.map((l) => linhaTabela(l, { grupo: p.postoNome.includes("+") }))}</tbody>
                 </table>
               </div>
             )}
@@ -210,7 +213,7 @@ export default async function TransferenciasPage({
                 <p className="px-5 pt-3 text-[13px] font-semibold text-foreground/70">Marcadas como antecipação Daycoval</p>
                 <table className="w-full text-sm">
                   {cabecalhoTabela(FORM_DESFAZER)}
-                  <tbody>{p.antecipacoes.map((l) => linhaTabela(l, { checkbox: FORM_DESFAZER }))}</tbody>
+                  <tbody>{p.antecipacoes.map((l) => linhaTabela(l, { checkbox: FORM_DESFAZER, grupo: p.postoNome.includes("+") }))}</tbody>
                 </table>
                 {podeEditar && (
                   <form id={FORM_DESFAZER} action={desmarcarAntecipacaoDaycoval} className="px-5 py-2 print:hidden">
@@ -229,9 +232,9 @@ export default async function TransferenciasPage({
                 <div className="mt-2 space-y-1">
                   {p.pares.map((par, i) => (
                     <p key={i} className="text-foreground/70">
-                      {par.saidas.map((s) => `${formatarData(s.data)} ${s.bancoNome} ${formatarMoeda(s.valor)}`).join(" + ")}
+                      {par.saidas.map((s) => `${formatarData(s.data)} ${p.postoNome.includes("+") ? s.postoNome + " · " : ""}${s.bancoNome} ${formatarMoeda(s.valor)}`).join(" + ")}
                       {"  →  "}
-                      {par.entradas.map((e) => `${formatarData(e.data)} ${e.bancoNome} ${formatarMoeda(e.valor)}`).join(" + ")}
+                      {par.entradas.map((e) => `${formatarData(e.data)} ${p.postoNome.includes("+") ? e.postoNome + " · " : ""}${e.bancoNome} ${formatarMoeda(e.valor)}`).join(" + ")}
                     </p>
                   ))}
                 </div>
