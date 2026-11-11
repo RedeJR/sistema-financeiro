@@ -142,6 +142,9 @@ export async function buscarConciliacaoCartoes(params: {
     const ajustes = await calcularAjustesAntecipacao({ postoId, dataInicio, dataFim });
     for (const a of ajustes) {
       if (adquirenteIdsEfetivos && adquirenteIdsEfetivos.length > 0 && !adquirenteIdsEfetivos.includes(a.adquirenteId)) continue;
+      // Adiantamento pago por financeira (Daycoval): o crédito cai no banco como "Antecipação Daycoval", não como
+      // crédito da adquirente — então não entra no esperado dela; só vale a redução dos dias antecipados.
+      if (a.delta > 0 && a.origem) continue;
       nomePorAdquirenteId.set(a.adquirenteId, a.adquirenteNome);
       const dataAjuste = a.delta > 0 ? a.data : dataDeCredito(new Date(`${a.data}T00:00:00.000Z`));
       const chave = `${a.adquirenteId}|${dataAjuste}`;

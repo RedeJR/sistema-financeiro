@@ -225,6 +225,10 @@ model AntecipacaoCartao {
   valorFace       Decimal                @db.Decimal(12, 2)
   valorLiquido    Decimal                @db.Decimal(12, 2)
   observacao      String?
+  // Quem pagou o adiantamento quando NÃO foi a própria adquirente (ex: "DAYCOVAL", cessão da agenda de cartão):
+  // o dinheiro cai no banco como crédito da financeira, então a conciliação por adquirente não espera esse
+  // crédito no dia do recebimento — só tira o valor dos dias antecipados. Null = a adquirente pagou.
+  origem          String?
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   // Quando a adquirente informa quanto foi antecipado de cada dia (Cielo:

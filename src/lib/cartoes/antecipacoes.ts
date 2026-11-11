@@ -11,6 +11,8 @@ export type AjusteAntecipacao = {
   data: string; // YYYY-MM-DD
   delta: number; // + no dia em que o dinheiro caiu, − nos dias do período antecipado (líquido)
   deltaBruto: number; // mesma proporção, mas sobre o valor bruto — pra "vendas a receber" (ver aReceber.ts)
+  // Quem pagou o adiantamento quando não foi a adquirente (ex: "DAYCOVAL"); null = a própria adquirente.
+  origem: string | null;
 };
 
 // Adquirentes de maquininha (débito, crédito, pix): a antecipação atinge só o
@@ -111,7 +113,7 @@ export async function calcularAjustesAntecipacao(params: {
   const ajustes: AjusteAntecipacao[] = [];
   const dentro = (d: string) => d >= iso(dataInicio) && d <= iso(dataFim);
   for (const a of antecipacoes) {
-    const base = { postoId: a.postoId, postoNome: a.posto.nome, adquirenteId: a.adquirenteId, adquirenteNome: a.adquirente.nome };
+    const base = { postoId: a.postoId, postoNome: a.posto.nome, adquirenteId: a.adquirenteId, adquirenteNome: a.adquirente.nome, origem: a.origem };
     const recebimento = iso(a.dataRecebimento);
     if (dentro(recebimento)) ajustes.push({ ...base, data: recebimento, delta: Number(a.valorLiquido), deltaBruto: Number(a.valorFace) });
 
