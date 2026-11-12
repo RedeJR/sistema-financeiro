@@ -74,7 +74,8 @@ export default async function EditarContaAPagarPage({
           dataEmissao: paraDataInput(conta.dataEmissao),
           dataVencimento: paraDataInput(conta.dataVencimento),
           numeroDocumento: conta.numeroDocumento,
-          valor: conta.valor.toString(),
+          // Formato brasileiro (82,26): com "82.26" o campo reabria com ponto e, salvo sem mexer, virava 8226.
+          valor: Number(conta.valor).toFixed(2).replace(".", ","),
           descricao: conta.descricao,
           observacao: conta.observacao,
         }}
