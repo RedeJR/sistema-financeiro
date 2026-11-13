@@ -5,8 +5,9 @@
 // IMPORTANTE (decisão da usuária, PROJETO_SISTEMA_FINANCEIRO.md seção 2):
 // transferências entre contas do próprio posto NÃO têm regra automática
 // ainda — ficam pra revisão manual até acumular histórico suficiente pra
-// ensinar o sistema com segurança. Nomes de terceiros também sempre vão pra
-// revisão manual.
+// ensinar o sistema com segurança. Nomes de terceiros também iam sempre pra
+// revisão manual; no Banco do Brasil já há histórico suficiente (pedido da usuária em 13/11/2026), então
+// boleto e Pix enviado a terceiro saem pré-categorizados como despesa paga (ver regras do banco abaixo).
 import type { CodigoParser } from "./bancos";
 
 export type SugestaoCategoria = {
@@ -115,6 +116,33 @@ const REGRAS_POR_BANCO: Record<CodigoParser, Regra[]> = {
     { padrao: /Cielo Vendas Crédito/i, categoria: "CIELO", tipoAdquirente: "CREDITO" },
     { padrao: /Pix - Recebido.*CIELO S\.?A/i, categoria: "CIELO", tipoAdquirente: "CREDITO" },
     { padrao: /BB Rende Fácil/i, categoria: "REMUNERAÇÃO" },
+    // Regras abaixo tiradas do que a usuária categorizou à mão em ~1.250 lançamentos do Banco do Brasil
+    // (conferidas contra esse histórico: ~97% de acerto; cada regra citada com o seu).
+    // AlphaCorp processa o SaqPay (79 de 79).
+    { padrao: /ALPHACORP/i, categoria: "SAQPAY" },
+    { padrao: /^TARIFA/i, categoria: "TARIFAS C/C" }, // 85 de 85
+    // Depósito em dinheiro (ATM, "BCO 24H", agência) — coleta (117 de 119).
+    { padrao: /^DEP DINHEIRO (ATM|BCO 24H|INTER)/i, categoria: "COLETA" },
+    // Repasse da Vibra pelo programa Premmia (65 de 65) e boleto da Vibra/Ipiranga = combustível (60 de 62).
+    { padrao: /^RECEBIMENTO FORNECEDOR.*VIBRA ENERGIA/i, categoria: "PREMMIA" },
+    { padrao: /^PAGAMENTO DE BOLETO - (VIBRA ENERGIA|IPIRANGA)/i, categoria: "COMBUSTÍVEIS" },
+    { padrao: /^TED-(CR[ÉE]DITO EM CONTA|PAG FORNECEDORES).*PLUXEE/i, categoria: "PLUXEE" },
+    // Boleto/imposto/folha/conta de consumo: despesa paga (100% de acerto nos ~180 vistos) — fica depois dos
+    // boletos de combustível acima e da Pluxee (boleto da Pluxee é despesa, TED é o crédito do voucher).
+    { padrao: /^PAGAMENTO DE BOLETO/i, categoria: "DESPESAS PAGAS" },
+    { padrao: /^FOLHA DE PAGAMENTO/i, categoria: "DESPESAS PAGAS" },
+    { padrao: /^IMPOSTOS - /i, categoria: "DESPESAS PAGAS" },
+    { padrao: /^(PAGTO|PGTO|PAGAMENTO) CONTA /i, categoria: "DESPESAS PAGAS" },
+    // Pix entre contas do mesmo grupo: Barramares sempre transferência (39 de 39); Aveiro (81 de 86).
+    { padrao: /^PIX - ENVIADO - BARRAMARES/i, categoria: "TRANSF. ENTRE CONTAS" },
+    { padrao: /^PIX - RECEBIDO - .*POSTO AVEIR/i, categoria: "TRANSF. ENTRE CONTAS" },
+    // Pix enviado a terceiro (pessoa ou empresa que não é posto do grupo): despesa paga (162 de 166).
+    // Pix com nome de posto/empresa do grupo NÃO entra aqui — pode ser transferência, entre postos ou
+    // combustível, e continua pra revisão manual.
+    {
+      padrao: /^PIX - ENVIADO - (?!.*\b(POSTO|AUTO POSTO|CENTRO AUTO|BARRAMARES|GOODBYE|TORINO|SINERGIA|SUL AMERICA|GUAIPA|CANTAREIRA|PAINEIRA|AVEIRO|OLIVEIRA|PARIS|KIKO|MSC|IRAI)\b)/i,
+      categoria: "DESPESAS PAGAS",
+    },
   ],
   ITAU: [
     { padrao: /PIX QR CODE RECEBIDO/i, categoria: "PIX" },
