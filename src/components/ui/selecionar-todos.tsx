@@ -1,5 +1,7 @@
 "use client";
 
+import { EVENTO_SELECAO_LEMBRADA } from "./caixa-selecao-lembrada";
+
 // Checkbox de cabeçalho que marca/desmarca todos os checkboxes associados a
 // um <form> externo (via atributo form="..."), sem precisar que a tabela
 // inteira vire Client Component.
@@ -15,6 +17,8 @@ export function SelecionarTodos({ formId }: { formId: string }) {
           .forEach((el) => {
             el.checked = marcado;
           });
+        // Quem lembra a marcação (CaixaSelecaoLembrada) não recebe clique nas caixas alteradas aqui.
+        window.dispatchEvent(new Event(EVENTO_SELECAO_LEMBRADA));
       }}
     />
   );

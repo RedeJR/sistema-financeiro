@@ -11,6 +11,7 @@ import { nomeBancoPadraoDoPosto } from "@/lib/banco-padrao-posto";
 import { gerarOcorrenciasRecorrentesPendentes } from "@/app/(app)/contas-a-pagar/recorrencia";
 import { marcarComoPagas } from "./actions";
 import { SelecionarTodos } from "@/components/ui/selecionar-todos";
+import { CaixaSelecaoLembrada } from "@/components/ui/caixa-selecao-lembrada";
 import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO, ETIQUETA_AZUL, ETIQUETA_VERMELHA, TITULO_PAGINA } from "@/lib/estilo";
 import { BotaoVerDescricao, LinhaDescricao } from "@/components/ui/ver-descricao";
 import { ErroFormulario } from "@/components/ui/erro-formulario";
@@ -400,7 +401,8 @@ export default async function ConferenciaDiariaPage({
                 <tr className="item-desc border-t border-black/10 hover:bg-black/[0.015] dark:border-white/10 dark:hover:bg-white/[0.03]">
                   {podeEditar && (
                     <td className="px-4 py-2">
-                      <input type="checkbox" name="ids" value={c.id} form={FORM_PAGAR} />
+                      {/* Lembra a marcação ao abrir "Editar" e voltar (pedido da usuária em 23/11/2026). */}
+                      <CaixaSelecaoLembrada chave="conferencia-diaria:selecionadas" id={c.id} formId={FORM_PAGAR} />
                     </td>
                   )}
                   <td className="px-4 py-2">
