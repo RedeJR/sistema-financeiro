@@ -20,6 +20,8 @@ import {
 const MAQUININHAS_EM_OUTRO_POSTO = [
   // Paineira -> Oliveira: a partir de 05/11/2026 às 09:42 (venda de teste de R$ 1,00 no Pix).
   { maquininha: "1731669115", de: "2026-11-05", horaDe: "09:42", posto: "OLIVEIRA" },
+  // Paineira -> Oliveira: a partir de 17/11/2026 às 15:58 (venda de teste de R$ 1,00 no crédito).
+  { maquininha: "1733605027", de: "2026-11-17", horaDe: "15:58", posto: "OLIVEIRA" },
 ];
 
 export function parsePagseguro(arq: ArquivoEntrada): LinhaTransacao[] {
