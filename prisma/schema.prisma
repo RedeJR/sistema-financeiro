@@ -480,6 +480,7 @@ model LancamentoExtrato {
   // lado reverso da relação nomeada; na prática, no máximo uma movimentação
   // usa esse lançamento como origem e no máximo uma como destino.
   vendasAPrazo                    VendaAPrazo[]
+  creditosVendaAPrazo             VendaAPrazoCredito[]
   movimentacoesEntrePostosOrigem  MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoOrigem")
   movimentacoesEntrePostosDestino MovimentacaoEntrePostos[] @relation("MovimentacaoEntrePostosLancamentoDestino")
   vinculosEntrePostosRejeitados   VinculoEntrePostosRejeitado[]
@@ -924,14 +925,30 @@ model VendaAPrazo {
   valor             Decimal           @db.Decimal(12, 2)
   dataPagamento     DateTime          @db.Date
   observacao        String?
+  // SEM USO desde que a venda passou a aceitar vários créditos (ver `creditos`); a coluna fica por compatibilidade.
   lancamentoExtratoId String?
   lancamentoExtrato LancamentoExtrato? @relation(fields: [lancamentoExtratoId], references: [id], onDelete: SetNull)
+  // Créditos do extrato que pagaram essa venda — o cliente pode pagar picado, em dias diferentes.
+  creditos          VendaAPrazoCredito[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
   @@index([postoId, dataPagamento])
   @@index([lancamentoExtratoId])
   @@map("vendas_a_prazo")
+}
+
+model VendaAPrazoCredito {
+  id                  String            @id @default(cuid())
+  vendaId             String
+  venda               VendaAPrazo       @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  lancamentoExtratoId String
+  lancamentoExtrato   LancamentoExtrato @relation(fields: [lancamentoExtratoId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@unique([vendaId, lancamentoExtratoId])
+  @@index([lancamentoExtratoId])
+  @@map("vendas_a_prazo_creditos")
 }
 
 model SaldoBancario {

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPermissao } from "@/lib/auth";
 import { paraDecimalString } from "@/lib/dinheiro";
 import { isForeignKeyConstraintError, valoresDoFormulario, type ActionState } from "@/lib/form-state";
-import { vincularVenda, desvincularVenda } from "@/lib/vendasAPrazo/vinculo";
+import { vincularVenda, desvincularCredito } from "@/lib/vendasAPrazo/vinculo";
 
 const ROTA = "/vendas-a-prazo";
 
@@ -78,10 +78,11 @@ export async function atualizarVendaAPrazo(id: string, _prev: ActionState, formD
   const parsed = ler(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", values: valoresDoFormulario(formData) };
   try {
-    // Mudou o valor ou o posto: o vínculo antigo deixa de valer (o automático liga de novo se achar).
+    // Mudou o posto: os créditos ligados eram do extrato do posto antigo e deixam de valer (o automático liga de
+    // novo se achar). Mudar só o valor mantém os créditos — a venda passa a ficar parcial/completa conforme a soma.
     const atual = await prisma.vendaAPrazo.findUnique({ where: { id } });
-    const mudouCasamento = !atual || atual.postoId !== parsed.data.postoId || Number(atual.valor).toFixed(2) !== Number(parsed.data.valor).toFixed(2);
-    await prisma.vendaAPrazo.update({ where: { id }, data: { ...parsed.data, ...(mudouCasamento ? { lancamentoExtratoId: null } : {}) } });
+    const mudouPosto = !atual || atual.postoId !== parsed.data.postoId;
+    await prisma.vendaAPrazo.update({ where: { id }, data: { ...parsed.data, ...(mudouPosto ? { creditos: { deleteMany: {} } } : {}) } });
   } catch (e) {
     if (isForeignKeyConstraintError(e)) return { error: "Posto inválido.", values: valoresDoFormulario(formData) };
     throw e;
@@ -111,8 +112,9 @@ export async function vincularAoExtrato(formData: FormData) {
 export async function desvincularDoExtrato(formData: FormData) {
   await exigirPermissao("VENDAS_A_PRAZO", "editar");
   const vendaId = formData.get("vendaId");
-  if (typeof vendaId !== "string") return;
-  await desvincularVenda(vendaId);
+  const lancamentoExtratoId = formData.get("lancamentoExtratoId");
+  if (typeof vendaId !== "string" || typeof lancamentoExtratoId !== "string") return;
+  await desvincularCredito({ vendaId, lancamentoExtratoId });
   revalidatePath(ROTA);
   revalidatePath(`${ROTA}/${vendaId}/vincular`);
 }

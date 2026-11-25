@@ -7,6 +7,7 @@ import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { hojeUTC } from "@/lib/datas";
 import { rodarVinculoAutomaticoVendasAPrazo } from "@/lib/vendasAPrazo/vinculo";
+import { resumoRecebimento } from "@/lib/vendasAPrazo/recebimento";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
 import { BotaoImprimir } from "./botao-imprimir";
@@ -21,16 +22,18 @@ function dataUTC(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
-type Situacao = "CONCILIADA" | "A_RECEBER" | "ATRASADA";
+type Situacao = "CONCILIADA" | "PARCIAL" | "A_RECEBER" | "ATRASADA";
 
 const SITUACOES: { valor: Situacao; rotulo: string }[] = [
   { valor: "A_RECEBER", rotulo: "A receber" },
   { valor: "ATRASADA", rotulo: "Atrasada (sem crédito no extrato)" },
+  { valor: "PARCIAL", rotulo: "Parcial (recebida em parte)" },
   { valor: "CONCILIADA", rotulo: "Conciliada" },
 ];
 
 const ESTILO: Record<Situacao, string> = {
   CONCILIADA: "bg-[#E7F6EC] text-[#14693A] dark:bg-green-900/40 dark:text-green-400",
+  PARCIAL: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300",
   A_RECEBER: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400",
   ATRASADA: "bg-[#FDECEC] text-[#A12727] dark:bg-red-900/40 dark:text-red-400",
 };
@@ -63,12 +66,21 @@ export default async function VendasAPrazoPage({
         ...(pde ? { periodoAte: { gte: dataUTC(pde) } } : {}),
         ...(pate ? { periodoDe: { lte: dataUTC(pate) } } : {}),
       },
-      include: { posto: true, lancamentoExtrato: { include: { banco: true } } },
+      include: { posto: true, creditos: { include: { lancamentoExtrato: { include: { banco: true } } } } },
       orderBy: [{ dataPagamento: "asc" }, { cliente: "asc" }],
     }),
   ]);
 
-  const situacaoDe = (v: (typeof todas)[number]): Situacao => (v.lancamentoExtratoId ? "CONCILIADA" : v.dataPagamento < hoje ? "ATRASADA" : "A_RECEBER");
+  // Cada venda pode estar paga por vários créditos (pagamento picado): conciliada quando a soma fecha o valor,
+  // parcial enquanto falta, e atrasada/a receber só se nenhum crédito foi ligado ainda.
+  const resumoDe = (v: (typeof todas)[number]) =>
+    resumoRecebimento(Number(v.valor), v.creditos.map((c) => Number(c.lancamentoExtrato.valor)));
+  const situacaoDe = (v: (typeof todas)[number]): Situacao => {
+    const r = resumoDe(v);
+    if (r.situacao === "COMPLETO") return "CONCILIADA";
+    if (r.situacao === "PARCIAL") return "PARCIAL";
+    return v.dataPagamento < hoje ? "ATRASADA" : "A_RECEBER";
+  };
   const vendas = situacaoFiltro ? todas.filter((v) => situacaoDe(v) === situacaoFiltro) : todas;
   const soma = (s: Situacao) => todas.filter((v) => situacaoDe(v) === s).reduce((t, v) => t + Number(v.valor), 0);
   const qtd = (s: Situacao) => todas.filter((v) => situacaoDe(v) === s).length;
@@ -105,6 +117,12 @@ export default async function VendasAPrazoPage({
         <div className={`${CARTAO} min-w-[200px] flex-1 px-5 py-4`}>
           <p className="text-[13px] text-foreground/60">Atrasadas ({qtd("ATRASADA")})</p>
           <p className="mt-1.5 text-[24px] font-bold tracking-tight text-[#A12727]">{formatarMoeda(soma("ATRASADA"))}</p>
+        </div>
+        <div className={`${CARTAO} min-w-[200px] flex-1 px-5 py-4`}>
+          <p className="text-[13px] text-foreground/60">Parciais ({qtd("PARCIAL")}) — falta receber</p>
+          <p className="mt-1.5 text-[24px] font-bold tracking-tight text-amber-700 dark:text-amber-400">
+            {formatarMoeda(todas.filter((v) => situacaoDe(v) === "PARCIAL").reduce((t, v) => t + resumoDe(v).falta, 0))}
+          </p>
         </div>
         <div className={`${CARTAO} min-w-[200px] flex-1 px-5 py-4`}>
           <p className="text-[13px] text-foreground/60">Conciliadas ({qtd("CONCILIADA")})</p>
@@ -223,25 +241,39 @@ export default async function VendasAPrazoPage({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-foreground/70">
-                      {v.lancamentoExtrato ? (
-                        <span className="whitespace-nowrap">
-                          {formatarData(v.lancamentoExtrato.data)} · {v.lancamentoExtrato.banco.nome}
+                      {v.creditos.length > 0 &&
+                        [...v.creditos]
+                          .sort((a, b) => a.lancamentoExtrato.data.getTime() - b.lancamentoExtrato.data.getTime())
+                          .map((c) => (
+                            <span key={c.id} className="block whitespace-nowrap">
+                              {formatarData(c.lancamentoExtrato.data)} · {c.lancamentoExtrato.banco.nome}
+                              {v.creditos.length > 1 && <> · {formatarMoeda(Number(c.lancamentoExtrato.valor))}</>}
+                            </span>
+                          ))}
+                      {sit === "PARCIAL" && (
+                        <span className="block text-xs whitespace-nowrap text-amber-800 dark:text-amber-300">
+                          falta {formatarMoeda(resumoDe(v).falta)}
                         </span>
-                      ) : podeEditar ? (
-                        <>
-                          <Link href={`/vendas-a-prazo/${v.id}/vincular`} className="text-blue-700 underline print:hidden dark:text-blue-300">
-                            Vincular
-                          </Link>
-                          <span className="hidden print:inline">não conciliada</span>
-                        </>
-                      ) : (
-                        "—"
                       )}
+                      {sit === "CONCILIADA" && resumoDe(v).diferenca > 0 && (
+                        <span className="block text-xs whitespace-nowrap text-foreground/50">dif. {formatarMoeda(resumoDe(v).diferenca)}</span>
+                      )}
+                      {sit !== "CONCILIADA" &&
+                        (podeEditar ? (
+                          <>
+                            <Link href={`/vendas-a-prazo/${v.id}/vincular`} className="text-blue-700 underline print:hidden dark:text-blue-300">
+                              Vincular
+                            </Link>
+                            {v.creditos.length === 0 && <span className="hidden print:inline">não conciliada</span>}
+                          </>
+                        ) : (
+                          v.creditos.length === 0 && "—"
+                        ))}
                     </td>
                     {podeEditar && (
                       <td className="px-4 py-3 print:hidden">
                         <div className="flex items-center justify-end gap-1">
-                          {v.lancamentoExtrato && (
+                          {v.creditos.length > 0 && (
                             <Link href={`/vendas-a-prazo/${v.id}/vincular`} className="rounded-md px-3 py-1.5 text-sm text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10">
                               Extrato
                             </Link>
