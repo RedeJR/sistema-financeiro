@@ -1,35 +1,21 @@
 import Link from "next/link";
 import { SeletorDropdown } from "@/components/ui/seletor-dropdown";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import { paraLista, emLista } from "@/lib/filtro-multiplo";
+import { paraLista, anexarLista } from "@/lib/filtro-multiplo";
 import { prisma } from "@/lib/prisma";
 import { podeEditarModulo } from "@/lib/auth";
 import { formatarMoeda } from "@/lib/dinheiro";
 import { hojeUTC } from "@/lib/datas";
 import { rodarVinculoAutomaticoVendasAPrazo } from "@/lib/vendasAPrazo/vinculo";
-import { resumoRecebimento } from "@/lib/vendasAPrazo/recebimento";
+import { buscarVendasAPrazo, faltaReceber, SITUACOES, type Situacao } from "@/lib/vendasAPrazo/consulta";
 import { CabecalhoImpressao } from "@/components/ui/cabecalho-impressao";
 import { OrientacaoImpressao } from "@/components/ui/orientacao-impressao";
-import { BotaoImprimir } from "./botao-imprimir";
 import { excluirVendaAPrazo } from "./actions";
-import { BOTAO_EDITAR, BOTAO_PRIMARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
+import { BOTAO_EDITAR, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CABECALHO_TABELA, CAMPO, CARTAO } from "@/lib/estilo";
 
 function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
-
-function dataUTC(iso: string): Date {
-  return new Date(`${iso}T00:00:00.000Z`);
-}
-
-type Situacao = "CONCILIADA" | "PARCIAL" | "A_RECEBER" | "ATRASADA";
-
-const SITUACOES: { valor: Situacao; rotulo: string }[] = [
-  { valor: "A_RECEBER", rotulo: "A receber" },
-  { valor: "ATRASADA", rotulo: "Atrasada (sem crédito no extrato)" },
-  { valor: "PARCIAL", rotulo: "Parcial (recebida em parte)" },
-  { valor: "CONCILIADA", rotulo: "Conciliada" },
-];
 
 const ESTILO: Record<Situacao, string> = {
   CONCILIADA: "bg-[#E7F6EC] text-[#14693A] dark:bg-green-900/40 dark:text-green-400",
@@ -55,36 +41,17 @@ export default async function VendasAPrazoPage({
   // dispara: visualização não deve ter efeito colateral no banco.
   if (podeEditar) await rodarVinculoAutomaticoVendasAPrazo();
 
-  const [postos, todas] = await Promise.all([
+  const [postos, { todas, vendas }] = await Promise.all([
     prisma.posto.findMany({ where: { ativo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.vendaAPrazo.findMany({
-      where: {
-        ...emLista("postoId", postoIds),
-        ...(q?.trim() ? { cliente: { contains: q.trim(), mode: "insensitive" as const } } : {}),
-        ...(de || ate ? { dataPagamento: { ...(de ? { gte: dataUTC(de) } : {}), ...(ate ? { lte: dataUTC(ate) } : {}) } } : {}),
-        // Período do abastecimento: pega toda venda cujo período encosta no intervalo escolhido.
-        ...(pde ? { periodoAte: { gte: dataUTC(pde) } } : {}),
-        ...(pate ? { periodoDe: { lte: dataUTC(pate) } } : {}),
-      },
-      include: { posto: true, creditos: { include: { lancamentoExtrato: { include: { banco: true } } } } },
-      orderBy: [{ dataPagamento: "asc" }, { cliente: "asc" }],
-    }),
+    buscarVendasAPrazo({ postoIds, q, situacao, de, ate, pde, pate }, hoje),
   ]);
-
-  // Cada venda pode estar paga por vários créditos (pagamento picado): conciliada quando a soma fecha o valor,
-  // parcial enquanto falta, e atrasada/a receber só se nenhum crédito foi ligado ainda.
-  const resumoDe = (v: (typeof todas)[number]) =>
-    resumoRecebimento(Number(v.valor), v.creditos.map((c) => Number(c.lancamentoExtrato.valor)));
-  const situacaoDe = (v: (typeof todas)[number]): Situacao => {
-    const r = resumoDe(v);
-    if (r.situacao === "COMPLETO") return "CONCILIADA";
-    if (r.situacao === "PARCIAL") return "PARCIAL";
-    return v.dataPagamento < hoje ? "ATRASADA" : "A_RECEBER";
-  };
-  const vendas = situacaoFiltro ? todas.filter((v) => situacaoDe(v) === situacaoFiltro) : todas;
+  const situacaoDe = (v: (typeof todas)[number]): Situacao => v.situacao;
+  const resumoDe = (v: (typeof todas)[number]) => v.resumo;
   const soma = (s: Situacao) => todas.filter((v) => situacaoDe(v) === s).reduce((t, v) => t + Number(v.valor), 0);
   const qtd = (s: Situacao) => todas.filter((v) => situacaoDe(v) === s).length;
   const total = vendas.reduce((t, v) => t + Number(v.valor), 0);
+  const qsRelatorio = new URLSearchParams(Object.entries({ q: q?.trim(), situacao: situacaoFiltro, de, ate, pde, pate }).filter(([, v]) => v) as [string, string][]);
+  anexarLista(qsRelatorio, "postoId", postoIds);
   const temFiltro = Boolean(postoIds.length || q || situacaoFiltro || de || ate || pde || pate);
 
   const fmtIso = (iso?: string) => (iso ? iso.split("-").reverse().join("/") : null);
@@ -121,7 +88,7 @@ export default async function VendasAPrazoPage({
         <div className={`${CARTAO} min-w-[200px] flex-1 px-5 py-4`}>
           <p className="text-[13px] text-foreground/60">Parciais ({qtd("PARCIAL")}) — falta receber</p>
           <p className="mt-1.5 text-[24px] font-bold tracking-tight text-amber-700 dark:text-amber-400">
-            {formatarMoeda(todas.filter((v) => situacaoDe(v) === "PARCIAL").reduce((t, v) => t + resumoDe(v).falta, 0))}
+            {formatarMoeda(todas.filter((v) => situacaoDe(v) === "PARCIAL").reduce((t, v) => t + faltaReceber(v), 0))}
           </p>
         </div>
         <div className={`${CARTAO} min-w-[200px] flex-1 px-5 py-4`}>
@@ -132,7 +99,9 @@ export default async function VendasAPrazoPage({
 
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
-          <BotaoImprimir />
+          <Link href={`/vendas-a-prazo/relatorio?${qsRelatorio.toString()}`} className={`${BOTAO_SECUNDARIO} text-sm font-medium`}>
+            Relatório (PDF)
+          </Link>
           {podeEditar && (
             <>
               <Link href="/vendas-a-prazo/importar" className="rounded-lg border border-black/15 bg-white px-3.5 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:bg-transparent dark:hover:bg-white/10">
