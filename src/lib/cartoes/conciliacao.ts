@@ -98,11 +98,20 @@ export async function buscarConciliacaoCartoes(params: {
     ];
   }
 
+  // Por data de pagamento, o que vale é o dia em que o dinheiro CAI no banco (dataDeCredito): venda com pagamento no
+  // sábado/domingo/feriado antes do início do período cai no primeiro dia útil dele, junto com o extrato desse dia.
+  // Por isso a busca recua alguns dias antes do início e, mais abaixo, só fica o que cai dentro do período — sem isso,
+  // um período que começa em 01/11 deixava de fora o sábado 31/10 e o crédito dele (lançado em 03/11) virava "sobra".
+  const recuoPagamento = filtrarPor === "pagamento" ? 7 * 86_400_000 : 0;
+  const inicioBusca = new Date(dataInicio.getTime() - recuoPagamento);
+  const inicioIso = dataInicio.toISOString().slice(0, 10);
+  const fimIso = dataFim.toISOString().slice(0, 10);
+
   const [transacoes, categorias] = await Promise.all([
     prisma.transacaoCartao.findMany({
       where: {
         postoId,
-        [campoData]: { gte: dataInicio, lte: dataFim },
+        [campoData]: { gte: inicioBusca, lte: dataFim },
         ...(adquirenteIdsEfetivos && adquirenteIdsEfetivos.length > 0 ? { adquirenteId: { in: adquirenteIdsEfetivos } } : {}),
       },
       include: { adquirente: true },
@@ -126,6 +135,7 @@ export async function buscarConciliacaoCartoes(params: {
   for (const t of transacoes) {
     if (!t.dataPagamento || t.valorLiquido === null) continue;
     const data = dataDeCredito(t.dataPagamento);
+    if (filtrarPor === "pagamento" && (data < inicioIso || data > fimIso)) continue; // cai no banco fora do período
     const chave = `${t.adquirenteId}|${data}`;
     const grupo = gruposEsperado.get(chave) ?? { adquirente: t.adquirente.nome, adquirenteId: t.adquirenteId, data, qtd: 0, soma: 0 };
     grupo.qtd++;
